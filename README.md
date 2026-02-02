@@ -1,36 +1,98 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CheerConnect
 
-## Getting Started
+Rede social para a comunidade de cheerleading. Conecte-se com atletas, técnicos e equipes.
 
-First, run the development server:
+## Stack Tecnológica
+
+- **Framework**: Next.js 16 (App Router)
+- **Linguagem**: TypeScript
+- **Estilização**: Tailwind CSS + shadcn/ui
+- **Banco de Dados**: PostgreSQL
+- **ORM**: Prisma
+- **Autenticação**: NextAuth.js
+
+## Funcionalidades
+
+- Autenticação (email/senha e Google OAuth)
+- Perfil de usuário com posições de cheerleading
+- Histórico de carreira (currículo)
+- Feed de publicações
+- Sistema de conexões
+- Busca de usuários
+- Páginas de equipes
+- Calendário de eventos
+
+## Configuração do Ambiente
+
+1. Clone o repositório
+2. Instale as dependências:
+
+```bash
+npm install
+```
+
+3. Configure as variáveis de ambiente:
+
+```bash
+cp .env.example .env
+```
+
+Edite o arquivo `.env` com suas configurações:
+
+```
+DATABASE_URL="postgresql://..."
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="sua-chave-secreta"
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
+```
+
+4. Execute as migrações do banco:
+
+```bash
+npx prisma migrate dev
+```
+
+5. Inicie o servidor de desenvolvimento:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Acesse [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Estrutura do Projeto
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+src/
+├── app/
+│   ├── (auth)/          # Páginas de autenticação
+│   │   ├── login/
+│   │   └── register/
+│   ├── (main)/          # Páginas principais (autenticadas)
+│   │   ├── feed/
+│   │   ├── profile/
+│   │   ├── connections/
+│   │   ├── teams/
+│   │   ├── events/
+│   │   └── search/
+│   └── api/             # API Routes
+├── components/
+│   ├── ui/              # Componentes shadcn/ui
+│   ├── feed/            # Componentes do feed
+│   ├── profile/         # Componentes do perfil
+│   └── shared/          # Componentes compartilhados
+├── lib/
+│   ├── auth.ts          # Configuração NextAuth
+│   ├── prisma.ts        # Cliente Prisma
+│   └── utils.ts         # Utilitários
+└── types/               # Tipos TypeScript
+```
 
-## Learn More
+## Deploy
 
-To learn more about Next.js, take a look at the following resources:
+O projeto está configurado para deploy na Vercel com PostgreSQL do Supabase.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Licença
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Projeto de TCC - Todos os direitos reservados.
