@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Search, MapPin, Users, Plus, Loader2, User } from "lucide-react";
+import { Search, MapPin, Users, Plus, Loader2, User, X, Mail } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { CitySelector } from "@/components/ui/city-selector";
 
 interface Team {
   id: string;
@@ -62,6 +63,11 @@ export default function TeamsPage() {
   const [category, setCategory] = useState<string>("");
   const [showMyTeams, setShowMyTeams] = useState(false);
 
+  // User location for automatic filtering
+  const [userLocation, setUserLocation] = useState<string | null>(null);
+  const [filterByUserLocation, setFilterByUserLocation] = useState(true);
+  const [isLoadingUserLocation, setIsLoadingUserLocation] = useState(true);
+
   // Create team dialog
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -74,11 +80,32 @@ export default function TeamsPage() {
     instagram: "",
   });
 
+  // Fetch user location on mount
   useEffect(() => {
-    fetchTeams();
+    const fetchUserLocation = async () => {
+      try {
+        const res = await fetch("/api/users/me");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user?.location) {
+            setUserLocation(data.user.location);
+          }
+        }
+      } catch {
+        console.error("Error fetching user location");
+      } finally {
+        setIsLoadingUserLocation(false);
+      }
+    };
+    fetchUserLocation();
   }, []);
 
-  const fetchTeams = async (searchQuery?: string, searchCategory?: string, myTeamsOnly?: boolean) => {
+  const fetchTeams = useCallback(async (
+    searchQuery?: string,
+    searchCategory?: string,
+    myTeamsOnly?: boolean,
+    useUserLocationFilter?: boolean
+  ) => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
@@ -86,7 +113,13 @@ export default function TeamsPage() {
       if (searchCategory || category)
         params.set("category", searchCategory || category);
 
+      // Use user location as default filter if enabled and not in "my teams" mode
+      const shouldUseUserLocation = useUserLocationFilter ?? filterByUserLocation;
       const useMyTeams = myTeamsOnly !== undefined ? myTeamsOnly : showMyTeams;
+      if (shouldUseUserLocation && userLocation && !useMyTeams) {
+        params.set("location", userLocation);
+      }
+
       const endpoint = useMyTeams ? "/api/users/me/teams" : "/api/teams";
       const response = await fetch(`${endpoint}?${params.toString()}`);
       if (!response.ok) throw new Error();
@@ -98,7 +131,14 @@ export default function TeamsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [query, category, showMyTeams, filterByUserLocation, userLocation]);
+
+  // Fetch teams once user location is loaded
+  useEffect(() => {
+    if (!isLoadingUserLocation) {
+      fetchTeams();
+    }
+  }, [isLoadingUserLocation, fetchTeams]);
 
   const handleSearch = () => {
     fetchTeams(query, category);
@@ -160,10 +200,18 @@ export default function TeamsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Equipes</h1>
-        <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Criar Equipe
-        </Button>
+        <div className="flex gap-2">
+          <Link href="/teams/invites">
+            <Button variant="outline">
+              <Mail className="h-4 w-4 mr-2" />
+              Convites
+            </Button>
+          </Link>
+          <Button onClick={() => setCreateDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Criar Equipe
+          </Button>
+        </div>
       </div>
 
       {/* Search */}
@@ -208,6 +256,26 @@ export default function TeamsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Location filter indicator */}
+      {filterByUserLocation && userLocation && !showMyTeams && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-2">
+          <MapPin className="h-4 w-4" />
+          <span>Mostrando equipes em <strong>{userLocation}</strong></span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto h-auto py-1 px-2"
+            onClick={() => {
+              setFilterByUserLocation(false);
+              fetchTeams(undefined, undefined, undefined, false);
+            }}
+          >
+            <X className="h-3 w-3 mr-1" />
+            Ver todas
+          </Button>
+        </div>
+      )}
 
       {/* Teams grid */}
       {isLoading ? (
@@ -337,10 +405,9 @@ export default function TeamsPage() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Localização</label>
-              <Input
+              <CitySelector
                 value={teamForm.location}
-                onChange={(e) => setTeamForm({ ...teamForm, location: e.target.value })}
-                placeholder="Ex: São Paulo, SP"
+                onChange={(value) => setTeamForm({ ...teamForm, location: value })}
               />
             </div>
 

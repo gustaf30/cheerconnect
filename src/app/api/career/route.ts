@@ -3,10 +3,13 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { Position } from "@prisma/client";
+
+const positionEnum = z.enum(["FLYER", "BASE", "BACKSPOT", "FRONTSPOT", "TUMBLER", "COACH", "CHOREOGRAPHER", "JUDGE", "OTHER"]);
 
 const careerSchema = z.object({
   role: z.enum(["ATHLETE", "COACH", "ASSISTANT_COACH", "CHOREOGRAPHER", "TEAM_MANAGER", "JUDGE", "OTHER"]),
-  positions: z.array(z.string()).default([]),
+  positions: z.array(positionEnum).default([]),
   startDate: z.string().transform((str) => new Date(str)),
   endDate: z.string().transform((str) => new Date(str)).optional().nullable(),
   isCurrent: z.boolean().default(false),
@@ -61,12 +64,17 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const data = careerSchema.parse(body);
+    const parsed = careerSchema.parse(body);
+
+    // Handle teamId and positions separately for Prisma's relation/enum types
+    const { teamId, positions, ...restData } = parsed;
 
     const career = await prisma.careerHistory.create({
       data: {
-        ...data,
+        ...restData,
+        positions: positions as Position[],
         userId: session.user.id,
+        ...(teamId && { teamId }),
       },
       include: {
         team: {

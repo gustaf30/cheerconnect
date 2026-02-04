@@ -26,13 +26,6 @@ const categoryLabels: Record<string, string> = {
   PROFESSIONAL: "Profissional",
 };
 
-const roleLabels: Record<string, string> = {
-  OWNER: "Dono",
-  ADMIN: "Administrador",
-  COACH: "Técnico",
-  ATHLETE: "Atleta",
-};
-
 const positionLabels: Record<string, string> = {
   FLYER: "Flyer",
   BASE: "Base",
@@ -124,11 +117,13 @@ export default async function TeamPage({ params }: TeamPageProps) {
     },
   });
 
-  // Check if current user is admin/owner
+  // Check if current user has admin/permission privileges
   const currentUserMember = session?.user?.id
     ? team?.members.find((m) => m.user.id === session.user.id)
     : null;
-  const isAdmin = currentUserMember?.role === "OWNER" || currentUserMember?.role === "ADMIN";
+  const isAdmin = currentUserMember?.isAdmin === true;
+  const hasPermission = currentUserMember?.hasPermission === true;
+  const canManage = isAdmin || hasPermission;
   const isMember = !!currentUserMember;
 
   if (!team) {
@@ -173,7 +168,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
               </AvatarFallback>
             </Avatar>
             <div className="flex gap-2 sm:mt-16">
-              {isAdmin && (
+              {canManage && (
                 <Link href={`/teams/${team.slug}/edit`}>
                   <Button variant="outline">
                     <Settings className="h-4 w-4 mr-2" />
@@ -302,11 +297,14 @@ export default async function TeamPage({ params }: TeamPageProps) {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline">
-                        {roleLabels[member.role] || member.role}
-                      </Badge>
-                      {member.position && (
-                        <Badge variant="secondary">{member.position}</Badge>
+                      {member.role && (
+                        <Badge variant="secondary">{member.role}</Badge>
+                      )}
+                      {member.isAdmin && (
+                        <Badge>Admin</Badge>
+                      )}
+                      {member.hasPermission && !member.isAdmin && (
+                        <Badge variant="outline">Permissão</Badge>
                       )}
                     </div>
                   </Link>

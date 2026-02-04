@@ -45,10 +45,53 @@ export default async function UserProfilePage({ params }: ProfilePageProps) {
               positions: true,
             },
           },
+          team: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              logo: true,
+            },
+          },
+          originalPost: {
+            include: {
+              author: {
+                select: {
+                  id: true,
+                  name: true,
+                  username: true,
+                  avatar: true,
+                  positions: true,
+                },
+              },
+              team: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                  logo: true,
+                },
+              },
+              _count: {
+                select: {
+                  likes: true,
+                  comments: true,
+                  reposts: true,
+                },
+              },
+              likes: session?.user?.id
+                ? {
+                    where: { userId: session.user.id },
+                    select: { id: true },
+                  }
+                : false,
+            },
+          },
           _count: {
             select: {
               likes: true,
               comments: true,
+              reposts: true,
             },
           },
           likes: session?.user?.id
@@ -108,6 +151,15 @@ export default async function UserProfilePage({ params }: ProfilePageProps) {
     ...post,
     isLiked: Array.isArray(post.likes) && post.likes.length > 0,
     likes: undefined,
+    originalPost: post.originalPost
+      ? {
+          ...post.originalPost,
+          isLiked:
+            Array.isArray(post.originalPost.likes) &&
+            post.originalPost.likes.length > 0,
+          likes: undefined,
+        }
+      : null,
   }));
 
   return (

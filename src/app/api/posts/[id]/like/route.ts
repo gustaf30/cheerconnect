@@ -16,9 +16,14 @@ export async function POST(
 
     const { id: postId } = await params;
 
-    // Check if post exists
+    // Check if post exists and get author info
     const post = await prisma.post.findUnique({
       where: { id: postId },
+      include: {
+        author: {
+          select: { id: true },
+        },
+      },
     });
 
     if (!post) {
@@ -45,12 +50,32 @@ export async function POST(
       );
     }
 
+    // Get current user info for notification message
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { name: true },
+    });
+
     await prisma.like.create({
       data: {
         userId: session.user.id,
         postId,
       },
     });
+
+    // Create notification for post author (not self)
+    if (post.author.id !== session.user.id) {
+      await prisma.notification.create({
+        data: {
+          userId: post.author.id,
+          type: "POST_LIKED",
+          message: `${currentUser?.name || "Alguém"} curtiu sua publicação`,
+          actorId: session.user.id,
+          relatedId: postId,
+          relatedType: "post",
+        },
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

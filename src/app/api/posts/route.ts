@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 const createPostSchema = z.object({
   content: z.string().min(1, "Conteúdo é obrigatório").max(5000),
   images: z.array(z.string()).optional(),
+  videoUrl: z.string().optional(),
   teamId: z.string().optional(),
 });
 
@@ -21,44 +22,53 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const cursor = searchParams.get("cursor");
     const limit = parseInt(searchParams.get("limit") || "20");
+    const filter = searchParams.get("filter") || "following";
 
-    // Get user's connections
-    const connections = await prisma.connection.findMany({
-      where: {
-        status: "ACCEPTED",
-        OR: [
-          { senderId: session.user.id },
-          { receiverId: session.user.id },
-        ],
-      },
-      select: {
-        senderId: true,
-        receiverId: true,
-      },
-    });
+    // Build where clause based on filter
+    let whereClause = {};
 
-    const connectionIds = connections.map((c) =>
-      c.senderId === session.user.id ? c.receiverId : c.senderId
-    );
+    if (filter === "following") {
+      // Get user's connections
+      const connections = await prisma.connection.findMany({
+        where: {
+          status: "ACCEPTED",
+          OR: [
+            { senderId: session.user.id },
+            { receiverId: session.user.id },
+          ],
+        },
+        select: {
+          senderId: true,
+          receiverId: true,
+        },
+      });
 
-    // Get user's followed teams
-    const followedTeams = await prisma.teamFollow.findMany({
-      where: { userId: session.user.id },
-      select: { teamId: true },
-    });
+      const connectionIds = connections.map((c) =>
+        c.senderId === session.user.id ? c.receiverId : c.senderId
+      );
 
-    const followedTeamIds = followedTeams.map((f) => f.teamId);
+      // Get user's followed teams
+      const followedTeams = await prisma.teamFollow.findMany({
+        where: { userId: session.user.id },
+        select: { teamId: true },
+      });
 
-    // Include own posts, connections' posts, and followed teams' posts
-    const authorIds = [session.user.id, ...connectionIds];
+      const followedTeamIds = followedTeams.map((f) => f.teamId);
 
-    const posts = await prisma.post.findMany({
-      where: {
+      // Include own posts, connections' posts, and followed teams' posts
+      const authorIds = [session.user.id, ...connectionIds];
+
+      whereClause = {
         OR: [
           { authorId: { in: authorIds } },
           { teamId: { in: followedTeamIds } },
         ],
-      },
+      };
+    }
+    // If filter === "all", whereClause stays empty (all posts)
+
+    const posts = await prisma.post.findMany({
+      where: whereClause,
       take: limit,
       ...(cursor && {
         skip: 1,
@@ -83,10 +93,43 @@ export async function GET(request: Request) {
             logo: true,
           },
         },
+        originalPost: {
+          include: {
+            author: {
+              select: {
+                id: true,
+                name: true,
+                username: true,
+                avatar: true,
+                positions: true,
+              },
+            },
+            team: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                logo: true,
+              },
+            },
+            _count: {
+              select: {
+                likes: true,
+                comments: true,
+                reposts: true,
+              },
+            },
+            likes: {
+              where: { userId: session.user.id },
+              select: { id: true },
+            },
+          },
+        },
         _count: {
           select: {
             likes: true,
             comments: true,
+            reposts: true,
           },
         },
         likes: {
@@ -100,6 +143,13 @@ export async function GET(request: Request) {
       ...post,
       isLiked: post.likes.length > 0,
       likes: undefined,
+      originalPost: post.originalPost
+        ? {
+            ...post.originalPost,
+            isLiked: post.originalPost.likes.length > 0,
+            likes: undefined,
+          }
+        : null,
     }));
 
     return NextResponse.json({
@@ -124,12 +174,13 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { content, images, teamId } = createPostSchema.parse(body);
+    const { content, images, videoUrl, teamId } = createPostSchema.parse(body);
 
     const post = await prisma.post.create({
       data: {
         content,
         images: images || [],
+        videoUrl,
         authorId: session.user.id,
         teamId,
       },

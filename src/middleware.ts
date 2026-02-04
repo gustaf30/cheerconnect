@@ -29,6 +29,12 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|public).*)",
+    "/feed/:path*",
+    "/profile/:path*",
+    "/connections/:path*",
+    "/teams/:path*",
+    "/events/:path*",
+    "/search/:path*",
+    "/api/((?!auth).*)",
   ],
 };

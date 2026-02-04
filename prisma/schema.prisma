@@ -35,6 +35,7 @@ model User {
   posts         Post[]
   comments      Comment[]
   likes         Like[]
+  commentLikes  CommentLike[]
   teamMembers   TeamMember[]
   teamFollows   TeamFollow[]
   events        Event[]
@@ -46,6 +47,33 @@ model User {
   // NextAuth
   accounts      Account[]
   sessions      Session[]
+
+  // Notificações
+  notifications       Notification[] @relation("UserNotifications")
+  actedNotifications  Notification[] @relation("NotificationActor")
+
+  // Mensagens
+  conversationsAsParticipant1 Conversation[] @relation("ConversationParticipant1")
+  conversationsAsParticipant2 Conversation[] @relation("ConversationParticipant2")
+  sentMessages                Message[]      @relation("MessageSender")
+
+  // Preferências de notificação
+  notifyPostLiked         Boolean @default(true)
+  notifyPostCommented     Boolean @default(true)
+  notifyConnectionRequest Boolean @default(true)
+  notifyConnectionAccepted Boolean @default(true)
+  notifyCommentReplied    Boolean @default(true)
+  notifyMessageReceived   Boolean @default(true)
+
+  // Configurações de privacidade
+  profileVisibility       ProfileVisibility @default(PUBLIC)
+  showEmail               Boolean @default(false)
+
+  // Controle de alteração de username
+  usernameChangedAt       DateTime?
+
+  // Convites de time
+  teamInvites   TeamInvite[]
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -61,6 +89,11 @@ enum Position {
   CHOREOGRAPHER
   JUDGE
   OTHER
+}
+
+enum ProfileVisibility {
+  PUBLIC
+  CONNECTIONS_ONLY
 }
 
 // ============ NEXTAUTH MODELS ============
@@ -181,6 +214,11 @@ model Post {
   teamId    String?
   team      Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
 
+  // Repost
+  originalPostId String?
+  originalPost   Post?   @relation("PostReposts", fields: [originalPostId], references: [id], onDelete: Cascade)
+  reposts        Post[]  @relation("PostReposts")
+
   comments  Comment[]
   likes     Like[]
 
@@ -198,7 +236,32 @@ model Comment {
   postId    String
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
 
+  // Relação para respostas (apenas um nível de aninhamento)
+  parentId  String?
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+
+  likes     CommentLike[]
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentId])
+  @@index([postId, parentId])
+}
+
+model CommentLike {
+  id        String   @id @default(cuid())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  commentId String
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, commentId])
 }
 
 model Like {
@@ -237,6 +300,7 @@ model Team {
   posts         Post[]
   events        Event[]
   careerEntries CareerHistory[]
+  invites       TeamInvite[]
 
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -252,11 +316,15 @@ enum TeamCategory {
 
 model TeamMember {
   id        String     @id @default(cuid())
-  role      TeamRole   @default(ATHLETE)
+  role      String     @default("Atleta")
   position  String?
   joinedAt  DateTime   @default(now())
   leftAt    DateTime?
   isActive  Boolean    @default(true)
+
+  // Permissões
+  hasPermission Boolean @default(false)  // Pode editar equipe, postar, convidar
+  isAdmin       Boolean @default(false)  // Pode gerenciar membros com permissão
 
   userId    String
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -294,11 +362,27 @@ model TeamAchievement {
   createdAt   DateTime @default(now())
 }
 
-enum TeamRole {
-  OWNER
-  ADMIN
-  COACH
-  ATHLETE
+model TeamInvite {
+  id        String       @id @default(cuid())
+  teamId    String
+  team      Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role          String       @default("Atleta")
+  hasPermission Boolean      @default(false)
+  isAdmin       Boolean      @default(false)
+  status    InviteStatus @default(PENDING)
+  createdAt DateTime     @default(now())
+  expiresAt DateTime?
+
+  @@unique([teamId, userId])
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
 }
 
 // ============ EVENTOS ============
@@ -328,4 +412,59 @@ enum EventType {
   WORKSHOP
   SHOWCASE
   OTHER
+}
+
+// ============ NOTIFICAÇÕES ============
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  type      String   // POST_LIKED, POST_COMMENTED, CONNECTION_REQUEST, CONNECTION_ACCEPTED, MESSAGE_RECEIVED
+  message   String
+  isRead    Boolean  @default(false)
+
+  actorId   String?
+  actor     User?    @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  relatedId   String?
+  relatedType String?  // "post", "connection", "conversation"
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+}
+
+// ============ MENSAGENS ============
+model Conversation {
+  id               String    @id @default(cuid())
+  participant1Id   String
+  participant1     User      @relation("ConversationParticipant1", fields: [participant1Id], references: [id], onDelete: Cascade)
+  participant2Id   String
+  participant2     User      @relation("ConversationParticipant2", fields: [participant2Id], references: [id], onDelete: Cascade)
+  messages         Message[]
+  lastMessageAt    DateTime?
+  lastMessagePreview String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([participant1Id, participant2Id])
+  @@index([participant1Id, lastMessageAt])
+  @@index([participant2Id, lastMessageAt])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  content        String
+  senderId       String
+  sender         User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  isRead         Boolean      @default(false)
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
 }

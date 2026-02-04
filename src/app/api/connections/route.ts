@@ -121,10 +121,28 @@ export async function POST(request: Request) {
       );
     }
 
+    // Get current user info for notification message
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { name: true },
+    });
+
     const connection = await prisma.connection.create({
       data: {
         senderId: session.user.id,
         receiverId,
+      },
+    });
+
+    // Create notification for receiver
+    await prisma.notification.create({
+      data: {
+        userId: receiverId,
+        type: "CONNECTION_REQUEST",
+        message: `${currentUser?.name || "Alguém"} quer se conectar com você`,
+        actorId: session.user.id,
+        relatedId: connection.id,
+        relatedType: "connection",
       },
     });
 

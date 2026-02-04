@@ -22,7 +22,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     const { slug } = await params;
 
-    // Check if user is admin of this team
+    // Check if user has permission to post for this team
     const team = await prisma.team.findUnique({
       where: { slug },
       include: {
@@ -30,7 +30,7 @@ export async function POST(request: Request, { params }: RouteParams) {
           where: {
             userId: session.user.id,
             isActive: true,
-            role: { in: ["OWNER", "ADMIN", "COACH"] },
+            hasPermission: true,
           },
         },
       },

@@ -3,10 +3,13 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { Position } from "@prisma/client";
+
+const positionEnum = z.enum(["FLYER", "BASE", "BACKSPOT", "FRONTSPOT", "TUMBLER", "COACH", "CHOREOGRAPHER", "JUDGE", "OTHER"]);
 
 const updateCareerSchema = z.object({
   role: z.enum(["ATHLETE", "COACH", "ASSISTANT_COACH", "CHOREOGRAPHER", "TEAM_MANAGER", "JUDGE", "OTHER"]).optional(),
-  positions: z.array(z.string()).optional(),
+  positions: z.array(positionEnum).optional(),
   startDate: z.string().transform((str) => new Date(str)).optional(),
   endDate: z.string().transform((str) => new Date(str)).optional().nullable(),
   isCurrent: z.boolean().optional(),
@@ -92,11 +95,22 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const data = updateCareerSchema.parse(body);
+    const parsed = updateCareerSchema.parse(body);
+
+    // Handle teamId separately for Prisma's relation update syntax
+    const { teamId, positions, ...restData } = parsed;
 
     const career = await prisma.careerHistory.update({
       where: { id },
-      data,
+      data: {
+        ...restData,
+        // Cast positions to Position[] for Prisma
+        ...(positions !== undefined && { positions: positions as Position[] }),
+        // Only include team relation update if teamId was explicitly provided
+        ...(teamId !== undefined && {
+          team: teamId ? { connect: { id: teamId } } : { disconnect: true },
+        }),
+      },
       include: {
         team: {
           select: {

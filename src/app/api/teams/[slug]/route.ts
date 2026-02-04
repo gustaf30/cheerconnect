@@ -41,7 +41,7 @@ export async function GET(
               },
             },
           },
-          orderBy: [{ role: "asc" }, { joinedAt: "asc" }],
+          orderBy: [{ isAdmin: "desc" }, { hasPermission: "desc" }, { joinedAt: "asc" }],
         },
         posts: {
           orderBy: { createdAt: "desc" },
@@ -133,7 +133,7 @@ export async function PATCH(
 
     const { slug } = await params;
 
-    // Check if user is admin of this team
+    // Check if user has permission to edit this team
     const team = await prisma.team.findUnique({
       where: { slug },
       include: {
@@ -141,7 +141,7 @@ export async function PATCH(
           where: {
             userId: session.user.id,
             isActive: true,
-            role: { in: ["OWNER", "ADMIN"] },
+            hasPermission: true,
           },
         },
       },
@@ -199,7 +199,7 @@ export async function DELETE(
 
     const { slug } = await params;
 
-    // Check if user is OWNER of this team
+    // Check if user is admin of this team
     const team = await prisma.team.findUnique({
       where: { slug },
       include: {
@@ -207,7 +207,7 @@ export async function DELETE(
           where: {
             userId: session.user.id,
             isActive: true,
-            role: "OWNER",
+            isAdmin: true,
           },
         },
       },
@@ -219,7 +219,7 @@ export async function DELETE(
 
     if (team.members.length === 0) {
       return NextResponse.json(
-        { error: "Apenas o dono pode excluir a equipe" },
+        { error: "Apenas administradores podem excluir a equipe" },
         { status: 403 }
       );
     }
