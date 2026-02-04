@@ -105,11 +105,12 @@ export default function RegisterPage() {
   };
 
   return (
-    <Card className="border-0 shadow-lg">
+    <Card className="border-0 shadow-xl backdrop-blur-sm bg-card/95 hover:shadow-2xl transition-shadow duration-300">
       <CardHeader className="space-y-1 text-center">
-        <Link href="/" className="inline-block mb-4">
+        <Link href="/" className="inline-block mb-4 group">
           <h1 className="text-2xl font-bold">
-            <span className="text-primary">Cheer</span>Connect
+            <span className="text-gradient-primary">Cheer</span>
+            <span className="group-hover:text-primary/80 transition-colors duration-200">Connect</span>
           </h1>
         </Link>
         <CardTitle className="text-xl">Crie sua conta</CardTitle>

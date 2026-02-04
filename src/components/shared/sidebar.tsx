@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -61,14 +61,7 @@ export function Sidebar() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [stats, setStats] = useState<Stats>({ connections: 0, achievements: 0 });
 
-  useEffect(() => {
-    if (session?.user) {
-      fetchUserProfile();
-      fetchStats();
-    }
-  }, [session]);
-
-  const fetchUserProfile = async () => {
+  const fetchUserProfile = useCallback(async () => {
     try {
       const response = await fetch("/api/users/me");
       if (response.ok) {
@@ -81,9 +74,9 @@ export function Sidebar() {
     } catch {
       console.error("Error fetching user profile");
     }
-  };
+  }, []);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const [connectionsRes, achievementsRes] = await Promise.all([
         fetch("/api/connections"),
@@ -107,7 +100,14 @@ export function Sidebar() {
     } catch {
       console.error("Error fetching stats");
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (session?.user) {
+      fetchUserProfile();
+      fetchStats();
+    }
+  }, [session, fetchUserProfile, fetchStats]);
 
   const getInitials = (name: string) => {
     return name
@@ -125,9 +125,9 @@ export function Sidebar() {
     <div className="flex h-full flex-col bg-sidebar">
       {/* Logo for mobile */}
       <div className="flex h-14 items-center px-4 md:hidden border-b">
-        <Link href="/feed" className="flex items-center gap-2 font-bold text-xl">
-          <span className="text-primary">Cheer</span>
-          <span>Connect</span>
+        <Link href="/feed" className="flex items-center gap-1 font-bold text-xl group">
+          <span className="text-gradient-primary transition-all duration-300 group-hover:opacity-90">Cheer</span>
+          <span className="transition-all duration-300 group-hover:text-primary/80 group-hover:tracking-wide">Connect</span>
         </Link>
       </div>
 
@@ -136,9 +136,9 @@ export function Sidebar() {
         {session?.user && (
           <Link
             href="/profile"
-            className="flex items-center gap-3 rounded-lg p-3 hover:bg-sidebar-accent transition-colors mb-4"
+            className="flex items-center gap-3 rounded-lg p-3 hover:bg-sidebar-accent transition-all duration-300 mb-4 group hover:shadow-sm hover-glow"
           >
-            <Avatar className="h-10 w-10">
+            <Avatar className="h-10 w-10 ring-2 ring-transparent group-hover:ring-primary/30 transition-all duration-300">
               <AvatarImage
                 src={displayAvatar}
                 alt={displayName}
@@ -149,7 +149,7 @@ export function Sidebar() {
               </AvatarFallback>
             </Avatar>
             <div className="flex flex-col overflow-hidden">
-              <span className="font-medium truncate">{displayName}</span>
+              <span className="font-medium truncate group-hover:text-primary transition-colors duration-300">{displayName}</span>
               <span className="text-xs text-muted-foreground truncate">
                 Ver perfil
               </span>
@@ -168,11 +168,15 @@ export function Sidebar() {
                 <Button
                   variant={isActive ? "secondary" : "ghost"}
                   className={cn(
-                    "w-full justify-start gap-3",
-                    isActive && "bg-sidebar-accent font-medium"
+                    "w-full justify-start gap-3 relative transition-all duration-300 nav-indicator",
+                    isActive && "bg-sidebar-accent font-medium active",
+                    !isActive && "hover:translate-x-1.5"
                   )}
                 >
-                  <item.icon className="h-5 w-5" />
+                  <item.icon className={cn(
+                    "h-5 w-5 transition-all duration-300",
+                    isActive && "text-primary scale-110"
+                  )} />
                   {item.title}
                 </Button>
               </Link>
@@ -188,13 +192,13 @@ export function Sidebar() {
             Estatísticas
           </h4>
           <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-lg bg-sidebar-accent p-3 text-center">
-              <div className="text-2xl font-bold text-primary">{stats.connections}</div>
-              <div className="text-xs text-muted-foreground">Conexões</div>
+            <div className="rounded-lg bg-gradient-to-br from-sidebar-accent to-sidebar-accent/50 p-3 text-center transition-all duration-300 hover:shadow-md hover:scale-[1.02] group cursor-pointer">
+              <div className="text-2xl font-bold text-gradient-primary">{stats.connections}</div>
+              <div className="text-xs text-muted-foreground group-hover:text-foreground transition-colors duration-300">Conexões</div>
             </div>
-            <div className="rounded-lg bg-sidebar-accent p-3 text-center">
-              <div className="text-2xl font-bold text-primary">{stats.achievements}</div>
-              <div className="text-xs text-muted-foreground">Conquistas</div>
+            <div className="rounded-lg bg-gradient-to-br from-sidebar-accent to-sidebar-accent/50 p-3 text-center transition-all duration-300 hover:shadow-md hover:scale-[1.02] group cursor-pointer">
+              <div className="text-2xl font-bold text-gradient-primary">{stats.achievements}</div>
+              <div className="text-xs text-muted-foreground group-hover:text-foreground transition-colors duration-300">Conquistas</div>
             </div>
           </div>
         </div>

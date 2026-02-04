@@ -11,6 +11,7 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+      allowDangerousEmailAccountLinking: true,
     }),
     CredentialsProvider({
       name: "credentials",
@@ -44,16 +45,21 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           email: user.email,
           name: user.name,
-          image: user.avatar,
+          // Avatar NÃO é incluído aqui para evitar JWT gigante (HTTP 431)
+          // O avatar será buscado via GET /api/users/me quando necessário
         };
       },
     }),
   ],
   session: {
     strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 dias
   },
+  // Não usar bloco cookies customizado - defaults do NextAuth são otimizados
   callbacks: {
     async jwt({ token, user }) {
+      // Armazenar APENAS o ID no token - mantém JWT pequeno
+      // Buscar resto dos dados do banco quando precisar
       if (user) {
         token.id = user.id;
       }

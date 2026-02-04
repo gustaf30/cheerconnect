@@ -29,6 +29,13 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get("limit") || "20");
     const cursor = searchParams.get("cursor");
 
+    // Parse location into city/state parts for OR matching
+    // e.g., "Ponta Grossa, Paraná" → ["Ponta Grossa", "Paraná"]
+    const locationParts = location
+      ?.split(",")
+      .map((p) => p.trim())
+      .filter(Boolean) || [];
+
     const events = await prisma.event.findMany({
       where: {
         startDate: { gte: new Date() },
@@ -41,8 +48,12 @@ export async function GET(request: Request) {
               ],
             }
           : {}),
-        ...(location
-          ? { location: { contains: location, mode: "insensitive" } }
+        ...(locationParts.length > 0
+          ? {
+              OR: locationParts.map((part) => ({
+                location: { contains: part, mode: "insensitive" as const },
+              })),
+            }
           : {}),
       },
       take: limit,

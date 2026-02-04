@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { MapPin, Calendar, Briefcase, UserPlus, UserMinus, Clock, Check, Pencil } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { MapPin, Briefcase, UserPlus, UserMinus, Clock, Check, Pencil, MessageSquare } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface ProfileHeaderProps {
   user: {
@@ -46,8 +48,10 @@ export function ProfileHeader({
   connectionsCount,
   postsCount,
 }: ProfileHeaderProps) {
+  const router = useRouter();
   const [status, setStatus] = useState(connectionStatus);
   const [isLoading, setIsLoading] = useState(false);
+  const [isStartingConversation, setIsStartingConversation] = useState(false);
 
   const getInitials = (name: string) => {
     return name
@@ -102,23 +106,48 @@ export function ProfileHeader({
     }
   };
 
+  const handleStartConversation = async () => {
+    setIsStartingConversation(true);
+    try {
+      const response = await fetch("/api/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ participantId: user.id }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Erro ao iniciar conversa");
+      }
+
+      const data = await response.json();
+      router.push(`/messages/${data.conversation.id}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao iniciar conversa");
+    } finally {
+      setIsStartingConversation(false);
+    }
+  };
+
   return (
-    <div className="bg-card rounded-xl overflow-hidden border">
+    <div className="bg-card rounded-xl overflow-hidden border animate-fade-in shadow-sm hover:shadow-md transition-shadow duration-300">
       {/* Banner */}
-      <div className="h-32 sm:h-48 bg-gradient-to-r from-primary/30 to-primary/10 relative">
-        {user.banner && (
+      <div className="h-32 sm:h-48 bg-gradient-to-br from-primary via-primary/60 to-[oklch(0.40_0.18_25)] relative overflow-hidden animate-banner-shimmer">
+        {user.banner ? (
           <img
             src={user.banner}
             alt=""
             className="w-full h-full object-cover"
           />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-[oklch(0.40_0.18_25)]" />
         )}
       </div>
 
       {/* Profile info */}
       <div className="px-4 sm:px-6 pb-6">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between -mt-12 sm:-mt-16">
-          <Avatar className="h-24 w-24 sm:h-32 sm:w-32 border-4 border-background">
+          <Avatar className="h-24 w-24 sm:h-32 sm:w-32 border-4 border-background shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_oklch(0.55_0.22_25/0.3)]">
             <AvatarImage src={user.avatar || undefined} alt={user.name} className="object-cover" />
             <AvatarFallback className="bg-primary text-primary-foreground text-2xl sm:text-4xl">
               {getInitials(user.name)}
@@ -128,42 +157,60 @@ export function ProfileHeader({
           <div className="mt-4 sm:mt-0 flex gap-2">
             {isOwnProfile ? (
               <Link href="/profile/edit">
-                <Button variant="outline">
+                <Button variant="outline" className="hover:border-primary/50 hover:text-primary transition-colors duration-200">
                   <Pencil className="h-4 w-4 mr-2" />
                   Editar perfil
                 </Button>
               </Link>
             ) : (
-              <Button
-                onClick={handleConnection}
-                disabled={isLoading}
-                variant={status === "connected" ? "outline" : "default"}
-              >
-                {status === "none" && (
-                  <>
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Conectar
-                  </>
-                )}
-                {status === "pending" && (
-                  <>
-                    <Clock className="h-4 w-4 mr-2" />
-                    Pendente
-                  </>
-                )}
-                {status === "received" && (
-                  <>
-                    <Check className="h-4 w-4 mr-2" />
-                    Aceitar
-                  </>
-                )}
+              <>
                 {status === "connected" && (
-                  <>
-                    <UserMinus className="h-4 w-4 mr-2" />
-                    Conectado
-                  </>
+                  <Button
+                    onClick={handleStartConversation}
+                    disabled={isStartingConversation}
+                    variant="outline"
+                    className="hover:border-primary/50 hover:text-primary transition-colors duration-200"
+                  >
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Mensagem
+                  </Button>
                 )}
-              </Button>
+                <Button
+                  onClick={handleConnection}
+                  disabled={isLoading}
+                  variant={status === "connected" ? "outline" : "default"}
+                  className={cn(
+                    "transition-all duration-300",
+                    status === "none" && "hover-glow",
+                    status === "pending" && "animate-pulse-ring"
+                  )}
+                >
+                  {status === "none" && (
+                    <>
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Conectar
+                    </>
+                  )}
+                  {status === "pending" && (
+                    <>
+                      <Clock className="h-4 w-4 mr-2" />
+                      Pendente
+                    </>
+                  )}
+                  {status === "received" && (
+                    <>
+                      <Check className="h-4 w-4 mr-2" />
+                      Aceitar
+                    </>
+                  )}
+                  {status === "connected" && (
+                    <>
+                      <UserMinus className="h-4 w-4 mr-2" />
+                      Conectado
+                    </>
+                  )}
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -177,8 +224,13 @@ export function ProfileHeader({
           {/* Positions */}
           {user.positions.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {user.positions.map((position) => (
-                <Badge key={position} variant="secondary">
+              {user.positions.map((position, index) => (
+                <Badge
+                  key={position}
+                  variant="subtle"
+                  className="animate-slide-up"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
                   {positionLabels[position] || position}
                 </Badge>
               ))}
@@ -191,13 +243,13 @@ export function ProfileHeader({
           {/* Meta info */}
           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
             {user.location && (
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1 transition-colors duration-200 hover:text-foreground">
                 <MapPin className="h-4 w-4" />
                 {user.location}
               </span>
             )}
             {user.experience && (
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1 transition-colors duration-200 hover:text-foreground">
                 <Briefcase className="h-4 w-4" />
                 {user.experience} {user.experience === 1 ? "ano" : "anos"} de
                 experiência
@@ -207,13 +259,13 @@ export function ProfileHeader({
 
           {/* Stats */}
           <div className="flex gap-6 pt-2">
-            <div>
-              <span className="font-bold">{connectionsCount}</span>{" "}
-              <span className="text-muted-foreground">conexões</span>
+            <div className="group cursor-pointer transition-all duration-300 hover:scale-105">
+              <span className="font-bold text-gradient-primary">{connectionsCount}</span>{" "}
+              <span className="text-muted-foreground group-hover:text-foreground transition-colors duration-200">conexões</span>
             </div>
-            <div>
-              <span className="font-bold">{postsCount}</span>{" "}
-              <span className="text-muted-foreground">publicações</span>
+            <div className="group cursor-pointer transition-all duration-300 hover:scale-105">
+              <span className="font-bold text-gradient-primary">{postsCount}</span>{" "}
+              <span className="text-muted-foreground group-hover:text-foreground transition-colors duration-200">publicações</span>
             </div>
           </div>
         </div>

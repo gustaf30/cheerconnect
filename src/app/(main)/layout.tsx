@@ -10,8 +10,8 @@ export default function MainLayout({
     <div className="min-h-screen flex flex-col">
       <Header />
       <div className="flex flex-1">
-        {/* Desktop Sidebar */}
-        <aside className="hidden md:flex w-64 flex-col border-r bg-sidebar">
+        {/* Desktop Sidebar - sticky to stay fixed while scrolling */}
+        <aside className="hidden md:flex w-64 flex-col border-r bg-sidebar sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
           <Sidebar />
         </aside>
 

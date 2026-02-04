@@ -34,21 +34,49 @@ interface CareerEntry {
   } | null;
 }
 
+interface PostTeam {
+  id: string;
+  name: string;
+  slug: string;
+  logo: string | null;
+}
+
+interface PostAuthor {
+  id: string;
+  name: string;
+  username: string;
+  avatar: string | null;
+  positions: string[];
+}
+
 interface Post {
   id: string;
   content: string;
   images: string[];
+  videoUrl?: string | null;
   createdAt: Date;
-  author: {
+  author: PostAuthor;
+  team?: PostTeam | null;
+  originalPostId?: string | null;
+  originalPost?: {
     id: string;
-    name: string;
-    username: string;
-    avatar: string | null;
-    positions: string[];
-  };
+    content: string;
+    images: string[];
+    videoUrl?: string | null;
+    createdAt: Date;
+    author: PostAuthor;
+    team?: PostTeam | null;
+    _count: {
+      likes: number;
+      comments: number;
+      reposts?: number;
+    };
+    isLiked: boolean;
+  } | null;
   _count: {
     likes: number;
     comments: number;
+    reposts?: number;
   };
   isLiked: boolean;
 }
@@ -121,6 +149,12 @@ export function ProfileTabs({ user, posts, isOwnProfile }: ProfileTabsProps) {
               post={{
                 ...post,
                 createdAt: post.createdAt.toISOString(),
+                originalPost: post.originalPost
+                  ? {
+                      ...post.originalPost,
+                      createdAt: post.originalPost.createdAt.toISOString(),
+                    }
+                  : null,
               }}
             />
           ))

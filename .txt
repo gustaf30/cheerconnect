@@ -1,0 +1,5 @@
+passe por toda a implementação testando tudo que for possivel procurando por inconsistencias, nao apenas erros concretos, mas tambem inconsistencias de informações apresentadas, informações nao atualizadas, informações atualizadas erroneamente e etc
+
+documente tudo em um arquivo todo.md como tasks a serem feitas, garanta os detalhes e a clareza das tarefas
+
+documente tambem em um arquivo overall.md tudo que foi feito e a visão geral do sistema

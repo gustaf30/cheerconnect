@@ -25,8 +25,16 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q") || "";
     const category = searchParams.get("category");
+    const location = searchParams.get("location");
     const limit = parseInt(searchParams.get("limit") || "20");
     const cursor = searchParams.get("cursor");
+
+    // Parse location into city/state parts for OR matching
+    // e.g., "Ponta Grossa, Paraná" → ["Ponta Grossa", "Paraná"]
+    const locationParts = location
+      ?.split(",")
+      .map((p) => p.trim())
+      .filter(Boolean) || [];
 
     const teams = await prisma.team.findMany({
       where: {
@@ -40,6 +48,13 @@ export async function GET(request: Request) {
               }
             : {},
           category ? { category: category as never } : {},
+          locationParts.length > 0
+            ? {
+                OR: locationParts.map((part) => ({
+                  location: { contains: part, mode: "insensitive" as const },
+                })),
+              }
+            : {},
         ],
       },
       take: limit,
@@ -114,7 +129,9 @@ export async function POST(request: Request) {
         members: {
           create: {
             userId: session.user.id,
-            role: "OWNER",
+            role: "",
+            hasPermission: true,
+            isAdmin: true,
           },
         },
       },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { PostCard } from "./post-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,26 +17,37 @@ interface Post {
   id: string;
   content: string;
   images: string[];
+  videoUrl?: string | null;
   createdAt: string;
   author: PostAuthor;
+  team?: {
+    id: string;
+    name: string;
+    slug: string;
+    logo: string | null;
+  } | null;
+  originalPostId?: string | null;
+  originalPost?: Post | null;
   _count: {
     likes: number;
     comments: number;
+    reposts: number;
   };
   isLiked: boolean;
 }
 
-export function PostList() {
+interface PostListProps {
+  filter?: "following" | "all";
+}
+
+export function PostList({ filter = "following" }: PostListProps) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchPosts();
-  }, []);
-
-  const fetchPosts = async () => {
+  const fetchPosts = useCallback(async () => {
+    setIsLoading(true);
     try {
-      const response = await fetch("/api/posts");
+      const response = await fetch(`/api/posts?filter=${filter}`);
       if (!response.ok) throw new Error();
       const data = await response.json();
       setPosts(data.posts);
@@ -45,7 +56,11 @@ export function PostList() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [filter]);
+
+  useEffect(() => {
+    fetchPosts();
+  }, [fetchPosts]);
 
   const handleDelete = (id: string) => {
     setPosts((prev) => prev.filter((post) => post.id !== id));

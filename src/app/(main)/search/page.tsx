@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Search as SearchIcon, MapPin, Filter } from "lucide-react";
+import { Search as SearchIcon, MapPin } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,7 +52,7 @@ const positions = [
   { value: "JUDGE", label: "Juiz" },
 ];
 
-export default function SearchPage() {
+function SearchContent() {
   const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
   const [position, setPosition] = useState<string>("");
@@ -241,5 +241,13 @@ export default function SearchPage() {
         </Card>
       )}
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="space-y-6"><h1 className="text-2xl font-bold">Buscar</h1></div>}>
+      <SearchContent />
+    </Suspense>
   );
 }

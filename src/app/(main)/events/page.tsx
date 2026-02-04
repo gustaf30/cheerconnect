@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useSession } from "next-auth/react";
-import { MapPin, Calendar, Filter, Plus, Loader2, MoreHorizontal, Pencil, Trash2, Search } from "lucide-react";
+import { MapPin, Calendar, Filter, Plus, Loader2, MoreHorizontal, Pencil, Trash2, Search, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,6 +34,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { CitySelector } from "@/components/ui/city-selector";
 
 interface Event {
   id: string;
@@ -84,6 +85,11 @@ export default function EventsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
 
+  // User location for automatic filtering
+  const [userLocation, setUserLocation] = useState<string | null>(null);
+  const [filterByUserLocation, setFilterByUserLocation] = useState(true);
+  const [isLoadingUserLocation, setIsLoadingUserLocation] = useState(true);
+
   // Create event dialog
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -113,17 +119,40 @@ export default function EventsPage() {
     type: "COMPETITION",
   });
 
+  // Fetch user location on mount
   useEffect(() => {
-    fetchEvents();
+    const fetchUserLocation = async () => {
+      try {
+        const res = await fetch("/api/users/me");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user?.location) {
+            setUserLocation(data.user.location);
+          }
+        }
+      } catch {
+        console.error("Error fetching user location");
+      } finally {
+        setIsLoadingUserLocation(false);
+      }
+    };
+    fetchUserLocation();
   }, []);
 
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async (useUserLocationFilter?: boolean) => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
       if (typeFilter && typeFilter !== " ") params.set("type", typeFilter);
       if (searchQuery) params.set("q", searchQuery);
-      if (locationFilter) params.set("location", locationFilter);
+
+      // Use user location as default filter if enabled and no manual location filter
+      const shouldUseUserLocation = useUserLocationFilter ?? filterByUserLocation;
+      if (locationFilter) {
+        params.set("location", locationFilter);
+      } else if (shouldUseUserLocation && userLocation) {
+        params.set("location", userLocation);
+      }
 
       const response = await fetch(`/api/events?${params.toString()}`);
       if (!response.ok) throw new Error();
@@ -135,7 +164,14 @@ export default function EventsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [typeFilter, searchQuery, locationFilter, filterByUserLocation, userLocation]);
+
+  // Fetch events once user location is loaded
+  useEffect(() => {
+    if (!isLoadingUserLocation) {
+      fetchEvents();
+    }
+  }, [isLoadingUserLocation, fetchEvents]);
 
   const handleCreateEvent = async () => {
     if (!eventForm.name.trim()) {
@@ -374,6 +410,26 @@ export default function EventsPage() {
         </CardContent>
       </Card>
 
+      {/* Location filter indicator */}
+      {filterByUserLocation && userLocation && !locationFilter && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-2">
+          <MapPin className="h-4 w-4" />
+          <span>Mostrando eventos em <strong>{userLocation}</strong></span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto h-auto py-1 px-2"
+            onClick={() => {
+              setFilterByUserLocation(false);
+              fetchEvents(false);
+            }}
+          >
+            <X className="h-3 w-3 mr-1" />
+            Ver todos
+          </Button>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
@@ -575,10 +631,9 @@ export default function EventsPage() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Localização *</label>
-              <Input
+              <CitySelector
                 value={eventForm.location}
-                onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })}
-                placeholder="Ex: São Paulo, SP"
+                onChange={(value) => setEventForm({ ...eventForm, location: value })}
               />
             </div>
 
@@ -679,10 +734,9 @@ export default function EventsPage() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Localização *</label>
-              <Input
+              <CitySelector
                 value={editForm.location}
-                onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
-                placeholder="Ex: São Paulo, SP"
+                onChange={(value) => setEditForm({ ...editForm, location: value })}
               />
             </div>
 

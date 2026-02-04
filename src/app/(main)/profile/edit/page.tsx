@@ -18,6 +18,7 @@ import {
   Trash2,
   Pencil,
   X,
+  Share2,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { CitySelector } from "@/components/ui/city-selector";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -117,12 +119,17 @@ export default function EditProfilePage() {
   const router = useRouter();
   const { update } = useSession();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isDeletingAvatar, setIsDeletingAvatar] = useState(false);
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const [isDeletingBanner, setIsDeletingBanner] = useState(false);
   const [newSkill, setNewSkill] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
 
   // Career state
   const [careerHistory, setCareerHistory] = useState<CareerEntry[]>([]);
@@ -152,6 +159,11 @@ export default function EditProfilePage() {
   });
   const [isSavingAchievement, setIsSavingAchievement] = useState(false);
 
+  // Share achievement state
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [sharePostContent, setSharePostContent] = useState("");
+  const [isSharing, setIsSharing] = useState(false);
+
   const form = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
@@ -177,6 +189,7 @@ export default function EditProfilePage() {
 
       const data = await response.json();
       setAvatarUrl(data.user.avatar);
+      setBannerUrl(data.user.banner);
       form.reset({
         name: data.user.name || "",
         bio: data.user.bio || "",
@@ -271,6 +284,85 @@ export default function EditProfilePage() {
       toast.error("Erro ao atualizar foto");
     } finally {
       setIsUploadingAvatar(false);
+    }
+  };
+
+  const handleDeleteAvatar = async () => {
+    if (!avatarUrl) return;
+
+    setIsDeletingAvatar(true);
+    try {
+      const response = await fetch("/api/users/me/avatar", {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error();
+
+      setAvatarUrl(null);
+      toast.success("Foto removida!");
+    } catch {
+      toast.error("Erro ao remover foto");
+    } finally {
+      setIsDeletingAvatar(false);
+    }
+  };
+
+  const handleBannerChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Imagem muito grande. Máximo: 5MB");
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Arquivo deve ser uma imagem");
+      return;
+    }
+
+    setIsUploadingBanner(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+
+        const response = await fetch("/api/users/me/banner", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ banner: base64 }),
+        });
+
+        if (!response.ok) throw new Error();
+
+        setBannerUrl(base64);
+        toast.success("Capa atualizada!");
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      toast.error("Erro ao atualizar capa");
+    } finally {
+      setIsUploadingBanner(false);
+    }
+  };
+
+  const handleDeleteBanner = async () => {
+    if (!bannerUrl) return;
+
+    setIsDeletingBanner(true);
+    try {
+      const response = await fetch("/api/users/me/banner", {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error();
+
+      setBannerUrl(null);
+      toast.success("Capa removida!");
+    } catch {
+      toast.error("Erro ao remover capa");
+    } finally {
+      setIsDeletingBanner(false);
     }
   };
 
@@ -422,13 +514,61 @@ export default function EditProfilePage() {
 
       if (!response.ok) throw new Error();
 
+      const isNewAchievement = !editingAchievement;
       toast.success(editingAchievement ? "Conquista atualizada!" : "Conquista adicionada!");
       setAchievementDialogOpen(false);
       fetchAchievements();
+
+      // Offer to share new achievements
+      if (isNewAchievement) {
+        const categoryLabel = categoryOptions.find((c) => c.value === achievementForm.category)?.label;
+        const dateFormatted = new Date(achievementForm.date).toLocaleDateString("pt-BR", {
+          month: "long",
+          year: "numeric",
+        });
+
+        let postContent = `🏆 Nova conquista desbloqueada!\n\n${achievementForm.title}`;
+        if (categoryLabel) {
+          postContent += ` (${categoryLabel})`;
+        }
+        postContent += `\n📅 ${dateFormatted}`;
+        if (achievementForm.description) {
+          postContent += `\n\n${achievementForm.description}`;
+        }
+
+        setSharePostContent(postContent);
+        setShareDialogOpen(true);
+      }
     } catch {
       toast.error("Erro ao salvar conquista");
     } finally {
       setIsSavingAchievement(false);
+    }
+  };
+
+  const handleShareAchievement = async () => {
+    if (!sharePostContent.trim()) {
+      toast.error("Escreva algo para publicar");
+      return;
+    }
+
+    setIsSharing(true);
+    try {
+      const response = await fetch("/api/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: sharePostContent }),
+      });
+
+      if (!response.ok) throw new Error();
+
+      toast.success("Conquista compartilhada!");
+      setShareDialogOpen(false);
+      setSharePostContent("");
+    } catch {
+      toast.error("Erro ao compartilhar conquista");
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -500,7 +640,7 @@ export default function EditProfilePage() {
               <div className="flex items-center gap-6">
                 <div className="relative">
                   <Avatar className="h-24 w-24">
-                    <AvatarImage src={avatarUrl || undefined} alt={form.getValues("name")} />
+                    <AvatarImage src={avatarUrl || undefined} alt={form.getValues("name")} className="object-cover" />
                     <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
                       {form.getValues("name") ? getInitials(form.getValues("name")) : "U"}
                     </AvatarFallback>
@@ -527,14 +667,98 @@ export default function EditProfilePage() {
                     )}
                   </Button>
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 space-y-2">
                   <p className="text-sm text-muted-foreground">
                     Clique no ícone da câmera para alterar sua foto de perfil.
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-xs text-muted-foreground">
                     Formatos aceitos: JPG, PNG. Tamanho máximo: 5MB.
                   </p>
+                  {avatarUrl && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
+                      onClick={handleDeleteAvatar}
+                      disabled={isDeletingAvatar}
+                    >
+                      {isDeletingAvatar ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="mr-2 h-4 w-4" />
+                      )}
+                      Remover foto
+                    </Button>
+                  )}
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Banner Upload Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Foto de Capa</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="relative w-full h-32 bg-muted rounded-lg overflow-hidden">
+                  {bannerUrl ? (
+                    <img
+                      src={bannerUrl}
+                      alt="Banner"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                      <Camera className="h-8 w-8" />
+                    </div>
+                  )}
+                  <input
+                    ref={bannerInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleBannerChange}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => bannerInputRef.current?.click()}
+                    disabled={isUploadingBanner}
+                  >
+                    {isUploadingBanner ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Camera className="mr-2 h-4 w-4" />
+                    )}
+                    {bannerUrl ? "Alterar capa" : "Adicionar capa"}
+                  </Button>
+                  {bannerUrl && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
+                      onClick={handleDeleteBanner}
+                      disabled={isDeletingBanner}
+                    >
+                      {isDeletingBanner ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="mr-2 h-4 w-4" />
+                      )}
+                      Remover capa
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Recomendado: 1200x300 pixels. Formatos aceitos: JPG, PNG. Tamanho máximo: 5MB.
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -587,7 +811,10 @@ export default function EditProfilePage() {
                   <FormItem>
                     <FormLabel>Localização</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Ex: São Paulo, SP" />
+                      <CitySelector
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -942,10 +1169,9 @@ export default function EditProfilePage() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Localização</label>
-              <Input
+              <CitySelector
                 value={careerForm.location}
-                onChange={(e) => setCareerForm({ ...careerForm, location: e.target.value })}
-                placeholder="Ex: São Paulo, SP"
+                onChange={(value) => setCareerForm({ ...careerForm, location: value })}
               />
             </div>
 
@@ -1036,6 +1262,40 @@ export default function EditProfilePage() {
             <Button onClick={saveAchievement} disabled={isSavingAchievement}>
               {isSavingAchievement && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Achievement Dialog */}
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="h-5 w-5" />
+              Compartilhar Conquista
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Deseja compartilhar essa conquista no seu feed? Você pode editar o texto antes de publicar.
+            </p>
+            <Textarea
+              value={sharePostContent}
+              onChange={(e) => setSharePostContent(e.target.value)}
+              placeholder="Escreva algo sobre sua conquista..."
+              rows={6}
+              className="resize-none"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShareDialogOpen(false)}>
+              Não compartilhar
+            </Button>
+            <Button onClick={handleShareAchievement} disabled={isSharing || !sharePostContent.trim()}>
+              {isSharing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Share2 className="mr-2 h-4 w-4" />
+              Publicar
             </Button>
           </DialogFooter>
         </DialogContent>
