@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -88,15 +88,13 @@ export function CitySelector({
       if (match) {
         const [, city, uf] = match;
         setSelectedCity(city);
-        if (uf !== selectedUF) {
-          setSelectedUF(uf);
-        }
+        setSelectedUF(uf);
       }
     } else {
       setSelectedCity("");
       setSelectedUF("");
     }
-  }, [value, selectedUF]);
+  }, [value]);
 
   // Fetch cities when state changes
   React.useEffect(() => {
@@ -136,6 +134,13 @@ export function CitySelector({
     setSelectedCity(cityName);
     setOpen(false);
     onChange(`${cityName}, ${selectedUF}`);
+  };
+
+  const handleClear = () => {
+    setSelectedUF("");
+    setSelectedCity("");
+    setCities([]);
+    onChange("");
   };
 
   return (
@@ -204,6 +209,20 @@ export function CitySelector({
           </Command>
         </PopoverContent>
       </Popover>
+
+      {/* Clear button */}
+      {(selectedUF || selectedCity) && !disabled && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 shrink-0"
+          onClick={handleClear}
+        >
+          <X className="h-4 w-4" />
+          <span className="sr-only">Limpar localização</span>
+        </Button>
+      )}
     </div>
   );
 }

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Search as SearchIcon, MapPin } from "lucide-react";
+import { Search as SearchIcon, MapPin, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CitySelector } from "@/components/ui/city-selector";
 
 interface User {
   id: string;
@@ -54,44 +55,98 @@ const positions = [
 
 function SearchContent() {
   const searchParams = useSearchParams();
+  const urlQuery = searchParams.get("q"); // Extract value to avoid infinite loop
+
   const [query, setQuery] = useState("");
   const [position, setPosition] = useState<string>("");
+  const [locationFilter, setLocationFilter] = useState("");
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [userLocation, setUserLocation] = useState<string | null>(null);
+  const [filterByUserLocation, setFilterByUserLocation] = useState(true);
+  const [isLoadingUserLocation, setIsLoadingUserLocation] = useState(true);
 
-  // Load query from URL on mount
+  const handleSearchWithQuery = useCallback(
+    async (
+      searchQuery: string,
+      searchPosition: string,
+      searchLocation: string,
+      useUserLocation: boolean,
+      currentUserLocation: string | null
+    ) => {
+      setIsLoading(true);
+      setHasSearched(true);
+
+      try {
+        const params = new URLSearchParams();
+        if (searchQuery) params.set("q", searchQuery);
+        if (searchPosition && searchPosition !== " ")
+          params.set("position", searchPosition);
+
+        // Use location filter or user's location
+        if (searchLocation) {
+          params.set("location", searchLocation);
+        } else if (useUserLocation && currentUserLocation) {
+          params.set("location", currentUserLocation);
+        }
+
+        const response = await fetch(`/api/users?${params.toString()}`);
+        if (!response.ok) throw new Error();
+
+        const data = await response.json();
+        setUsers(data.users);
+      } catch {
+        console.error("Search error");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    []
+  );
+
+  // Fetch user location on mount
   useEffect(() => {
-    const urlQuery = searchParams.get("q");
+    const fetchUserLocation = async () => {
+      try {
+        const res = await fetch("/api/users/me");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user?.location) {
+            setUserLocation(data.user.location);
+          }
+        }
+      } catch {
+        console.error("Error fetching user location");
+      } finally {
+        setIsLoadingUserLocation(false);
+      }
+    };
+    fetchUserLocation();
+  }, []);
+
+  // Load query from URL on mount (depends only on urlQuery value, not searchParams object)
+  useEffect(() => {
     if (urlQuery) {
       setQuery(urlQuery);
-      handleSearchWithQuery(urlQuery, "");
+      handleSearchWithQuery(urlQuery, "", "", filterByUserLocation, userLocation);
     }
-  }, [searchParams]);
+  }, [urlQuery, handleSearchWithQuery, filterByUserLocation, userLocation]);
 
-  const handleSearchWithQuery = async (searchQuery: string, searchPosition: string) => {
-    setIsLoading(true);
-    setHasSearched(true);
-
-    try {
-      const params = new URLSearchParams();
-      if (searchQuery) params.set("q", searchQuery);
-      if (searchPosition && searchPosition !== " ") params.set("position", searchPosition);
-
-      const response = await fetch(`/api/users?${params.toString()}`);
-      if (!response.ok) throw new Error();
-
-      const data = await response.json();
-      setUsers(data.users);
-    } catch {
-      console.error("Search error");
-    } finally {
-      setIsLoading(false);
-    }
+  const handleSearch = () => {
+    handleSearchWithQuery(
+      query,
+      position,
+      locationFilter,
+      filterByUserLocation,
+      userLocation
+    );
   };
 
-  const handleSearch = async () => {
-    handleSearchWithQuery(query, position);
+  const clearLocationFilter = () => {
+    setFilterByUserLocation(false);
+    setLocationFilter("");
+    handleSearchWithQuery(query, position, "", false, null);
   };
 
   const getInitials = (name: string) => {
@@ -122,6 +177,13 @@ function SearchContent() {
                 className="pl-10"
               />
             </div>
+            <div className="w-full sm:w-auto">
+              <CitySelector
+                value={locationFilter}
+                onChange={setLocationFilter}
+                placeholder="Filtrar por local"
+              />
+            </div>
             <Select value={position} onValueChange={setPosition}>
               <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Posição" />
@@ -142,6 +204,28 @@ function SearchContent() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Location filter banner */}
+      {!isLoadingUserLocation &&
+        filterByUserLocation &&
+        userLocation &&
+        !locationFilter && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-2">
+            <MapPin className="h-4 w-4" />
+            <span>
+              Mostrando pessoas em <strong>{userLocation}</strong>
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto h-auto py-1 px-2"
+              onClick={clearLocationFilter}
+            >
+              <X className="h-3 w-3 mr-1" />
+              Ver todos
+            </Button>
+          </div>
+        )}
 
       {/* Results */}
       {isLoading ? (
