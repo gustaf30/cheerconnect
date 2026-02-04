@@ -61,6 +61,7 @@ export default function TeamsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("");
+  const [locationFilter, setLocationFilter] = useState("");
   const [showMyTeams, setShowMyTeams] = useState(false);
 
   // User location for automatic filtering
@@ -113,10 +114,12 @@ export default function TeamsPage() {
       if (searchCategory || category)
         params.set("category", searchCategory || category);
 
-      // Use user location as default filter if enabled and not in "my teams" mode
+      // Use manual location filter first, then user location as default if enabled
       const shouldUseUserLocation = useUserLocationFilter ?? filterByUserLocation;
       const useMyTeams = myTeamsOnly !== undefined ? myTeamsOnly : showMyTeams;
-      if (shouldUseUserLocation && userLocation && !useMyTeams) {
+      if (locationFilter) {
+        params.set("location", locationFilter);
+      } else if (shouldUseUserLocation && userLocation && !useMyTeams) {
         params.set("location", userLocation);
       }
 
@@ -131,7 +134,7 @@ export default function TeamsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [query, category, showMyTeams, filterByUserLocation, userLocation]);
+  }, [query, category, locationFilter, showMyTeams, filterByUserLocation, userLocation]);
 
   // Fetch teams once user location is loaded
   useEffect(() => {
@@ -216,19 +219,22 @@ export default function TeamsPage() {
 
       {/* Search */}
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-4 space-y-4">
+          {/* Linha 1: Busca grande */}
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Buscar equipes..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              className="pl-12 h-12 text-base"
+            />
+          </div>
+
+          {/* Linha 2: Filtros */}
           <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Buscar equipes..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                className="pl-10"
-              />
-            </div>
             <Select value={category} onValueChange={setCategory}>
               <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Categoria" />
@@ -242,6 +248,13 @@ export default function TeamsPage() {
                 ))}
               </SelectContent>
             </Select>
+            <div className="w-full sm:w-auto">
+              <CitySelector
+                value={locationFilter}
+                onChange={setLocationFilter}
+                placeholder="Filtrar por local"
+              />
+            </div>
             <Button onClick={handleSearch}>
               <Search className="h-4 w-4 mr-2" />
               Buscar
@@ -258,7 +271,7 @@ export default function TeamsPage() {
       </Card>
 
       {/* Location filter indicator */}
-      {filterByUserLocation && userLocation && !showMyTeams && (
+      {filterByUserLocation && userLocation && !showMyTeams && !locationFilter && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-2">
           <MapPin className="h-4 w-4" />
           <span>Mostrando equipes em <strong>{userLocation}</strong></span>

@@ -364,28 +364,27 @@ export default function EventsPage() {
 
       {/* Search and Filters */}
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-4 space-y-4">
+          {/* Linha 1: Busca grande */}
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Buscar eventos..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              className="pl-12 h-12 text-base"
+            />
+          </div>
+
+          {/* Linha 2: Filtros */}
           <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Buscar eventos..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                className="pl-10"
-              />
-            </div>
-            <div className="relative w-full sm:w-48">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Localização"
+            <div className="w-full sm:w-auto">
+              <CitySelector
                 value={locationFilter}
-                onChange={(e) => setLocationFilter(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                className="pl-10"
+                onChange={setLocationFilter}
+                placeholder="Filtrar por local"
               />
             </div>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
