@@ -1,49 +1,45 @@
 "use client";
 
 import { MessageSquare } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConversationList } from "@/components/messages/conversation-list";
 import { ConnectionSearch } from "@/components/messages/connection-search";
 
 export default function MessagesPage() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <h1 className="sr-only">Mensagens</h1>
       {/* Conversations List */}
-      <Card className="lg:col-span-1 h-fit lg:h-[calc(100vh-8rem)]">
-        <CardHeader className="border-b pb-3">
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
+      <div className="bento-card-static lg:col-span-1 h-fit lg:h-[calc(100vh-8rem)] flex flex-col">
+        <div className="border-b border-border/50 p-4">
+          <h2 className="flex items-center gap-2 font-display font-bold">
+            <MessageSquare className="h-5 w-5 text-primary" />
             Mensagens
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {/* Connection Search Section */}
-          <div className="border-b">
-            <ConnectionSearch />
+          </h2>
+        </div>
+        <div className="border-b border-border/50">
+          <ConnectionSearch />
+        </div>
+        <div className="overflow-y-auto flex-1 custom-scrollbar">
+          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-4 py-2">
+            Conversas Recentes
           </div>
-          {/* Conversations List Section */}
-          <div className="overflow-y-auto max-h-[calc(100vh-24rem)]">
-            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-2">
-              Conversas Recentes
-            </div>
-            <ConversationList />
-          </div>
-        </CardContent>
-      </Card>
+          <ConversationList />
+        </div>
+      </div>
 
       {/* Empty State - Desktop */}
-      <Card className="hidden lg:flex lg:col-span-2 h-[calc(100vh-8rem)] items-center justify-center">
-        <div className="text-center">
-          <div className="rounded-full bg-muted p-6 mx-auto w-fit mb-4">
-            <MessageSquare className="h-12 w-12 text-muted-foreground" />
+      <div className="hidden lg:flex lg:col-span-2 bento-card-static h-[calc(100vh-8rem)] items-center justify-center">
+        <div className="text-center animate-fade-in">
+          <div className="rounded-2xl bg-primary/10 p-6 mx-auto w-fit mb-4">
+            <MessageSquare className="h-12 w-12 text-primary" />
           </div>
-          <h2 className="text-xl font-semibold mb-2">Suas mensagens</h2>
+          <h2 className="heading-section font-display mb-2">Suas mensagens</h2>
           <p className="text-muted-foreground max-w-sm">
             Selecione uma conversa para ver as mensagens ou inicie uma nova conversa
             através do perfil de um usuário conectado.
           </p>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

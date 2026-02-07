@@ -5,8 +5,7 @@ import { useSession } from "next-auth/react";
 import { ImagePlus, Video, Send, X, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
+import { getInitials } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface UserProfile {
@@ -60,27 +59,16 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
     }
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
-    // Check if adding a video when images exist or vice versa
     const hasVideo = mediaFiles.some((m) => m.type === "video");
     if (hasVideo) {
       toast.error("Remova o vídeo antes de adicionar imagens");
       return;
     }
 
-    // Limit to 4 images total
     const remainingSlots = 4 - mediaFiles.length;
     if (remainingSlots <= 0) {
       toast.error("Máximo de 4 imagens por post");
@@ -110,7 +98,6 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    // Cannot add video if there are images
     if (mediaFiles.length > 0) {
       toast.error("Remova as imagens antes de adicionar um vídeo");
       return;
@@ -170,7 +157,6 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
     setIsUploading(mediaFiles.length > 0);
 
     try {
-      // Upload all media files to Cloudinary
       const uploadedMedia: { url: string; type: "image" | "video" }[] = [];
 
       for (const media of mediaFiles) {
@@ -178,12 +164,11 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
         uploadedMedia.push(result);
       }
 
-      // Prepare post data
       const images = uploadedMedia.filter((m) => m.type === "image").map((m) => m.url);
       const video = uploadedMedia.find((m) => m.type === "video");
 
       const postData: { content: string; images?: string[]; videoUrl?: string } = {
-        content: content.trim() || " ", // API requires content
+        content: content.trim() || " ",
       };
 
       if (images.length > 0) {
@@ -203,7 +188,6 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
         throw new Error("Erro ao criar post");
       }
 
-      // Reset form
       setContent("");
       mediaFiles.forEach((media) => URL.revokeObjectURL(media.preview));
       setMediaFiles([]);
@@ -227,33 +211,29 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
   const canAddVideo = mediaFiles.length === 0;
 
   return (
-    <Card className={`transition-all duration-300 ${isFocused ? 'shadow-depth-2 border-primary/30' : 'hover:shadow-lg'}`}>
-      <CardContent className="p-4">
+    <div className={`bento-card-static transition-all duration-200 ${isFocused ? 'ring-2 ring-primary/20 shadow-lg' : ''}`}>
+      <div className="accent-bar" />
+      <div className="p-5">
         <div className="flex gap-3">
-          <Avatar className="h-10 w-10 shrink-0 ring-2 ring-transparent hover:ring-primary/30 transition-all duration-300">
+          <Avatar className="h-10 w-10 shrink-0 rounded-xl">
             <AvatarImage
               src={displayAvatar}
               alt={displayName}
               className="object-cover"
             />
-            <AvatarFallback className="bg-primary text-primary-foreground">
+            <AvatarFallback className="bg-primary text-primary-foreground font-display font-semibold rounded-xl">
               {displayName ? getInitials(displayName) : "U"}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 space-y-3">
-            <div className="relative">
-              <Textarea
-                placeholder="Compartilhe algo com a comunidade..."
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)}
-                className="min-h-[80px] resize-none border-0 bg-muted/50 focus-visible:ring-2 focus-visible:ring-primary/30 transition-all duration-300"
-              />
-              {isFocused && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary to-[oklch(0.65_0.18_30)] animate-scale-in" />
-              )}
-            </div>
+            <textarea
+              placeholder="Compartilhe algo com a comunidade..."
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              className="w-full min-h-[80px] resize-none border-0 bg-transparent focus:outline-none text-foreground placeholder:text-muted-foreground font-body"
+            />
 
             {/* Media Preview */}
             {mediaFiles.length > 0 && (
@@ -264,29 +244,30 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
                       <img
                         src={media.preview}
                         alt=""
-                        className="rounded-lg w-full h-32 object-cover transition-all duration-300 group-hover:brightness-95"
+                        className="rounded-xl w-full h-32 object-cover"
                       />
                     ) : (
                       <video
                         src={media.preview}
-                        className="rounded-lg w-full h-32 object-cover"
+                        className="rounded-xl w-full h-32 object-cover"
                         controls
                       />
                     )}
                     <button
                       type="button"
                       onClick={() => removeMedia(index)}
-                      className="absolute top-1 right-1 p-1.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-black/80 hover:scale-110"
+                      aria-label="Remover mídia"
+                      className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-black/80"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 ))}
               </div>
             )}
 
-            <div className="flex items-center justify-between">
-              <div className="flex gap-2">
+            <div className="flex items-center justify-between border-t border-border/50 pt-3">
+              <div className="flex gap-1">
                 <input
                   ref={imageInputRef}
                   type="file"
@@ -295,16 +276,14 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
                   onChange={handleImageSelect}
                   className="hidden"
                 />
-                <Button
-                  variant="ghost"
-                  size="sm"
+                <button
                   onClick={() => imageInputRef.current?.click()}
                   disabled={!canAddImages || isLoading}
-                  className="hover:bg-primary/10 hover:text-primary transition-colors duration-200"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-40"
                 >
-                  <ImagePlus className="h-4 w-4 mr-1" />
+                  <ImagePlus className="h-4 w-4" />
                   Foto
-                </Button>
+                </button>
 
                 <input
                   ref={videoInputRef}
@@ -313,22 +292,20 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
                   onChange={handleVideoSelect}
                   className="hidden"
                 />
-                <Button
-                  variant="ghost"
-                  size="sm"
+                <button
                   onClick={() => videoInputRef.current?.click()}
                   disabled={!canAddVideo || isLoading}
-                  className="hover:bg-primary/10 hover:text-primary transition-colors duration-200"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-40"
                 >
-                  <Video className="h-4 w-4 mr-1" />
+                  <Video className="h-4 w-4" />
                   Vídeo
-                </Button>
+                </button>
               </div>
               <Button
                 onClick={handleSubmit}
                 disabled={isLoading || (!content.trim() && mediaFiles.length === 0)}
                 size="sm"
-                className="group"
+                className="bg-primary hover:bg-[oklch(0.40_0.18_25)] text-white font-bold rounded-lg px-4"
               >
                 {isLoading ? (
                   <>
@@ -337,7 +314,7 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
                   </>
                 ) : (
                   <>
-                    <Send className="h-4 w-4 mr-1 transition-transform duration-200 group-hover:translate-x-0.5" />
+                    <Send className="h-4 w-4 mr-1" />
                     Publicar
                   </>
                 )}
@@ -345,7 +322,7 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
             </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

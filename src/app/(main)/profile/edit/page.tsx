@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { z } from "zod";
@@ -24,7 +24,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
   Form,
   FormControl,
@@ -54,6 +54,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { CitySelector } from "@/components/ui/city-selector";
+import { getInitials } from "@/lib/utils";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -158,6 +159,8 @@ export default function EditProfilePage() {
     category: "",
   });
   const [isSavingAchievement, setIsSavingAchievement] = useState(false);
+  const [deleteCareerTargetId, setDeleteCareerTargetId] = useState<string | null>(null);
+  const [deleteAchievementTargetId, setDeleteAchievementTargetId] = useState<string | null>(null);
 
   // Share achievement state
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
@@ -176,13 +179,7 @@ export default function EditProfilePage() {
     },
   });
 
-  useEffect(() => {
-    fetchProfile();
-    fetchCareerHistory();
-    fetchAchievements();
-  }, []);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       const response = await fetch("/api/users/me");
       if (!response.ok) throw new Error();
@@ -203,9 +200,9 @@ export default function EditProfilePage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [form]);
 
-  const fetchCareerHistory = async () => {
+  const fetchCareerHistory = useCallback(async () => {
     try {
       const response = await fetch("/api/career");
       if (!response.ok) throw new Error();
@@ -214,9 +211,9 @@ export default function EditProfilePage() {
     } catch {
       console.error("Error fetching career history");
     }
-  };
+  }, []);
 
-  const fetchAchievements = async () => {
+  const fetchAchievements = useCallback(async () => {
     try {
       const response = await fetch("/api/achievements");
       if (!response.ok) throw new Error();
@@ -225,7 +222,13 @@ export default function EditProfilePage() {
     } catch {
       console.error("Error fetching achievements");
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchProfile();
+    fetchCareerHistory();
+    fetchAchievements();
+  }, [fetchProfile, fetchCareerHistory, fetchAchievements]);
 
   const onSubmit = async (data: ProfileForm) => {
     setIsSaving(true);
@@ -264,22 +267,19 @@ export default function EditProfilePage() {
 
     setIsUploadingAvatar(true);
     try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64 = reader.result as string;
+      const formData = new FormData();
+      formData.append("file", file);
 
-        const response = await fetch("/api/users/me/avatar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ avatar: base64 }),
-        });
+      const response = await fetch("/api/users/me/avatar", {
+        method: "POST",
+        body: formData,
+      });
 
-        if (!response.ok) throw new Error();
+      if (!response.ok) throw new Error();
 
-        setAvatarUrl(base64);
-        toast.success("Foto atualizada!");
-      };
-      reader.readAsDataURL(file);
+      const data = await response.json();
+      setAvatarUrl(data.user.avatar);
+      toast.success("Foto atualizada!");
     } catch {
       toast.error("Erro ao atualizar foto");
     } finally {
@@ -323,22 +323,19 @@ export default function EditProfilePage() {
 
     setIsUploadingBanner(true);
     try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64 = reader.result as string;
+      const formData = new FormData();
+      formData.append("file", file);
 
-        const response = await fetch("/api/users/me/banner", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ banner: base64 }),
-        });
+      const response = await fetch("/api/users/me/banner", {
+        method: "POST",
+        body: formData,
+      });
 
-        if (!response.ok) throw new Error();
+      if (!response.ok) throw new Error();
 
-        setBannerUrl(base64);
-        toast.success("Capa atualizada!");
-      };
-      reader.readAsDataURL(file);
+      const data = await response.json();
+      setBannerUrl(data.user.banner);
+      toast.success("Capa atualizada!");
     } catch {
       toast.error("Erro ao atualizar capa");
     } finally {
@@ -387,10 +384,6 @@ export default function EditProfilePage() {
   const removeSkill = (skill: string) => {
     const current = form.getValues("skills");
     form.setValue("skills", current.filter((s) => s !== skill));
-  };
-
-  const getInitials = (name: string) => {
-    return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
   };
 
   // Career handlers
@@ -457,14 +450,14 @@ export default function EditProfilePage() {
     }
   };
 
-  const deleteCareer = async (id: string) => {
-    if (!confirm("Tem certeza que deseja remover esta experiência?")) return;
-
+  const deleteCareer = async () => {
+    if (!deleteCareerTargetId) return;
     try {
-      const response = await fetch(`/api/career/${id}`, { method: "DELETE" });
+      const response = await fetch(`/api/career/${deleteCareerTargetId}`, { method: "DELETE" });
       if (!response.ok) throw new Error();
 
       toast.success("Experiência removida!");
+      setDeleteCareerTargetId(null);
       fetchCareerHistory();
     } catch {
       toast.error("Erro ao remover experiência");
@@ -572,14 +565,14 @@ export default function EditProfilePage() {
     }
   };
 
-  const deleteAchievement = async (id: string) => {
-    if (!confirm("Tem certeza que deseja remover esta conquista?")) return;
-
+  const deleteAchievement = async () => {
+    if (!deleteAchievementTargetId) return;
     try {
-      const response = await fetch(`/api/achievements/${id}`, { method: "DELETE" });
+      const response = await fetch(`/api/achievements/${deleteAchievementTargetId}`, { method: "DELETE" });
       if (!response.ok) throw new Error();
 
       toast.success("Conquista removida!");
+      setDeleteAchievementTargetId(null);
       fetchAchievements();
     } catch {
       toast.error("Erro ao remover conquista");
@@ -604,16 +597,16 @@ export default function EditProfilePage() {
     return (
       <div className="space-y-6">
         <Skeleton className="h-8 w-48" />
-        <Card>
-          <CardContent className="p-6 space-y-6">
+        <div className="bento-card-static">
+          <div className="p-6 space-y-6">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="space-y-2">
                 <Skeleton className="h-4 w-24" />
                 <Skeleton className="h-10 w-full" />
               </div>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     );
   }
@@ -626,17 +619,17 @@ export default function EditProfilePage() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
-        <h1 className="text-2xl font-bold">Editar Perfil</h1>
+        <h1 className="heading-section font-display">Editar Perfil</h1>
       </div>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           {/* Photo Upload Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Foto de Perfil</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <div className="bento-card-static">
+            <div className="p-6 pb-2">
+              <h2 className="heading-card font-display">Foto de Perfil</h2>
+            </div>
+            <div className="p-6 pt-0">
               <div className="flex items-center gap-6">
                 <div className="relative">
                   <Avatar className="h-24 w-24">
@@ -693,15 +686,15 @@ export default function EditProfilePage() {
                   )}
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Banner Upload Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Foto de Capa</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <div className="bento-card-static">
+            <div className="p-6 pb-2">
+              <h2 className="heading-card font-display">Foto de Capa</h2>
+            </div>
+            <div className="p-6 pt-0">
               <div className="space-y-4">
                 <div className="relative w-full h-32 bg-muted rounded-lg overflow-hidden">
                   {bannerUrl ? (
@@ -760,14 +753,14 @@ export default function EditProfilePage() {
                   Recomendado: 1200x300 pixels. Formatos aceitos: JPG, PNG. Tamanho máximo: 5MB.
                 </p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Informações Básicas</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <div className="bento-card-static">
+            <div className="p-6 pb-2">
+              <h2 className="heading-card font-display">Informações Básicas</h2>
+            </div>
+            <div className="p-6 pt-0 space-y-4">
               <FormField
                 control={form.control}
                 name="name"
@@ -843,14 +836,14 @@ export default function EditProfilePage() {
                   </FormItem>
                 )}
               />
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Posições</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <div className="bento-card-static">
+            <div className="p-6 pb-2">
+              <h2 className="heading-card font-display">Posições</h2>
+            </div>
+            <div className="p-6 pt-0">
               <FormField
                 control={form.control}
                 name="positions"
@@ -875,14 +868,14 @@ export default function EditProfilePage() {
                   </FormItem>
                 )}
               />
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Habilidades</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <div className="bento-card-static">
+            <div className="p-6 pb-2">
+              <h2 className="heading-card font-display">Habilidades</h2>
+            </div>
+            <div className="p-6 pt-0">
               <FormField
                 control={form.control}
                 name="skills"
@@ -920,22 +913,22 @@ export default function EditProfilePage() {
                   </FormItem>
                 )}
               />
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Career History Card */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
+          <div className="bento-card-static">
+            <div className="p-6 pb-2 flex flex-row items-center justify-between">
+              <h2 className="heading-card font-display flex items-center gap-2">
                 <Briefcase className="h-5 w-5" />
                 Currículo
-              </CardTitle>
+              </h2>
               <Button type="button" variant="outline" size="sm" onClick={() => openCareerDialog()}>
                 <Plus className="h-4 w-4 mr-2" />
                 Adicionar
               </Button>
-            </CardHeader>
-            <CardContent>
+            </div>
+            <div className="p-6 pt-0">
               {careerHistory.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Adicione seu histórico em equipes de cheerleading.
@@ -986,7 +979,7 @@ export default function EditProfilePage() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => deleteCareer(career.id)}
+                          onClick={() => setDeleteCareerTargetId(career.id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -995,22 +988,22 @@ export default function EditProfilePage() {
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Achievements Card */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
+          <div className="bento-card-static">
+            <div className="p-6 pb-2 flex flex-row items-center justify-between">
+              <h2 className="heading-card font-display flex items-center gap-2">
                 <Trophy className="h-5 w-5" />
                 Conquistas
-              </CardTitle>
+              </h2>
               <Button type="button" variant="outline" size="sm" onClick={() => openAchievementDialog()}>
                 <Plus className="h-4 w-4 mr-2" />
                 Adicionar
               </Button>
-            </CardHeader>
-            <CardContent>
+            </div>
+            <div className="p-6 pt-0">
               {achievements.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Registre suas conquistas e títulos.
@@ -1053,7 +1046,7 @@ export default function EditProfilePage() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => deleteAchievement(achievement.id)}
+                          onClick={() => setDeleteAchievementTargetId(achievement.id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -1062,8 +1055,8 @@ export default function EditProfilePage() {
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           <div className="flex justify-end gap-3">
             <Link href="/profile">
@@ -1300,6 +1293,22 @@ export default function EditProfilePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteCareerTargetId}
+        onOpenChange={(open) => !open && setDeleteCareerTargetId(null)}
+        title="Remover esta experiência?"
+        confirmLabel="Remover"
+        onConfirm={deleteCareer}
+      />
+
+      <ConfirmDialog
+        open={!!deleteAchievementTargetId}
+        onOpenChange={(open) => !open && setDeleteAchievementTargetId(null)}
+        title="Remover esta conquista?"
+        confirmLabel="Remover"
+        onConfirm={deleteAchievement}
+      />
     </div>
   );
 }

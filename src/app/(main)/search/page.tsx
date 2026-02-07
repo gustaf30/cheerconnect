@@ -7,7 +7,6 @@ import { Search as SearchIcon, MapPin, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -18,6 +17,9 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CitySelector } from "@/components/ui/city-selector";
+import { getInitials } from "@/lib/utils";
+import { positionLabels } from "@/lib/constants";
+import { ErrorState } from "@/components/shared/error-state";
 
 interface User {
   id: string;
@@ -29,18 +31,6 @@ interface User {
   positions: string[];
   experience: number | null;
 }
-
-const positionLabels: Record<string, string> = {
-  FLYER: "Flyer",
-  BASE: "Base",
-  BACKSPOT: "Backspot",
-  FRONTSPOT: "Frontspot",
-  TUMBLER: "Tumbler",
-  COACH: "Técnico",
-  CHOREOGRAPHER: "Coreógrafo",
-  JUDGE: "Juiz",
-  OTHER: "Outro",
-};
 
 const positions = [
   { value: "FLYER", label: "Flyer" },
@@ -62,6 +52,7 @@ function SearchContent() {
   const [locationFilter, setLocationFilter] = useState("");
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [userLocation, setUserLocation] = useState<string | null>(null);
   const [filterByUserLocation, setFilterByUserLocation] = useState(true);
@@ -76,6 +67,7 @@ function SearchContent() {
       currentUserLocation: string | null
     ) => {
       setIsLoading(true);
+      setError(null);
       setHasSearched(true);
 
       try {
@@ -97,7 +89,7 @@ function SearchContent() {
         const data = await response.json();
         setUsers(data.users);
       } catch {
-        console.error("Search error");
+        setError("Erro ao buscar. Tente novamente.");
       } finally {
         setIsLoading(false);
       }
@@ -149,22 +141,12 @@ function SearchContent() {
     handleSearchWithQuery(query, position, "", false, null);
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Buscar</h1>
+      <h1 className="heading-section font-display">Buscar</h1>
 
       {/* Search form */}
-      <Card>
-        <CardContent className="p-4">
+      <div className="bento-card-static p-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -174,7 +156,7 @@ function SearchContent() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                className="pl-10"
+                className="pl-10 input-premium"
               />
             </div>
             <div className="w-full sm:w-auto">
@@ -202,8 +184,7 @@ function SearchContent() {
               Buscar
             </Button>
           </div>
-        </CardContent>
-      </Card>
+      </div>
 
       {/* Location filter banner */}
       {!isLoadingUserLocation &&
@@ -228,50 +209,48 @@ function SearchContent() {
         )}
 
       {/* Results */}
-      {isLoading ? (
+      {error ? (
+        <ErrorState message={error} onRetry={() => { setError(null); handleSearch(); }} />
+      ) : isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <Card key={i}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <Skeleton className="h-14 w-14 rounded-full" />
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-40" />
-                    <Skeleton className="h-3 w-28" />
-                    <Skeleton className="h-3 w-56" />
-                  </div>
+            <div key={i} className="bento-card-static p-4">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-14 w-14 rounded-xl" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-3 w-28" />
+                  <Skeleton className="h-3 w-56" />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ))}
         </div>
       ) : hasSearched ? (
         users.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center text-muted-foreground">
-              Nenhum usuário encontrado. Tente outros termos de busca.
-            </CardContent>
-          </Card>
+          <div className="bento-card-static p-8 text-center text-muted-foreground">
+            Nenhum usuário encontrado. Tente outros termos de busca.
+          </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 stagger-children">
             {users.map((user) => (
               <Link key={user.id} href={`/profile/${user.username}`}>
-                <Card className="hover:bg-muted/50 transition-colors">
-                  <CardContent className="p-4">
+                <div className="bento-card">
+                  <div className="p-4">
                     <div className="flex items-start gap-4">
-                      <Avatar className="h-14 w-14 shrink-0">
+                      <Avatar className="h-14 w-14 shrink-0 avatar-glow">
                         <AvatarImage
                           src={user.avatar || undefined}
                           alt={user.name}
                         />
-                        <AvatarFallback className="bg-primary text-primary-foreground">
+                        <AvatarFallback className="bg-primary text-primary-foreground font-display font-semibold">
                           {getInitials(user.name)}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold">{user.name}</h3>
-                          <span className="text-sm text-muted-foreground">
+                          <h3 className="font-display font-semibold">{user.name}</h3>
+                          <span className="text-sm text-muted-foreground font-mono">
                             @{user.username}
                           </span>
                         </div>
@@ -280,7 +259,7 @@ function SearchContent() {
                             {user.positions.map((pos) => (
                               <Badge
                                 key={pos}
-                                variant="secondary"
+                                variant="gradient"
                                 className="text-xs"
                               >
                                 {positionLabels[pos] || pos}
@@ -310,19 +289,17 @@ function SearchContent() {
                         </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               </Link>
             ))}
           </div>
         )
       ) : (
-        <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">
-            Use a busca acima para encontrar atletas, técnicos e outros membros
-            da comunidade.
-          </CardContent>
-        </Card>
+        <div className="bento-card-static p-8 text-center text-muted-foreground">
+          Use a busca acima para encontrar atletas, técnicos e outros membros
+          da comunidade.
+        </div>
       )}
     </div>
   );

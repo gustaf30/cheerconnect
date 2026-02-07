@@ -19,10 +19,33 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get("limit") || "20");
     const cursor = searchParams.get("cursor");
 
+    // Get IDs of users with accepted connections to current user
+    const acceptedConnections = await prisma.connection.findMany({
+      where: {
+        status: "ACCEPTED",
+        OR: [
+          { senderId: session.user.id },
+          { receiverId: session.user.id },
+        ],
+      },
+      select: { senderId: true, receiverId: true },
+    });
+
+    const connectedUserIds = acceptedConnections.map((c) =>
+      c.senderId === session.user.id ? c.receiverId : c.senderId
+    );
+
     const users = await prisma.user.findMany({
       where: {
         id: { not: session.user.id },
         AND: [
+          // Profile visibility filter
+          {
+            OR: [
+              { profileVisibility: "PUBLIC" },
+              { id: { in: connectedUserIds } },
+            ],
+          },
           query
             ? {
                 OR: [

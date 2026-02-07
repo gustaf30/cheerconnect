@@ -32,28 +32,36 @@ export async function POST(
       );
     }
 
-    // Get current user info for notification message
-    const currentUser = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { name: true },
-    });
+    // Get current user info and sender notification preferences
+    const [currentUser, senderPrefs] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { name: true },
+      }),
+      prisma.user.findUnique({
+        where: { id: senderId },
+        select: { notifyConnectionAccepted: true },
+      }),
+    ]);
 
     const updatedConnection = await prisma.connection.update({
       where: { id: connection.id },
       data: { status: "ACCEPTED" },
     });
 
-    // Create notification for the original sender
-    await prisma.notification.create({
-      data: {
-        userId: senderId,
-        type: "CONNECTION_ACCEPTED",
-        message: `${currentUser?.name || "Alguém"} aceitou sua conexão`,
-        actorId: session.user.id,
-        relatedId: connection.id,
-        relatedType: "connection",
-      },
-    });
+    // Create notification for the original sender (if enabled)
+    if (senderPrefs?.notifyConnectionAccepted) {
+      await prisma.notification.create({
+        data: {
+          userId: senderId,
+          type: "CONNECTION_ACCEPTED",
+          message: `${currentUser?.name || "Alguém"} aceitou sua conexão`,
+          actorId: session.user.id,
+          relatedId: connection.id,
+          relatedType: "connection",
+        },
+      });
+    }
 
     return NextResponse.json({ connection: updatedConnection });
   } catch (error) {

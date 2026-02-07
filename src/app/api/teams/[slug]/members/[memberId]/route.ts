@@ -94,42 +94,41 @@ export async function PATCH(
       );
     }
 
-    // If removing isAdmin, check if it's not the last admin
-    if (data.isAdmin === false && memberToUpdate.isAdmin) {
-      const adminCount = await prisma.teamMember.count({
-        where: {
-          teamId: team.id,
-          isActive: true,
-          isAdmin: true,
-        },
-      });
+    // Use transaction to prevent race condition when removing last admin
+    const updatedMember = await prisma.$transaction(async (tx) => {
+      if (data.isAdmin === false && memberToUpdate.isAdmin) {
+        const adminCount = await tx.teamMember.count({
+          where: {
+            teamId: team.id,
+            isActive: true,
+            isAdmin: true,
+          },
+        });
 
-      if (adminCount <= 1) {
-        return NextResponse.json(
-          { error: "A equipe deve ter pelo menos um administrador" },
-          { status: 400 }
-        );
+        if (adminCount <= 1) {
+          throw new Error("LAST_ADMIN");
+        }
       }
-    }
 
-    const updatedMember = await prisma.teamMember.update({
-      where: { id: memberId },
-      data: {
-        ...(data.role !== undefined && { role: data.role }),
-        ...(data.hasPermission !== undefined && { hasPermission: data.hasPermission }),
-        ...(data.isAdmin !== undefined && { isAdmin: data.isAdmin }),
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
-            avatar: true,
-            positions: true,
+      return tx.teamMember.update({
+        where: { id: memberId },
+        data: {
+          ...(data.role !== undefined && { role: data.role }),
+          ...(data.hasPermission !== undefined && { hasPermission: data.hasPermission }),
+          ...(data.isAdmin !== undefined && { isAdmin: data.isAdmin }),
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              username: true,
+              avatar: true,
+              positions: true,
+            },
           },
         },
-      },
+      });
     });
 
     return NextResponse.json({ member: updatedMember });
@@ -137,6 +136,13 @@ export async function PATCH(
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: error.issues[0].message },
+        { status: 400 }
+      );
+    }
+
+    if (error instanceof Error && error.message === "LAST_ADMIN") {
+      return NextResponse.json(
+        { error: "A equipe deve ter pelo menos um administrador" },
         { status: 400 }
       );
     }
@@ -222,35 +228,41 @@ export async function DELETE(
       );
     }
 
-    // Cannot remove if it's the last admin
-    if (memberToRemove.isAdmin) {
-      const adminCount = await prisma.teamMember.count({
-        where: {
-          teamId: team.id,
-          isActive: true,
-          isAdmin: true,
+    // Use transaction to prevent race condition when removing last admin
+    await prisma.$transaction(async (tx) => {
+      if (memberToRemove.isAdmin) {
+        const adminCount = await tx.teamMember.count({
+          where: {
+            teamId: team.id,
+            isActive: true,
+            isAdmin: true,
+          },
+        });
+
+        if (adminCount <= 1) {
+          throw new Error("LAST_ADMIN");
+        }
+      }
+
+      // Soft delete - mark as inactive
+      await tx.teamMember.update({
+        where: { id: memberId },
+        data: {
+          isActive: false,
+          leftAt: new Date(),
         },
       });
-
-      if (adminCount <= 1) {
-        return NextResponse.json(
-          { error: "Não é possível remover o último administrador da equipe" },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Soft delete - mark as inactive
-    await prisma.teamMember.update({
-      where: { id: memberId },
-      data: {
-        isActive: false,
-        leftAt: new Date(),
-      },
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof Error && error.message === "LAST_ADMIN") {
+      return NextResponse.json(
+        { error: "Não é possível remover o último administrador da equipe" },
+        { status: 400 }
+      );
+    }
+
     console.error("Remove member error:", error);
     return NextResponse.json(
       { error: "Erro interno do servidor" },

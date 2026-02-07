@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Heart, MessageCircle, UserPlus, UserCheck, Mail, Users } from "lucide-react";
+import { Heart, MessageCircle, UserPlus, UserCheck, Mail, Users, Repeat2, Reply } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
 import type { CSSProperties } from "react";
 
 interface NotificationActor {
@@ -37,6 +37,10 @@ const getNotificationIcon = (type: string) => {
       return <Heart className="h-4 w-4 text-red-500" />;
     case "POST_COMMENTED":
       return <MessageCircle className="h-4 w-4 text-blue-500" />;
+    case "COMMENT_REPLIED":
+      return <Reply className="h-4 w-4 text-blue-400" />;
+    case "POST_REPOSTED":
+      return <Repeat2 className="h-4 w-4 text-green-500" />;
     case "CONNECTION_REQUEST":
       return <UserPlus className="h-4 w-4 text-purple-500" />;
     case "CONNECTION_ACCEPTED":
@@ -83,15 +87,6 @@ const formatTimeAgo = (dateString: string): string => {
   return date.toLocaleDateString("pt-BR", { day: "numeric", month: "short" });
 };
 
-const getInitials = (name: string): string => {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-};
-
 export function NotificationItem({ notification, onRead, style }: NotificationItemProps) {
   const handleClick = () => {
     if (!notification.isRead) {
@@ -129,9 +124,9 @@ export function NotificationItem({ notification, onRead, style }: NotificationIt
         <p className={cn("text-sm transition-colors duration-200", !notification.isRead && "font-medium")}>
           {notification.message}
         </p>
-        <p className="text-xs text-muted-foreground mt-0.5">
+        <time dateTime={new Date(notification.createdAt).toISOString()} className="text-xs text-muted-foreground mt-0.5 block">
           {formatTimeAgo(notification.createdAt)}
-        </p>
+        </time>
       </div>
 
       {!notification.isRead && (

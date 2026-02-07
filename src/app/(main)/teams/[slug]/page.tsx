@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
@@ -9,13 +10,23 @@ import { prisma } from "@/lib/prisma";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PostCard } from "@/components/feed/post-card";
 import { FollowButton } from "@/components/teams/follow-button";
+import { getInitials } from "@/lib/utils";
+import { positionLabels } from "@/lib/constants";
 
 interface TeamPageProps {
   params: Promise<{ slug: string }>;
+}
+
+export async function generateMetadata({ params }: TeamPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const team = await prisma.team.findUnique({
+    where: { slug },
+    select: { name: true },
+  });
+  return { title: team ? `${team.name} - CheerConnect` : "Equipe - CheerConnect" };
 }
 
 const categoryLabels: Record<string, string> = {
@@ -24,18 +35,6 @@ const categoryLabels: Record<string, string> = {
   COLLEGE: "Universitário",
   RECREATIONAL: "Recreativo",
   PROFESSIONAL: "Profissional",
-};
-
-const positionLabels: Record<string, string> = {
-  FLYER: "Flyer",
-  BASE: "Base",
-  BACKSPOT: "Backspot",
-  FRONTSPOT: "Frontspot",
-  TUMBLER: "Tumbler",
-  COACH: "Técnico",
-  CHOREOGRAPHER: "Coreógrafo",
-  JUDGE: "Juiz",
-  OTHER: "Outro",
 };
 
 const eventTypeLabels: Record<string, string> = {
@@ -130,15 +129,6 @@ export default async function TeamPage({ params }: TeamPageProps) {
     notFound();
   }
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   const posts = team.posts.map((post) => ({
     ...post,
     createdAt: post.createdAt.toISOString(),
@@ -149,7 +139,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
   return (
     <div className="space-y-6">
       {/* Team header */}
-      <Card>
+      <div className="bento-card-static">
         <div className="h-32 sm:h-48 bg-gradient-to-r from-primary/30 to-primary/10 relative rounded-t-xl">
           {team.banner && (
             <img
@@ -159,7 +149,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
             />
           )}
         </div>
-        <CardContent className="px-6 pb-6">
+        <div className="px-6 pb-6">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 -mt-12 sm:-mt-16">
             <Avatar className="h-24 w-24 sm:h-32 sm:w-32 rounded-xl border-4 border-background">
               <AvatarImage src={team.logo || undefined} alt={team.name} className="object-cover" />
@@ -245,8 +235,8 @@ export default async function TeamPage({ params }: TeamPageProps) {
               </div>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Tabs */}
       <Tabs defaultValue="posts">
@@ -259,19 +249,19 @@ export default async function TeamPage({ params }: TeamPageProps) {
 
         <TabsContent value="posts" className="mt-4 space-y-4">
           {posts.length === 0 ? (
-            <Card>
-              <CardContent className="p-8 text-center text-muted-foreground">
+            <div className="bento-card-static">
+              <div className="p-8 text-center text-muted-foreground">
                 Nenhuma publicação ainda.
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ) : (
             posts.map((post) => <PostCard key={post.id} post={post} />)
           )}
         </TabsContent>
 
         <TabsContent value="members" className="mt-4">
-          <Card>
-            <CardContent className="p-4">
+          <div className="bento-card-static">
+            <div className="p-4">
               <div className="space-y-3">
                 {team.members.map((member) => (
                   <Link
@@ -310,13 +300,13 @@ export default async function TeamPage({ params }: TeamPageProps) {
                   </Link>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="achievements" className="mt-4">
-          <Card>
-            <CardContent className="p-4">
+          <div className="bento-card-static">
+            <div className="p-4">
               {team.achievements.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">
                   Nenhuma conquista registrada.
@@ -355,13 +345,13 @@ export default async function TeamPage({ params }: TeamPageProps) {
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="events" className="mt-4">
-          <Card>
-            <CardContent className="p-4">
+          <div className="bento-card-static">
+            <div className="p-4">
               {team.events.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">
                   Nenhum evento próximo.
@@ -404,8 +394,8 @@ export default async function TeamPage({ params }: TeamPageProps) {
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

@@ -1,5 +1,6 @@
 import { Header } from "@/components/shared/header";
 import { Sidebar } from "@/components/shared/sidebar";
+import { PageTransitionProvider } from "@/components/providers/page-transition-provider";
 
 export default function MainLayout({
   children,
@@ -9,15 +10,17 @@ export default function MainLayout({
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <div className="flex flex-1">
-        {/* Desktop Sidebar - sticky to stay fixed while scrolling */}
-        <aside className="hidden md:flex w-64 flex-col border-r bg-sidebar sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
+      <div className="flex-1 flex max-w-[1440px] mx-auto w-full px-6 md:px-12 py-8 gap-8">
+        {/* Desktop Sidebar - Bento style */}
+        <aside className="hidden lg:flex w-72 flex-col gap-4 sticky top-24 h-fit">
           <Sidebar />
         </aside>
 
         {/* Main content */}
         <main className="flex-1 overflow-auto">
-          <div className="container py-6 px-4 md:px-6 max-w-4xl mx-auto">{children}</div>
+          <PageTransitionProvider>
+            <div className="max-w-[840px]">{children}</div>
+          </PageTransitionProvider>
         </main>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -7,6 +8,15 @@ import { ProfileTabs } from "@/components/profile/profile-tabs";
 
 interface ProfilePageProps {
   params: Promise<{ username: string }>;
+}
+
+export async function generateMetadata({ params }: ProfilePageProps): Promise<Metadata> {
+  const { username } = await params;
+  const user = await prisma.user.findUnique({
+    where: { username },
+    select: { name: true },
+  });
+  return { title: user ? `${user.name} - CheerConnect` : "Perfil - CheerConnect" };
 }
 
 export default async function UserProfilePage({ params }: ProfilePageProps) {

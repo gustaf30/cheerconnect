@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -28,7 +28,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -50,6 +49,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { CitySelector } from "@/components/ui/city-selector";
+import { getInitials } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
 interface Team {
   id: string;
@@ -233,15 +234,10 @@ export default function TeamEditPage({ params }: PageProps) {
   const [isSavingMember, setIsSavingMember] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const [cancellingInviteId, setCancellingInviteId] = useState<string | null>(null);
+  const [removeMemberTarget, setRemoveMemberTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleteTeamConfirmOpen, setDeleteTeamConfirmOpen] = useState(false);
 
-  useEffect(() => {
-    fetchTeam();
-    fetchAchievements();
-    fetchMembers();
-    fetchInvites();
-  }, [slug]);
-
-  const fetchTeam = async () => {
+  const fetchTeam = useCallback(async () => {
     try {
       const response = await fetch(`/api/teams/${slug}`);
       if (!response.ok) {
@@ -277,9 +273,9 @@ export default function TeamEditPage({ params }: PageProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [slug, router]);
 
-  const fetchAchievements = async () => {
+  const fetchAchievements = useCallback(async () => {
     try {
       const response = await fetch(`/api/teams/${slug}/achievements`);
       if (response.ok) {
@@ -289,9 +285,9 @@ export default function TeamEditPage({ params }: PageProps) {
     } catch {
       console.error("Error fetching achievements");
     }
-  };
+  }, [slug]);
 
-  const fetchMembers = async () => {
+  const fetchMembers = useCallback(async () => {
     setIsLoadingMembers(true);
     try {
       const response = await fetch(`/api/teams/${slug}/members`);
@@ -305,9 +301,9 @@ export default function TeamEditPage({ params }: PageProps) {
     } finally {
       setIsLoadingMembers(false);
     }
-  };
+  }, [slug]);
 
-  const fetchInvites = async () => {
+  const fetchInvites = useCallback(async () => {
     try {
       const response = await fetch(`/api/teams/${slug}/invites`);
       if (response.ok) {
@@ -317,7 +313,14 @@ export default function TeamEditPage({ params }: PageProps) {
     } catch {
       console.error("Error fetching invites");
     }
-  };
+  }, [slug]);
+
+  useEffect(() => {
+    fetchTeam();
+    fetchAchievements();
+    fetchMembers();
+    fetchInvites();
+  }, [fetchTeam, fetchAchievements, fetchMembers, fetchInvites]);
 
   const searchConnections = async (query: string) => {
     if (!query.trim()) {
@@ -481,12 +484,11 @@ export default function TeamEditPage({ params }: PageProps) {
     }
   };
 
-  const handleRemoveMember = async (memberId: string, memberName: string) => {
-    if (!confirm(`Remover ${memberName} da equipe?`)) return;
-
-    setRemovingMemberId(memberId);
+  const handleRemoveMember = async () => {
+    if (!removeMemberTarget) return;
+    setRemovingMemberId(removeMemberTarget.id);
     try {
-      const response = await fetch(`/api/teams/${slug}/members/${memberId}`, {
+      const response = await fetch(`/api/teams/${slug}/members/${removeMemberTarget.id}`, {
         method: "DELETE",
       });
 
@@ -495,7 +497,8 @@ export default function TeamEditPage({ params }: PageProps) {
         throw new Error(error.error);
       }
 
-      setMembers(members.filter((m) => m.id !== memberId));
+      setMembers(members.filter((m) => m.id !== removeMemberTarget.id));
+      setRemoveMemberTarget(null);
       toast.success("Membro removido");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao remover membro");
@@ -743,10 +746,6 @@ export default function TeamEditPage({ params }: PageProps) {
   };
 
   const handleDeleteTeam = async () => {
-    if (!confirm("Tem certeza que deseja excluir esta equipe? Esta ação não pode ser desfeita.")) {
-      return;
-    }
-
     setIsDeleting(true);
     try {
       const response = await fetch(`/api/teams/${slug}`, {
@@ -767,26 +766,17 @@ export default function TeamEditPage({ params }: PageProps) {
     }
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   if (isLoading) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-10 w-48" />
-        <Card>
-          <CardContent className="p-6 space-y-4">
+        <div className="bento-card-static">
+          <div className="p-6 space-y-4">
             <Skeleton className="h-32 w-32 rounded-xl" />
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-20 w-full" />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     );
   }
@@ -803,7 +793,7 @@ export default function TeamEditPage({ params }: PageProps) {
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
-        <h1 className="text-2xl font-bold">Gerenciar Equipe</h1>
+        <h1 className="heading-section font-display">Gerenciar Equipe</h1>
       </div>
 
       <Tabs defaultValue="info">
@@ -817,11 +807,11 @@ export default function TeamEditPage({ params }: PageProps) {
 
         {/* Info Tab */}
         <TabsContent value="info" className="mt-4 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Logo da Equipe</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <div className="bento-card-static">
+            <div className="p-6 pb-2">
+              <h2 className="heading-card font-display">Logo da Equipe</h2>
+            </div>
+            <div className="p-6 pt-0">
               <div className="flex items-center gap-6">
                 <div className="relative">
                   <Avatar className="h-32 w-32 rounded-xl">
@@ -845,14 +835,14 @@ export default function TeamEditPage({ params }: PageProps) {
                   <p>Tamanho máximo: 5MB</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Informações Básicas</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <div className="bento-card-static">
+            <div className="p-6 pb-2">
+              <h2 className="heading-card font-display">Informações Básicas</h2>
+            </div>
+            <div className="p-6 pt-0 space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Nome da Equipe *</label>
                 <Input
@@ -933,8 +923,8 @@ export default function TeamEditPage({ params }: PageProps) {
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Salvar Alterações
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </TabsContent>
 
         {/* Members Tab */}
@@ -950,11 +940,11 @@ export default function TeamEditPage({ params }: PageProps) {
 
           {/* Pending Invites */}
           {invites.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Convites Pendentes</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <div className="bento-card-static">
+              <div className="p-6 pb-2">
+                <h2 className="heading-card font-display text-base">Convites Pendentes</h2>
+              </div>
+              <div className="p-6 pt-0 space-y-3">
                 {invites.map((invite) => (
                   <div
                     key={invite.id}
@@ -1009,18 +999,18 @@ export default function TeamEditPage({ params }: PageProps) {
                     </div>
                   </div>
                 ))}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           )}
 
           {/* Current Members */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">
+          <div className="bento-card-static">
+            <div className="p-6 pb-2">
+              <h2 className="heading-card font-display text-base">
                 Membros Ativos ({members.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+              </h2>
+            </div>
+            <div className="p-6 pt-0">
               {isLoadingMembers ? (
                 <div className="flex justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -1196,9 +1186,7 @@ export default function TeamEditPage({ params }: PageProps) {
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 text-destructive hover:text-destructive"
-                                onClick={() =>
-                                  handleRemoveMember(member.id, member.user.name)
-                                }
+                                onClick={() => setRemoveMemberTarget({ id: member.id, name: member.user.name })}
                                 disabled={removingMemberId === member.id}
                               >
                                 {removingMemberId === member.id ? (
@@ -1215,17 +1203,17 @@ export default function TeamEditPage({ params }: PageProps) {
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </TabsContent>
 
         {/* Posts Tab */}
         <TabsContent value="posts" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Publicar como {team.name}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <div className="bento-card-static">
+            <div className="p-6 pb-2">
+              <h2 className="heading-card font-display">Publicar como {team.name}</h2>
+            </div>
+            <div className="p-6 pt-0 space-y-4">
               <Textarea
                 placeholder="Compartilhe novidades da equipe..."
                 value={postContent}
@@ -1240,8 +1228,8 @@ export default function TeamEditPage({ params }: PageProps) {
                 )}
                 Publicar
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </TabsContent>
 
         {/* Achievements Tab */}
@@ -1255,16 +1243,16 @@ export default function TeamEditPage({ params }: PageProps) {
           </div>
 
           {achievements.length === 0 ? (
-            <Card>
-              <CardContent className="p-8 text-center text-muted-foreground">
+            <div className="bento-card-static">
+              <div className="p-8 text-center text-muted-foreground">
                 Nenhuma conquista registrada ainda.
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ) : (
             <div className="space-y-3">
               {achievements.map((achievement) => (
-                <Card key={achievement.id}>
-                  <CardContent className="p-4">
+                <div key={achievement.id} className="bento-card-static">
+                  <div className="p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3">
                         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -1300,8 +1288,8 @@ export default function TeamEditPage({ params }: PageProps) {
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -1317,20 +1305,20 @@ export default function TeamEditPage({ params }: PageProps) {
             </Button>
           </div>
 
-          <Card>
-            <CardContent className="p-8 text-center text-muted-foreground">
+          <div className="bento-card-static">
+            <div className="p-8 text-center text-muted-foreground">
               Os eventos criados aqui aparecerão na página da equipe e na lista geral de eventos.
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
 
       {/* Danger Zone */}
-      <Card className="border-destructive">
-        <CardHeader>
-          <CardTitle className="text-destructive">Zona de Perigo</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="bento-card-static border-destructive/30">
+        <div className="p-6 pb-2">
+          <h2 className="heading-card font-display text-destructive">Zona de Perigo</h2>
+        </div>
+        <div className="p-6 pt-0">
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium">Excluir equipe</p>
@@ -1340,7 +1328,7 @@ export default function TeamEditPage({ params }: PageProps) {
             </div>
             <Button
               variant="destructive"
-              onClick={handleDeleteTeam}
+              onClick={() => setDeleteTeamConfirmOpen(true)}
               disabled={isDeleting}
             >
               {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -1348,8 +1336,8 @@ export default function TeamEditPage({ params }: PageProps) {
               Excluir Equipe
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Achievement Dialog */}
       <Dialog open={achievementDialogOpen} onOpenChange={setAchievementDialogOpen}>
@@ -1716,6 +1704,25 @@ export default function TeamEditPage({ params }: PageProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!removeMemberTarget}
+        onOpenChange={(open) => !open && setRemoveMemberTarget(null)}
+        title={`Remover ${removeMemberTarget?.name || ""} da equipe?`}
+        confirmLabel="Remover"
+        isLoading={!!removingMemberId}
+        onConfirm={handleRemoveMember}
+      />
+
+      <ConfirmDialog
+        open={deleteTeamConfirmOpen}
+        onOpenChange={setDeleteTeamConfirmOpen}
+        title="Excluir esta equipe?"
+        description="Esta ação é irreversível. Todos os dados da equipe serão perdidos."
+        confirmLabel="Excluir equipe"
+        isLoading={isDeleting}
+        onConfirm={handleDeleteTeam}
+      />
     </div>
   );
 }

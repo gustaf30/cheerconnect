@@ -6,9 +6,9 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Heart, MoreHorizontal, Trash2, X, Repeat2, ZoomIn } from "lucide-react";
 import { useSession } from "next-auth/react";
+import { motion, useAnimation, useReducedMotion } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,8 +17,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
+import { positionLabels } from "@/lib/constants";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { CommentSection } from "./comment-section";
 
 interface PostAuthor {
@@ -58,11 +60,12 @@ interface PostProps {
   post: PostData;
   onDelete?: (id: string) => void;
   onLikeToggle?: (id: string) => void;
-  animationDelay?: number;
 }
 
-export function PostCard({ post, onDelete, onLikeToggle, animationDelay = 0 }: PostProps) {
+export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
   const { data: session } = useSession();
+  const likeControls = useAnimation();
+  const shouldReduceMotion = useReducedMotion();
 
   // For reposts, likes/comments go to the original post
   const targetPost = post.originalPost || post;
@@ -76,21 +79,21 @@ export function PostCard({ post, onDelete, onLikeToggle, animationDelay = 0 }: P
   const [isReposting, setIsReposting] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [justLiked, setJustLiked] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const isAuthor = session?.user?.id === post.author.id;
   const isTargetAuthor = session?.user?.id === targetPost.author.id;
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   const handleLike = async () => {
     try {
+      // Spring animation for like button
+      if (!isLiked && !shouldReduceMotion) {
+        likeControls.start({
+          scale: [1, 1.3, 0.95, 1.1, 1],
+          transition: { duration: 0.4, ease: "easeOut" }
+        });
+      }
+
       const response = await fetch(`/api/posts/${targetPost.id}/like`, {
         method: isLiked ? "DELETE" : "POST",
       });
@@ -154,8 +157,6 @@ export function PostCard({ post, onDelete, onLikeToggle, animationDelay = 0 }: P
   };
 
   const handleDelete = async () => {
-    if (!confirm("Tem certeza que deseja excluir este post?")) return;
-
     setIsDeleting(true);
     try {
       const response = await fetch(`/api/posts/${post.id}`, {
@@ -173,18 +174,6 @@ export function PostCard({ post, onDelete, onLikeToggle, animationDelay = 0 }: P
     }
   };
 
-  const positionLabels: Record<string, string> = {
-    FLYER: "Flyer",
-    BASE: "Base",
-    BACKSPOT: "Backspot",
-    FRONTSPOT: "Frontspot",
-    TUMBLER: "Tumbler",
-    COACH: "Técnico",
-    CHOREOGRAPHER: "Coreógrafo",
-    JUDGE: "Juiz",
-    OTHER: "Outro",
-  };
-
   const renderAuthorHeader = (
     author: PostAuthor,
     team: PostTeam | null | undefined,
@@ -197,22 +186,24 @@ export function PostCard({ post, onDelete, onLikeToggle, animationDelay = 0 }: P
           // Post de equipe - mostrar equipe como autor
           <>
             <Link href={`/teams/${team.slug}`}>
-              <Avatar className="h-10 w-10 ring-2 ring-transparent hover:ring-primary/30 transition-all duration-300">
-                <AvatarImage
-                  src={team.logo || undefined}
-                  alt={team.name}
-                  className="object-cover"
-                />
-                <AvatarFallback className="bg-primary text-primary-foreground">
-                  {getInitials(team.name)}
-                </AvatarFallback>
-              </Avatar>
+              <div>
+                <Avatar className="h-10 w-10 ring-2 ring-transparent hover:ring-primary/30 transition-base avatar-glow">
+                  <AvatarImage
+                    src={team.logo || undefined}
+                    alt={team.name}
+                    className="object-cover"
+                  />
+                  <AvatarFallback className="bg-primary text-primary-foreground font-display font-semibold">
+                    {getInitials(team.name)}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
             </Link>
             <div>
               <div className="flex items-center gap-2">
                 <Link
                   href={`/teams/${team.slug}`}
-                  className="font-semibold hover:underline animated-underline"
+                  className="font-display font-semibold hover:underline animated-underline"
                 >
                   {team.name}
                 </Link>
@@ -221,12 +212,12 @@ export function PostCard({ post, onDelete, onLikeToggle, animationDelay = 0 }: P
                 </Badge>
               </div>
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <span>
+                <time dateTime={new Date(createdAt).toISOString()}>
                   {formatDistanceToNow(new Date(createdAt), {
                     addSuffix: true,
                     locale: ptBR,
                   })}
-                </span>
+                </time>
               </div>
             </div>
           </>
@@ -234,22 +225,24 @@ export function PostCard({ post, onDelete, onLikeToggle, animationDelay = 0 }: P
           // Post de usuário - mostrar usuário como autor
           <>
             <Link href={`/profile/${author.username}`}>
-              <Avatar className="h-10 w-10 ring-2 ring-transparent hover:ring-primary/30 transition-all duration-300">
-                <AvatarImage
-                  src={author.avatar || undefined}
-                  alt={author.name}
-                  className="object-cover"
-                />
-                <AvatarFallback className="bg-primary text-primary-foreground">
-                  {getInitials(author.name)}
-                </AvatarFallback>
-              </Avatar>
+              <div>
+                <Avatar className="h-10 w-10 ring-2 ring-transparent hover:ring-primary/30 transition-base avatar-glow">
+                  <AvatarImage
+                    src={author.avatar || undefined}
+                    alt={author.name}
+                    className="object-cover"
+                  />
+                  <AvatarFallback className="bg-primary text-primary-foreground font-display font-semibold">
+                    {getInitials(author.name)}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
             </Link>
             <div>
               <div className="flex items-center gap-2">
                 <Link
                   href={`/profile/${author.username}`}
-                  className="font-semibold hover:underline"
+                  className="font-display font-semibold hover:underline animated-underline"
                 >
                   {author.name}
                 </Link>
@@ -268,12 +261,12 @@ export function PostCard({ post, onDelete, onLikeToggle, animationDelay = 0 }: P
                   @{author.username}
                 </Link>
                 <span>·</span>
-                <span>
+                <time dateTime={new Date(createdAt).toISOString()}>
                   {formatDistanceToNow(new Date(createdAt), {
                     addSuffix: true,
                     locale: ptBR,
                   })}
-                </span>
+                </time>
               </div>
             </div>
           </>
@@ -283,14 +276,14 @@ export function PostCard({ post, onDelete, onLikeToggle, animationDelay = 0 }: P
       {showRepostIndicator && isAuthor && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent/80">
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent/80" aria-label="Mais opções">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="animate-scale-in">
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
-              onClick={handleDelete}
+              onClick={() => setShowDeleteConfirm(true)}
               disabled={isDeleting}
             >
               <Trash2 className="h-4 w-4 mr-2" />
@@ -317,10 +310,10 @@ export function PostCard({ post, onDelete, onLikeToggle, animationDelay = 0 }: P
               <img
                 src={image}
                 alt=""
-                className="max-h-80 w-full object-contain transition-all duration-300 group-hover:brightness-95 group-hover:scale-[1.02] bg-muted"
+                className="max-h-80 w-full object-contain transition-base group-hover:brightness-95 group-hover:scale-[1.02] bg-muted"
               />
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
-                <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 drop-shadow-lg" />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-base flex items-center justify-center">
+                <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-base drop-shadow-lg" />
               </div>
             </div>
           ))}
@@ -340,13 +333,14 @@ export function PostCard({ post, onDelete, onLikeToggle, animationDelay = 0 }: P
   );
 
   return (
-    <Card
-      className="animate-slide-up transition-all duration-300 hover:shadow-depth-2"
-      style={{ animationDelay: `${animationDelay}ms` }}
+    <div
+      className="bento-card"
     >
+      <div className="accent-bar" />
+
       {/* Repost indicator */}
       {isRepost && (
-        <div className="px-4 pt-3 flex items-center gap-2 text-sm text-muted-foreground bg-muted/30 rounded-t-xl">
+        <div className="px-5 pt-3 flex items-center gap-2 text-sm text-muted-foreground">
           <Repeat2 className="h-4 w-4" />
           <Link href={`/profile/${post.author.username}`} className="hover:underline font-medium">
             {post.author.name}
@@ -355,9 +349,8 @@ export function PostCard({ post, onDelete, onLikeToggle, animationDelay = 0 }: P
         </div>
       )}
 
-      <CardHeader className="pb-3">
+      <div className="px-5 pt-4 pb-3">
         {isRepost && post.originalPost ? (
-          // For reposts, show original author
           renderAuthorHeader(
             post.originalPost.author,
             post.originalPost.team,
@@ -365,20 +358,19 @@ export function PostCard({ post, onDelete, onLikeToggle, animationDelay = 0 }: P
             true
           )
         ) : (
-          // Normal post
           <>
             {renderAuthorHeader(post.author, post.team, post.createdAt, false)}
             {isAuthor && !isRepost && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 absolute top-3 right-3 hover:bg-accent/80">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 absolute top-3 right-3 hover:bg-accent/80" aria-label="Mais opções">
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="animate-scale-in">
                   <DropdownMenuItem
                     className="text-destructive focus:text-destructive"
-                    onClick={handleDelete}
+                    onClick={() => setShowDeleteConfirm(true)}
                     disabled={isDeleting}
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
@@ -389,17 +381,15 @@ export function PostCard({ post, onDelete, onLikeToggle, animationDelay = 0 }: P
             )}
           </>
         )}
-      </CardHeader>
+      </div>
 
-      <CardContent className="pb-3">
-        {/* Repost comment (if any) */}
+      <div className="px-5 pb-3">
         {isRepost && post.content && (
-          <div className="mb-3 pb-3 border-b">
+          <div className="mb-3 pb-3 border-b border-border/50">
             <p className="whitespace-pre-wrap text-sm">{post.content}</p>
           </div>
         )}
 
-        {/* Main content */}
         {isRepost && post.originalPost ? (
           renderPostContent(
             post.originalPost.content,
@@ -409,27 +399,33 @@ export function PostCard({ post, onDelete, onLikeToggle, animationDelay = 0 }: P
         ) : (
           renderPostContent(post.content, post.images, post.videoUrl)
         )}
-      </CardContent>
+      </div>
 
-      <CardFooter className="pt-0 pb-0 gap-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          className={cn(
-            "gap-2 transition-all duration-300 like-btn-premium",
-            isLiked && "text-primary hover:text-primary",
-            justLiked && "liked"
-          )}
-          onClick={handleLike}
+      <div className="px-5 pb-0 flex gap-1">
+        <motion.div
+          animate={likeControls}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
         >
-          <Heart
+          <Button
+            variant="ghost"
+            size="sm"
             className={cn(
-              "h-4 w-4 transition-all duration-200",
-              isLiked && "fill-current animate-heart-pop"
+              "gap-2 transition-base like-btn-premium",
+              isLiked && "text-primary hover:text-primary",
+              justLiked && "liked"
             )}
-          />
-          <span>{likesCount}</span>
-        </Button>
+            onClick={handleLike}
+          >
+            <Heart
+              className={cn(
+                "h-4 w-4 transition-fast",
+                isLiked && "fill-current animate-heart-pop"
+              )}
+            />
+            <span className="stat-number">{likesCount}</span>
+          </Button>
+        </motion.div>
 
         {/* Repost button - only show for non-reposts and not own posts */}
         {!isRepost && !isTargetAuthor && (
@@ -437,21 +433,21 @@ export function PostCard({ post, onDelete, onLikeToggle, animationDelay = 0 }: P
             variant="ghost"
             size="sm"
             className={cn(
-              "gap-2 transition-all duration-300",
+              "gap-2 transition-base",
               hasReposted && "text-green-600 hover:text-green-600"
             )}
             onClick={handleRepost}
             disabled={isReposting}
           >
             <Repeat2 className={cn(
-              "h-4 w-4 transition-transform duration-300",
+              "h-4 w-4 transition-base",
               hasReposted && "scale-110",
               isReposting && "animate-spin"
             )} />
-            <span>{repostsCount}</span>
+            <span className="stat-number">{repostsCount}</span>
           </Button>
         )}
-      </CardFooter>
+      </div>
 
       <CommentSection postId={targetPost.id} initialCommentsCount={targetPost._count.comments} />
 
@@ -461,7 +457,8 @@ export function PostCard({ post, onDelete, onLikeToggle, animationDelay = 0 }: P
           <DialogTitle className="sr-only">Visualizar imagem</DialogTitle>
           <button
             onClick={() => setSelectedImage(null)}
-            className="absolute -top-10 right-0 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-all duration-200 z-10 hover:scale-105"
+            aria-label="Fechar imagem"
+            className="absolute -top-10 right-0 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-fast z-10 hover:scale-105"
           >
             <X className="h-6 w-6" />
           </button>
@@ -474,6 +471,15 @@ export function PostCard({ post, onDelete, onLikeToggle, animationDelay = 0 }: P
           )}
         </DialogContent>
       </Dialog>
-    </Card>
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Excluir este post?"
+        confirmLabel="Excluir"
+        isLoading={isDeleting}
+        onConfirm={handleDelete}
+      />
+    </div>
   );
 }

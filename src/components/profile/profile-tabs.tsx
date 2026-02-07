@@ -4,9 +4,9 @@ import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Trophy, Briefcase, Building2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PostCard } from "@/components/feed/post-card";
+import { positionLabels, careerRoleLabels } from "@/lib/constants";
 
 interface Achievement {
   id: string;
@@ -93,28 +93,6 @@ interface ProfileTabsProps {
   isOwnProfile: boolean;
 }
 
-const roleLabels: Record<string, string> = {
-  ATHLETE: "Atleta",
-  COACH: "Técnico",
-  ASSISTANT_COACH: "Técnico Assistente",
-  CHOREOGRAPHER: "Coreógrafo",
-  TEAM_MANAGER: "Coordenador",
-  JUDGE: "Juiz",
-  OTHER: "Outro",
-};
-
-const positionLabels: Record<string, string> = {
-  FLYER: "Flyer",
-  BASE: "Base",
-  BACKSPOT: "Backspot",
-  FRONTSPOT: "Frontspot",
-  TUMBLER: "Tumbler",
-  COACH: "Técnico",
-  CHOREOGRAPHER: "Coreógrafo",
-  JUDGE: "Juiz",
-  OTHER: "Outro",
-};
-
 export function ProfileTabs({ user, posts, isOwnProfile }: ProfileTabsProps) {
   return (
     <Tabs defaultValue="posts" className="w-full">
@@ -135,13 +113,13 @@ export function ProfileTabs({ user, posts, isOwnProfile }: ProfileTabsProps) {
 
       <TabsContent value="posts" className="mt-4 space-y-4">
         {posts.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center text-muted-foreground">
+          <div className="bento-card-static">
+            <div className="p-8 text-center text-muted-foreground">
               {isOwnProfile
                 ? "Você ainda não fez nenhuma publicação."
                 : "Nenhuma publicação ainda."}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         ) : (
           posts.map((post) => (
             <PostCard
@@ -162,8 +140,8 @@ export function ProfileTabs({ user, posts, isOwnProfile }: ProfileTabsProps) {
       </TabsContent>
 
       <TabsContent value="about" className="mt-4">
-        <Card>
-          <CardContent className="p-6 space-y-6">
+        <div className="bento-card-static">
+          <div className="p-6 space-y-6">
             {user.bio && (
               <div>
                 <h3 className="font-semibold mb-2">Sobre</h3>
@@ -191,19 +169,19 @@ export function ProfileTabs({ user, posts, isOwnProfile }: ProfileTabsProps) {
                   : "Nenhuma informação adicional."}
               </p>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </TabsContent>
 
       <TabsContent value="career" className="mt-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
+        <div className="bento-card-static">
+          <div className="p-6 pb-2">
+            <h2 className="heading-card font-display text-lg flex items-center gap-2">
               <Briefcase className="h-5 w-5" />
               Histórico de Carreira
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            </h2>
+          </div>
+          <div className="p-6 pt-0">
             {user.careerHistory.length === 0 ? (
               <p className="text-muted-foreground text-center py-4">
                 {isOwnProfile
@@ -221,7 +199,7 @@ export function ProfileTabs({ user, posts, isOwnProfile }: ProfileTabsProps) {
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold">
-                          {roleLabels[entry.role] || entry.role}
+                          {careerRoleLabels[entry.role] || entry.role}
                         </span>
                         {entry.isCurrent && (
                           <Badge variant="default" className="text-xs">
@@ -262,19 +240,19 @@ export function ProfileTabs({ user, posts, isOwnProfile }: ProfileTabsProps) {
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </TabsContent>
 
       <TabsContent value="achievements" className="mt-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
+        <div className="bento-card-static">
+          <div className="p-6 pb-2">
+            <h2 className="heading-card font-display text-lg flex items-center gap-2">
               <Trophy className="h-5 w-5" />
               Conquistas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            </h2>
+          </div>
+          <div className="p-6 pt-0">
             {user.achievements.length === 0 ? (
               <p className="text-muted-foreground text-center py-4">
                 {isOwnProfile
@@ -318,8 +296,8 @@ export function ProfileTabs({ user, posts, isOwnProfile }: ProfileTabsProps) {
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </TabsContent>
     </Tabs>
   );

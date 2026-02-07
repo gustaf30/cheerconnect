@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { CommentItem } from "./comment-item";
+import { getInitials } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface CommentAuthor {
@@ -243,15 +244,6 @@ export function CommentSection({ postId, initialCommentsCount }: CommentSectionP
     }
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   const handleEditComment = (commentId: string, newContent: string) => {
     setComments((prev) =>
       prev.map((c) =>
@@ -369,6 +361,7 @@ export function CommentSection({ postId, initialCommentsCount }: CommentSectionP
                 size="icon"
                 onClick={handleSubmit}
                 disabled={!newComment.trim() || isSending}
+                aria-label="Enviar comentário"
               >
                 {isSending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -418,6 +411,7 @@ export function CommentSection({ postId, initialCommentsCount }: CommentSectionP
                 size="icon"
                 className="h-5 w-5"
                 onClick={handleCancelReply}
+                aria-label="Cancelar resposta"
               >
                 <X className="h-3 w-3" />
               </Button>
@@ -447,6 +441,7 @@ export function CommentSection({ postId, initialCommentsCount }: CommentSectionP
                 size="icon"
                 onClick={handleSubmit}
                 disabled={!newComment.trim() || isSending}
+                aria-label="Enviar comentário"
               >
                 {isSending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

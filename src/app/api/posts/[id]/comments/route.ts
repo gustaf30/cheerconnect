@@ -223,11 +223,23 @@ export async function POST(
       }
     }
 
-    // Get current user info for notification message
-    const currentUser = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { name: true },
-    });
+    // Get current user info and notification preferences
+    const notifyTargetId = parentId && parentComment
+      ? parentComment.author.id
+      : post.author.id;
+
+    const [currentUser, notifyTarget] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { name: true },
+      }),
+      notifyTargetId !== session.user.id
+        ? prisma.user.findUnique({
+            where: { id: notifyTargetId },
+            select: { notifyCommentReplied: true, notifyPostCommented: true },
+          })
+        : null,
+    ]);
 
     const comment = await prisma.comment.create({
       data: {
@@ -253,10 +265,10 @@ export async function POST(
       },
     });
 
-    // Create notification
+    // Create notification (respecting user preferences)
     if (parentId && parentComment) {
-      // Notify parent comment author about reply (not self)
-      if (parentComment.author.id !== session.user.id) {
+      // Notify parent comment author about reply (not self, if enabled)
+      if (parentComment.author.id !== session.user.id && notifyTarget?.notifyCommentReplied) {
         await prisma.notification.create({
           data: {
             userId: parentComment.author.id,
@@ -269,8 +281,8 @@ export async function POST(
         });
       }
     } else {
-      // Notify post author about comment (not self)
-      if (post.author.id !== session.user.id) {
+      // Notify post author about comment (not self, if enabled)
+      if (post.author.id !== session.user.id && notifyTarget?.notifyPostCommented) {
         await prisma.notification.create({
           data: {
             userId: post.author.id,

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { deletePostAssets } from "@/lib/cloudinary";
 
 // GET /api/posts/[id] - Get a single post
 export async function GET(
@@ -90,7 +91,7 @@ export async function DELETE(
 
     const post = await prisma.post.findUnique({
       where: { id },
-      select: { authorId: true },
+      select: { authorId: true, images: true, videoUrl: true },
     });
 
     if (!post) {
@@ -105,6 +106,13 @@ export async function DELETE(
         { error: "Você não tem permissão para excluir este post" },
         { status: 403 }
       );
+    }
+
+    // Delete Cloudinary assets (fire-and-forget, don't block the delete)
+    try {
+      await deletePostAssets(post);
+    } catch (err) {
+      console.error("Failed to delete post assets from Cloudinary:", err);
     }
 
     await prisma.post.delete({

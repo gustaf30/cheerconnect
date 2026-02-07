@@ -7,7 +7,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -26,6 +25,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { CitySelector } from "@/components/ui/city-selector";
+import { getInitials } from "@/lib/utils";
+import { ErrorState } from "@/components/shared/error-state";
 
 interface Team {
   id: string;
@@ -59,6 +60,7 @@ const categories = [
 export default function TeamsPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("");
   const [locationFilter, setLocationFilter] = useState("");
@@ -108,6 +110,7 @@ export default function TeamsPage() {
     useUserLocationFilter?: boolean
   ) => {
     setIsLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams();
       if (searchQuery || query) params.set("q", searchQuery || query);
@@ -130,7 +133,7 @@ export default function TeamsPage() {
       const data = await response.json();
       setTeams(data.teams);
     } catch {
-      console.error("Error fetching teams");
+      setError("Erro ao carregar equipes");
     } finally {
       setIsLoading(false);
     }
@@ -190,27 +193,18 @@ export default function TeamsPage() {
     }
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Equipes</h1>
+        <h1 className="heading-section font-display">Equipes</h1>
         <div className="flex gap-2">
           <Link href="/teams/invites">
-            <Button variant="outline">
+            <Button variant="outline" className="hover-glow">
               <Mail className="h-4 w-4 mr-2" />
               Convites
             </Button>
           </Link>
-          <Button onClick={() => setCreateDialogOpen(true)}>
+          <Button variant="premium" onClick={() => setCreateDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Criar Equipe
           </Button>
@@ -218,8 +212,7 @@ export default function TeamsPage() {
       </div>
 
       {/* Search */}
-      <Card>
-        <CardContent className="p-4 space-y-4">
+      <div className="bento-card-static p-4 space-y-4">
           {/* Linha 1: Busca grande */}
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -229,7 +222,7 @@ export default function TeamsPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              className="pl-12 h-12 text-base"
+              className="pl-12 h-12 text-base input-premium"
             />
           </div>
 
@@ -267,8 +260,7 @@ export default function TeamsPage() {
               Meus Times
             </Button>
           </div>
-        </CardContent>
-      </Card>
+      </div>
 
       {/* Location filter indicator */}
       {filterByUserLocation && userLocation && !showMyTeams && !locationFilter && (
@@ -291,50 +283,49 @@ export default function TeamsPage() {
       )}
 
       {/* Teams grid */}
-      {isLoading ? (
+      {error ? (
+        <ErrorState message={error} onRetry={() => { setError(null); fetchTeams(); }} />
+      ) : isLoading ? (
         <div className="grid md:grid-cols-2 gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <Card key={i}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-4">
-                  <Skeleton className="h-16 w-16 rounded-lg" />
-                  <div className="space-y-2">
-                    <Skeleton className="h-5 w-36" />
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-3 w-20" />
-                  </div>
+            <div key={i} className="bento-card-static p-4">
+              <div className="flex items-center gap-4">
+                <Skeleton className="h-16 w-16 rounded-xl" />
+                <div className="space-y-2">
+                  <Skeleton className="h-5 w-36" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-3 w-20" />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ))}
         </div>
       ) : teams.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">
-            Nenhuma equipe encontrada. Tente outros filtros ou crie uma nova equipe.
-          </CardContent>
-        </Card>
+        <div className="bento-card-static p-8 text-center text-muted-foreground">
+          Nenhuma equipe encontrada. Tente outros filtros ou crie uma nova equipe.
+        </div>
       ) : (
-        <div className="grid md:grid-cols-2 gap-4">
-          {teams.map((team) => (
+        <div className="grid md:grid-cols-2 gap-4 stagger-children">
+          {teams.map((team, index) => (
             <Link key={team.id} href={`/teams/${team.slug}`}>
-              <Card className="hover:bg-muted/50 transition-colors h-full">
-                <CardContent className="p-4">
+              <div className="bento-card h-full" style={{ animationDelay: `${index * 50}ms` }}>
+                <div className="accent-bar" />
+                <div className="p-4">
                   <div className="flex items-start gap-4">
-                    <Avatar className="h-16 w-16 rounded-lg shrink-0">
+                    <Avatar className="h-16 w-16 rounded-lg shrink-0 avatar-glow">
                       <AvatarImage src={team.logo || undefined} alt={team.name} />
-                      <AvatarFallback className="rounded-lg bg-primary text-primary-foreground text-lg">
+                      <AvatarFallback className="rounded-lg bg-primary text-primary-foreground text-lg font-display font-bold">
                         {getInitials(team.name)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold truncate">{team.name}</h3>
+                      <h3 className="font-display font-semibold truncate">{team.name}</h3>
                       <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge variant="gradient" className="text-xs">
                           {categoryLabels[team.category] || team.category}
                         </Badge>
                         {team.level && (
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="subtle" className="text-xs">
                             {team.level}
                           </Badge>
                         )}
@@ -348,13 +339,13 @@ export default function TeamsPage() {
                         )}
                         <span className="flex items-center gap-1">
                           <Users className="h-3 w-3" />
-                          {team._count.members} membros
+                          <span className="stat-number">{team._count.members}</span> membros
                         </span>
                       </div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </Link>
           ))}
         </div>
@@ -437,7 +428,7 @@ export default function TeamsPage() {
             <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleCreateTeam} disabled={isCreating}>
+            <Button variant="premium" onClick={handleCreateTeam} disabled={isCreating}>
               {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Criar Equipe
             </Button>

@@ -50,11 +50,17 @@ export async function POST(
       );
     }
 
-    // Get current user info for notification message
-    const currentUser = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { name: true },
-    });
+    // Get current user and post author preferences
+    const [currentUser, postAuthor] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { name: true },
+      }),
+      prisma.user.findUnique({
+        where: { id: post.author.id },
+        select: { notifyPostLiked: true },
+      }),
+    ]);
 
     await prisma.like.create({
       data: {
@@ -63,8 +69,8 @@ export async function POST(
       },
     });
 
-    // Create notification for post author (not self)
-    if (post.author.id !== session.user.id) {
+    // Create notification for post author (not self, if enabled)
+    if (post.author.id !== session.user.id && postAuthor?.notifyPostLiked) {
       await prisma.notification.create({
         data: {
           userId: post.author.id,

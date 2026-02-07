@@ -121,11 +121,17 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get current user info for notification message
-    const currentUser = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { name: true },
-    });
+    // Get current user info and receiver notification preferences
+    const [currentUser, receiverPrefs] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { name: true },
+      }),
+      prisma.user.findUnique({
+        where: { id: receiverId },
+        select: { notifyConnectionRequest: true },
+      }),
+    ]);
 
     const connection = await prisma.connection.create({
       data: {
@@ -134,17 +140,19 @@ export async function POST(request: Request) {
       },
     });
 
-    // Create notification for receiver
-    await prisma.notification.create({
-      data: {
-        userId: receiverId,
-        type: "CONNECTION_REQUEST",
-        message: `${currentUser?.name || "Alguém"} quer se conectar com você`,
-        actorId: session.user.id,
-        relatedId: connection.id,
-        relatedType: "connection",
-      },
-    });
+    // Create notification for receiver (if enabled)
+    if (receiverPrefs?.notifyConnectionRequest) {
+      await prisma.notification.create({
+        data: {
+          userId: receiverId,
+          type: "CONNECTION_REQUEST",
+          message: `${currentUser?.name || "Alguém"} quer se conectar com você`,
+          actorId: session.user.id,
+          relatedId: connection.id,
+          relatedType: "connection",
+        },
+      });
+    }
 
     return NextResponse.json({ connection }, { status: 201 });
   } catch (error) {

@@ -4,14 +4,16 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const cardVariants = cva(
-  "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 transition-all duration-300",
+  "bg-card text-card-foreground flex flex-col gap-6 rounded-2xl border py-8 transition-base",
   {
     variants: {
       variant: {
         default: "shadow-sm hover:shadow-md",
         glass: "glass shadow-sm hover:shadow-md",
         elevated: "shadow-depth-2 hover:shadow-depth-3",
-        interactive: "shadow-sm hover:shadow-depth-2 hover:-translate-y-1 cursor-pointer",
+        interactive: "shadow-sm hover:scale-[1.05] cursor-pointer",
+        premium: "gradient-border shadow-depth-2 hover:shadow-depth-3 hover-glow",
+        spotlight: "shadow-sm hover:shadow-md relative overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-b before:from-primary/5 before:to-transparent before:pointer-events-none",
       },
     },
     defaultVariants: {
@@ -39,7 +41,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-header"
       className={cn(
-        "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6",
+        "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-8 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6",
         className
       )}
       {...props}
@@ -84,7 +86,7 @@ function CardContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-content"
-      className={cn("px-6", className)}
+      className={cn("px-8", className)}
       {...props}
     />
   )
@@ -94,7 +96,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-footer"
-      className={cn("flex items-center px-6 [.border-t]:pt-6", className)}
+      className={cn("flex items-center px-8 [.border-t]:pt-6", className)}
       {...props}
     />
   )

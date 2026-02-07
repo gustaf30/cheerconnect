@@ -1,23 +1,31 @@
-import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+"use client";
 
-export default async function ProfilePage() {
-  const session = await getServerSession(authOptions);
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
-  if (!session?.user?.id) {
-    redirect("/login");
-  }
+export default function ProfilePage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [fetching, setFetching] = useState(false);
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { username: true },
-  });
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.replace("/login");
+      return;
+    }
+    if (status === "authenticated" && !fetching) {
+      setFetching(true);
+      fetch("/api/users/me")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.user?.username) {
+            router.replace(`/profile/${data.user.username}`);
+          }
+        })
+        .catch(() => router.replace("/login"));
+    }
+  }, [status, router, fetching]);
 
-  if (!user) {
-    redirect("/login");
-  }
-
-  redirect(`/profile/${user.username}`);
+  return null;
 }

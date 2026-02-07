@@ -61,10 +61,10 @@ export async function POST(
       );
     }
 
-    // Check if user exists
+    // Check if user exists and get notification preferences
     const targetUser = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, notifyTeamInvite: true },
     });
 
     if (!targetUser) {
@@ -141,17 +141,19 @@ export async function POST(
       },
     });
 
-    // Create notification for the invited user
-    await prisma.notification.create({
-      data: {
-        userId,
-        type: "TEAM_INVITE",
-        message: `Você foi convidado para a equipe ${team.name}`,
-        actorId: session.user.id,
-        relatedId: team.id,
-        relatedType: "team",
-      },
-    });
+    // Create notification for the invited user (if enabled)
+    if (targetUser.notifyTeamInvite) {
+      await prisma.notification.create({
+        data: {
+          userId,
+          type: "TEAM_INVITE",
+          message: `Você foi convidado para a equipe ${team.name}`,
+          actorId: session.user.id,
+          relatedId: team.id,
+          relatedType: "team",
+        },
+      });
+    }
 
     return NextResponse.json({ invite }, { status: 201 });
   } catch (error) {
