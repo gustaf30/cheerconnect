@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
-import { Menu, LogOut, User, Settings } from "lucide-react";
+import { Menu, LogOut, User, Settings, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -17,10 +17,11 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Sidebar } from "./sidebar";
 import { NotificationDropdown } from "./notification-dropdown";
 import { MessageButton } from "./message-button";
-import { cn } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
 
 interface UserProfile {
   name: string;
+  username: string;
   avatar: string | null;
 }
 
@@ -36,6 +37,7 @@ export function Header() {
         const data = await response.json();
         setUserProfile({
           name: data.user.name,
+          username: data.user.username,
           avatar: data.user.avatar,
         });
       }
@@ -59,113 +61,127 @@ export function Header() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 transition-all duration-300",
-        isScrolled && "shadow-depth-2 border-transparent"
+        "sticky top-0 z-50 w-full h-16 glass flex items-center justify-between px-6 md:px-12 transition-base",
+        isScrolled && "shadow-depth-3 border-transparent"
       )}
     >
-      <div className="container flex h-14 items-center gap-4 px-4 md:px-6">
+      <div className="flex items-center gap-8">
         {/* Mobile menu */}
         <Sheet>
-          <SheetTrigger asChild className="md:hidden">
-            <Button variant="ghost" size="icon" className="hover:bg-accent/80">
+          <SheetTrigger asChild className="lg:hidden">
+            <Button variant="ghost" size="icon" className="hover:bg-accent/80" aria-label="Abrir menu">
               <Menu className="h-5 w-5" />
-              <span className="sr-only">Menu</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-64">
+          <SheetContent side="left" className="p-0 w-72">
             <Sidebar />
           </SheetContent>
         </Sheet>
 
-        {/* Logo with enhanced animation */}
-        <Link href="/feed" className="flex items-center gap-1 font-bold text-xl group">
-          <span className="text-gradient-primary transition-all duration-300 group-hover:opacity-90">Cheer</span>
-          <span className="transition-all duration-300 group-hover:text-primary/80 group-hover:tracking-wide">Connect</span>
+        {/* Logo */}
+        <Link
+          href="/feed"
+          className="flex items-center gap-0.5 font-display font-extrabold text-2xl tracking-tight group"
+        >
+          <span className="text-primary transition-base group-hover:opacity-90">
+            Cheer
+          </span>
+          <span className="text-foreground transition-base group-hover:text-primary/80">
+            Connect
+          </span>
+        </Link>
+      </div>
+
+      <div className="flex items-center gap-5">
+        {/* Search bar - desktop only */}
+        <Link
+          href="/search"
+          className="hidden md:flex items-center bg-foreground/5 px-4 py-2 rounded-full border border-foreground/5 hover:border-primary/20 transition-base gap-2"
+        >
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground w-48 lg:w-64">
+            Pesquisar na comunidade...
+          </span>
         </Link>
 
-        {/* Spacer */}
-        <div className="flex-1" />
+        {/* Messages */}
+        <MessageButton />
 
-        {/* Right side */}
-        <div className="flex items-center gap-2">
-          {/* Messages */}
-          <MessageButton />
+        {/* Notifications */}
+        <NotificationDropdown />
 
-          {/* Notifications */}
-          <NotificationDropdown />
-
-          {/* User menu */}
-          {session?.user && (
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="relative h-8 w-8 rounded-full p-0"
-                >
-                  <Avatar className="h-8 w-8 ring-2 ring-transparent hover:ring-primary/30 transition-all duration-300">
-                    <AvatarImage
-                      src={userProfile?.avatar || session.user.image || undefined}
-                      alt={userProfile?.name || session.user.name || ""}
-                      className="object-cover"
-                    />
-                    <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                      {(userProfile?.name || session.user.name)
-                        ? getInitials(userProfile?.name || session.user.name || "")
-                        : "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56 animate-scale-in" align="end" forceMount>
-                <div className="flex items-center justify-start gap-2 p-2">
-                  <div className="flex flex-col space-y-1 leading-none">
-                    {session.user.name && (
-                      <p className="font-medium">{session.user.name}</p>
-                    )}
-                    {session.user.email && (
-                      <p className="w-[200px] truncate text-sm text-muted-foreground">
-                        {session.user.email}
-                      </p>
-                    )}
-                  </div>
+        {/* User menu */}
+        {session?.user && (
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="relative h-9 w-9 rounded-full p-0"
+              >
+                <Avatar className="h-9 w-9 ring-2 ring-transparent hover:ring-primary/30 transition-base">
+                  <AvatarImage
+                    src={
+                      userProfile?.avatar || session.user.image || undefined
+                    }
+                    alt={userProfile?.name || session.user.name || ""}
+                    className="object-cover"
+                  />
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs font-display font-semibold">
+                    {(userProfile?.name || session.user.name)
+                      ? getInitials(
+                          userProfile?.name || session.user.name || ""
+                        )
+                      : "U"}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="w-56 animate-scale-in"
+              align="end"
+              forceMount
+            >
+              <div className="flex items-center justify-start gap-2 p-2">
+                <div className="flex flex-col space-y-1 leading-none">
+                  {session.user.name && (
+                    <p className="font-display font-semibold">
+                      {session.user.name}
+                    </p>
+                  )}
+                  {session.user.email && (
+                    <p className="w-[200px] truncate text-sm text-muted-foreground">
+                      {session.user.email}
+                    </p>
+                  )}
                 </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/profile" className="cursor-pointer">
-                    <User className="mr-2 h-4 w-4" />
-                    Meu Perfil
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/settings" className="cursor-pointer">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Configurações
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="cursor-pointer text-destructive focus:text-destructive"
-                  onClick={() => signOut({ callbackUrl: "/" })}
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sair
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href={userProfile?.username ? `/profile/${userProfile.username}` : "/profile"} className="cursor-pointer">
+                  <User className="mr-2 h-4 w-4" />
+                  Meu Perfil
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/settings" className="cursor-pointer">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Configurações
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="cursor-pointer text-destructive focus:text-destructive"
+                onClick={() => signOut({ callbackUrl: "/" })}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sair
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </header>
   );

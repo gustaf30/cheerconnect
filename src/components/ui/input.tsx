@@ -8,9 +8,9 @@ const inputVariants = cva(
   {
     variants: {
       variant: {
-        default: "transition-all duration-200 hover:border-primary/50 focus-visible:border-primary focus-visible:ring-primary/20 focus-visible:ring-[3px] dark:bg-input/30",
-        filled: "bg-muted/50 border-transparent hover:bg-muted/70 focus-visible:bg-background focus-visible:border-primary focus-visible:ring-primary/20 focus-visible:ring-[3px] transition-all duration-200",
-        premium: "transition-all duration-300 hover:border-primary/50 focus-visible:border-primary focus-visible:shadow-[0_0_15px_oklch(0.55_0.22_25/0.2)] focus-visible:ring-primary/20 focus-visible:ring-[3px] dark:bg-input/30",
+        default: "transition-base hover:border-primary/50 focus-visible:border-primary focus-visible:ring-primary/20 focus-visible:ring-[3px] dark:bg-input/30",
+        filled: "transition-base bg-muted/50 border-transparent hover:bg-muted/70 focus-visible:bg-background focus-visible:border-primary focus-visible:ring-primary/20 focus-visible:ring-[3px]",
+        premium: "transition-base hover:border-primary/50 focus-visible:border-primary focus-visible:shadow-[0_0_15px_oklch(0.55_0.22_25/0.2)] focus-visible:ring-primary/20 focus-visible:ring-[3px] dark:bg-input/30",
       },
     },
     defaultVariants: {

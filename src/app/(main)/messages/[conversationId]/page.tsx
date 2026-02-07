@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, MessageSquare, Loader2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ConversationList } from "@/components/messages/conversation-list";
@@ -13,6 +12,7 @@ import { ConnectionSearch } from "@/components/messages/connection-search";
 import { MessageList } from "@/components/messages/message-list";
 import { MessageInput } from "@/components/messages/message-input";
 import { toast } from "sonner";
+import { getInitials } from "@/lib/utils";
 
 interface OtherParticipant {
   id: string;
@@ -28,15 +28,6 @@ interface Conversation {
   lastMessagePreview: string | null;
   createdAt: string;
 }
-
-const getInitials = (name: string): string => {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-};
 
 export default function ConversationPage({
   params,
@@ -82,14 +73,14 @@ export default function ConversationPage({
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="hidden lg:block lg:col-span-1 h-[calc(100vh-8rem)]">
-          <CardHeader className="border-b pb-3">
-            <CardTitle className="flex items-center gap-2">
+        <div className="bento-card-static hidden lg:block lg:col-span-1 h-[calc(100vh-8rem)]">
+          <div className="p-6 pb-2 border-b pb-3">
+            <h2 className="heading-card font-display flex items-center gap-2">
               <MessageSquare className="h-5 w-5" />
               Mensagens
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
+            </h2>
+          </div>
+          <div className="p-0">
             {/* Connection Search Section */}
             <div className="border-b">
               <ConnectionSearch />
@@ -101,12 +92,12 @@ export default function ConversationPage({
               </div>
               <ConversationList activeConversationId={conversationId} />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card className="lg:col-span-2 h-[calc(100vh-8rem)] flex items-center justify-center">
+        <div className="bento-card-static lg:col-span-2 h-[calc(100vh-8rem)] flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </Card>
+        </div>
       </div>
     );
   }
@@ -118,14 +109,14 @@ export default function ConversationPage({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Conversations List - Desktop */}
-      <Card className="hidden lg:block lg:col-span-1 h-[calc(100vh-8rem)]">
-        <CardHeader className="border-b pb-3">
-          <CardTitle className="flex items-center gap-2">
+      <div className="bento-card-static hidden lg:block lg:col-span-1 h-[calc(100vh-8rem)]">
+        <div className="p-6 pb-2 border-b pb-3">
+          <h2 className="heading-card font-display flex items-center gap-2">
             <MessageSquare className="h-5 w-5" />
             Mensagens
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
+          </h2>
+        </div>
+        <div className="p-0">
           {/* Connection Search Section */}
           <div className="border-b">
             <ConnectionSearch />
@@ -137,13 +128,13 @@ export default function ConversationPage({
             </div>
             <ConversationList activeConversationId={conversationId} />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Conversation View */}
-      <Card className="lg:col-span-2 h-[calc(100vh-8rem)] flex flex-col">
+      <div className="bento-card-static lg:col-span-2 h-[calc(100vh-8rem)] flex flex-col">
         {/* Header */}
-        <CardHeader className="border-b shrink-0 py-3">
+        <div className="p-6 pb-2 border-b shrink-0 py-3">
           <div className="flex items-center gap-3">
             <Link href="/messages" className="lg:hidden">
               <Button variant="ghost" size="icon">
@@ -174,7 +165,7 @@ export default function ConversationPage({
               </div>
             </Link>
           </div>
-        </CardHeader>
+        </div>
 
         {/* Messages */}
         <MessageList
@@ -189,7 +180,7 @@ export default function ConversationPage({
           conversationId={conversationId}
           onMessageSent={handleMessageSent}
         />
-      </Card>
+      </div>
     </div>
   );
 }

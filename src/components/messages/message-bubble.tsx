@@ -1,7 +1,7 @@
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
 
 interface Sender {
   id: string;
@@ -29,15 +29,6 @@ interface MessageBubbleProps {
 const formatTime = (dateString: string): string => {
   const date = new Date(dateString);
   return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-};
-
-const getInitials = (name: string): string => {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
 };
 
 export function MessageBubble({ message, isOwn, showAvatar = true }: MessageBubbleProps) {

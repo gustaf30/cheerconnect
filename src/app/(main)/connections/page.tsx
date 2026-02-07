@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { MapPin, Check, X, UserMinus } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { getInitials } from "@/lib/utils";
+import { positionLabels } from "@/lib/constants";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { ErrorState } from "@/components/shared/error-state";
 
 interface ConnectionUser {
   id: string;
@@ -28,29 +32,21 @@ interface Connection {
   isSender: boolean;
 }
 
-const positionLabels: Record<string, string> = {
-  FLYER: "Flyer",
-  BASE: "Base",
-  BACKSPOT: "Backspot",
-  FRONTSPOT: "Frontspot",
-  TUMBLER: "Tumbler",
-  COACH: "Técnico",
-  CHOREOGRAPHER: "Coreógrafo",
-  JUDGE: "Juiz",
-  OTHER: "Outro",
-};
+function ConnectionsContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tab = searchParams.get("tab") || "all";
 
-export default function ConnectionsPage() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [pendingReceived, setPendingReceived] = useState<Connection[]>([]);
   const [pendingSent, setPendingSent] = useState<Connection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [removeTargetId, setRemoveTargetId] = useState<string | null>(null);
+  const [isRemoving, setIsRemoving] = useState(false);
 
-  useEffect(() => {
-    fetchConnections();
-  }, []);
-
-  const fetchConnections = async () => {
+  const fetchConnections = useCallback(async () => {
+    setError(null);
     try {
       const [acceptedRes, pendingRes] = await Promise.all([
         fetch("/api/connections?status=ACCEPTED"),
@@ -70,11 +66,15 @@ export default function ConnectionsPage() {
         pendingData.connections.filter((c: Connection) => c.isSender)
       );
     } catch {
-      toast.error("Erro ao carregar conexões");
+      setError("Erro ao carregar conexões");
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchConnections();
+  }, [fetchConnections]);
 
   const handleAccept = async (userId: string) => {
     try {
@@ -133,30 +133,24 @@ export default function ConnectionsPage() {
     }
   };
 
-  const handleRemove = async (userId: string) => {
-    if (!confirm("Tem certeza que deseja remover esta conexão?")) return;
-
+  const handleRemove = async () => {
+    if (!removeTargetId) return;
+    setIsRemoving(true);
     try {
-      const response = await fetch(`/api/connections/${userId}`, {
+      const response = await fetch(`/api/connections/${removeTargetId}`, {
         method: "DELETE",
       });
 
       if (!response.ok) throw new Error();
 
-      setConnections((prev) => prev.filter((c) => c.user.id !== userId));
+      setConnections((prev) => prev.filter((c) => c.user.id !== removeTargetId));
+      setRemoveTargetId(null);
       toast.success("Conexão removida");
     } catch {
       toast.error("Erro ao remover conexão");
+    } finally {
+      setIsRemoving(false);
     }
-  };
-
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
   };
 
   const ConnectionCard = ({
@@ -166,28 +160,28 @@ export default function ConnectionsPage() {
     connection: Connection;
     type: "connected" | "received" | "sent";
   }) => (
-    <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+    <div className="flex items-center justify-between p-4 bento-card">
       <Link
         href={`/profile/${connection.user.username}`}
         className="flex items-center gap-3 flex-1 min-w-0"
       >
-        <Avatar className="h-12 w-12 shrink-0">
+        <Avatar className="h-12 w-12 shrink-0 avatar-glow">
           <AvatarImage
             src={connection.user.avatar || undefined}
             alt={connection.user.name}
           />
-          <AvatarFallback className="bg-primary text-primary-foreground">
+          <AvatarFallback className="bg-primary text-primary-foreground font-display font-semibold">
             {getInitials(connection.user.name)}
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0">
-          <div className="font-semibold truncate">{connection.user.name}</div>
-          <div className="text-sm text-muted-foreground truncate">
+          <div className="font-display font-semibold truncate">{connection.user.name}</div>
+          <div className="text-sm text-muted-foreground truncate font-mono">
             @{connection.user.username}
           </div>
           <div className="flex flex-wrap gap-1 mt-1">
             {connection.user.positions.slice(0, 2).map((pos) => (
-              <Badge key={pos} variant="secondary" className="text-xs">
+              <Badge key={pos} variant="gradient" className="text-xs">
                 {positionLabels[pos] || pos}
               </Badge>
             ))}
@@ -226,7 +220,7 @@ export default function ConnectionsPage() {
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => handleRemove(connection.user.id)}
+            onClick={() => setRemoveTargetId(connection.user.id)}
           >
             <UserMinus className="h-4 w-4" />
           </Button>
@@ -237,52 +231,78 @@ export default function ConnectionsPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-bold">Conexões</h1>
-        <Card>
-          <CardContent className="p-4 space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center gap-3 p-4">
-                <Skeleton className="h-12 w-12 rounded-full" />
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-3 w-24" />
-                </div>
+      <div className="space-y-6">
+        <h1 className="heading-section font-display">Conexões</h1>
+        <div className="bento-card-static p-4 space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="flex items-center gap-3 p-4">
+              <Skeleton className="h-12 w-12 rounded-xl" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-24" />
               </div>
-            ))}
-          </CardContent>
-        </Card>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <h1 className="heading-section font-display">Conexões</h1>
+        <ErrorState message={error} onRetry={() => { setError(null); fetchConnections(); }} />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Conexões</h1>
+      {/* Stats header */}
+      <div className="bento-card-static">
+        <div className="accent-bar" />
+        <div className="p-5">
+          <h1 className="heading-section font-display mb-4">Conexões</h1>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center">
+              <span className="font-mono text-2xl font-bold text-primary">{connections.length}</span>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">Conexões</p>
+            </div>
+            <div className="text-center border-x border-border/50">
+              <span className="font-mono text-2xl font-bold text-primary">{pendingReceived.length}</span>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">Recebidas</p>
+            </div>
+            <div className="text-center">
+              <span className="font-mono text-2xl font-bold text-primary">{pendingSent.length}</span>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">Enviadas</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      <Tabs defaultValue="all">
+      <Tabs value={tab} onValueChange={(v) => router.replace(`/connections?tab=${v}`, { scroll: false })}>
         <TabsList>
           <TabsTrigger value="all">
-            Todas ({connections.length})
+            Todas
           </TabsTrigger>
           <TabsTrigger value="received">
-            Recebidas ({pendingReceived.length})
+            Recebidas
           </TabsTrigger>
           <TabsTrigger value="sent">
-            Enviadas ({pendingSent.length})
+            Enviadas
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="all" className="mt-4">
-          <Card>
-            <CardContent className="p-4">
+          <div className="space-y-3">
               {connections.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
+                <div className="bento-card-static p-8 text-center text-muted-foreground">
                   Você ainda não tem conexões. Comece a conectar-se com outros
                   atletas!
-                </p>
+                </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-3 stagger-children">
                   {connections.map((connection) => (
                     <ConnectionCard
                       key={connection.id}
@@ -292,19 +312,17 @@ export default function ConnectionsPage() {
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="received" className="mt-4">
-          <Card>
-            <CardContent className="p-4">
+          <div className="space-y-3">
               {pendingReceived.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
+                <div className="bento-card-static p-8 text-center text-muted-foreground">
                   Nenhuma solicitação pendente.
-                </p>
+                </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-3 stagger-children">
                   {pendingReceived.map((connection) => (
                     <ConnectionCard
                       key={connection.id}
@@ -314,19 +332,17 @@ export default function ConnectionsPage() {
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="sent" className="mt-4">
-          <Card>
-            <CardContent className="p-4">
+          <div className="space-y-3">
               {pendingSent.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
+                <div className="bento-card-static p-8 text-center text-muted-foreground">
                   Você não tem solicitações pendentes.
-                </p>
+                </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-3 stagger-children">
                   {pendingSent.map((connection) => (
                     <ConnectionCard
                       key={connection.id}
@@ -336,10 +352,45 @@ export default function ConnectionsPage() {
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
+          </div>
         </TabsContent>
       </Tabs>
+
+      <ConfirmDialog
+        open={!!removeTargetId}
+        onOpenChange={(open) => !open && setRemoveTargetId(null)}
+        title="Remover esta conexão?"
+        confirmLabel="Remover"
+        isLoading={isRemoving}
+        onConfirm={handleRemove}
+      />
+    </div>
+  );
+}
+
+export default function ConnectionsPage() {
+  return (
+    <Suspense fallback={<ConnectionsSkeleton />}>
+      <ConnectionsContent />
+    </Suspense>
+  );
+}
+
+function ConnectionsSkeleton() {
+  return (
+    <div className="space-y-6">
+      <h1 className="heading-section font-display">Conexões</h1>
+      <div className="bento-card-static p-4 space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="flex items-center gap-3 p-4">
+            <Skeleton className="h-12 w-12 rounded-xl" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

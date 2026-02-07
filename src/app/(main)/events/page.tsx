@@ -8,7 +8,6 @@ import { useSession } from "next-auth/react";
 import { MapPin, Calendar, Filter, Plus, Loader2, MoreHorizontal, Pencil, Trash2, Search, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -35,6 +34,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { CitySelector } from "@/components/ui/city-selector";
+import { getInitials } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { ErrorState } from "@/components/shared/error-state";
 
 interface Event {
   id: string;
@@ -81,6 +83,9 @@ export default function EventsPage() {
   const { data: session } = useSession();
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
@@ -140,6 +145,7 @@ export default function EventsPage() {
   }, []);
 
   const fetchEvents = useCallback(async (useUserLocationFilter?: boolean) => {
+    setError(null);
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
@@ -160,7 +166,7 @@ export default function EventsPage() {
       const data = await response.json();
       setEvents(data.events);
     } catch {
-      console.error("Error fetching events");
+      setError("Erro ao carregar eventos");
     } finally {
       setIsLoading(false);
     }
@@ -304,11 +310,11 @@ export default function EventsPage() {
     }
   };
 
-  const handleDeleteEvent = async (eventId: string) => {
-    if (!confirm("Tem certeza que deseja excluir este evento?")) return;
-
+  const handleDeleteEvent = async () => {
+    if (!deleteTargetId) return;
+    setIsDeletingEvent(true);
     try {
-      const response = await fetch(`/api/events/${eventId}`, {
+      const response = await fetch(`/api/events/${deleteTargetId}`, {
         method: "DELETE",
       });
 
@@ -318,19 +324,13 @@ export default function EventsPage() {
       }
 
       toast.success("Evento excluído!");
+      setDeleteTargetId(null);
       fetchEvents();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao excluir evento");
+    } finally {
+      setIsDeletingEvent(false);
     }
-  };
-
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
   };
 
   // Group events by month
@@ -355,16 +355,15 @@ export default function EventsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Eventos</h1>
-        <Button onClick={() => setCreateDialogOpen(true)}>
+        <h1 className="heading-section font-display">Eventos</h1>
+        <Button variant="premium" onClick={() => setCreateDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Criar Evento
         </Button>
       </div>
 
       {/* Search and Filters */}
-      <Card>
-        <CardContent className="p-4 space-y-4">
+      <div className="bento-card-static p-4 space-y-4">
           {/* Linha 1: Busca grande */}
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -374,7 +373,7 @@ export default function EventsPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              className="pl-12 h-12 text-base"
+              className="pl-12 h-12 text-base input-premium"
             />
           </div>
 
@@ -406,8 +405,7 @@ export default function EventsPage() {
               Buscar
             </Button>
           </div>
-        </CardContent>
-      </Card>
+      </div>
 
       {/* Location filter indicator */}
       {filterByUserLocation && userLocation && !locationFilter && (
@@ -429,58 +427,57 @@ export default function EventsPage() {
         </div>
       )}
 
-      {isLoading ? (
+      {error ? (
+        <ErrorState message={error} onRetry={() => { setError(null); fetchEvents(); }} />
+      ) : isLoading ? (
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
-            <Card key={i}>
-              <CardContent className="p-4">
-                <div className="flex gap-4">
-                  <Skeleton className="h-16 w-16 rounded-lg" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-5 w-48" />
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-4 w-40" />
-                  </div>
+            <div key={i} className="bento-card-static p-4">
+              <div className="flex gap-4">
+                <Skeleton className="h-16 w-16 rounded-xl" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-5 w-48" />
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-40" />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ))}
         </div>
       ) : events.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">
-            Nenhum evento próximo encontrado.
-          </CardContent>
-        </Card>
+        <div className="bento-card-static p-8 text-center text-muted-foreground">
+          Nenhum evento próximo encontrado.
+        </div>
       ) : (
         <div className="space-y-8">
           {Object.entries(groupedEvents).map(([month, monthEvents]) => (
             <div key={month}>
-              <h2 className="text-lg font-semibold mb-4 capitalize">{month}</h2>
-              <div className="space-y-3">
+              <h2 className="heading-card mb-4 capitalize">{month}</h2>
+              <div className="space-y-3 stagger-children">
                 {monthEvents.map((event) => {
                   const isCreator = session?.user?.id === event.creatorId;
 
                   return (
-                    <Card key={event.id} className="hover:bg-muted/50 transition-colors">
-                      <CardContent className="p-4">
+                    <div key={event.id} className="bento-card">
+                      <div className="accent-bar" />
+                      <div className="p-4">
                         <div className="flex items-start gap-4">
-                          <div className="shrink-0 w-16 h-16 bg-primary/10 rounded-lg flex flex-col items-center justify-center">
-                            <div className="text-2xl font-bold text-primary">
+                          <time dateTime={new Date(event.startDate).toISOString()} className="shrink-0 w-16 h-16 glass rounded-xl flex flex-col items-center justify-center">
+                            <div className="stat-number text-2xl text-gradient-primary">
                               {format(new Date(event.startDate), "dd")}
                             </div>
-                            <div className="text-xs text-muted-foreground uppercase">
+                            <div className="text-xs text-muted-foreground uppercase font-display">
                               {format(new Date(event.startDate), "EEE", {
                                 locale: ptBR,
                               })}
                             </div>
-                          </div>
+                          </time>
 
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <h3 className="font-semibold">{event.name}</h3>
-                                <Badge variant="secondary" className="text-xs">
+                                <h3 className="font-display font-semibold">{event.name}</h3>
+                                <Badge variant="gradient" className="text-xs">
                                   {eventTypeLabels[event.type] || event.type}
                                 </Badge>
                               </div>
@@ -488,7 +485,7 @@ export default function EventsPage() {
                               {isCreator && (
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Opções do evento">
                                       <MoreHorizontal className="h-4 w-4" />
                                     </Button>
                                   </DropdownMenuTrigger>
@@ -499,7 +496,7 @@ export default function EventsPage() {
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                       className="text-destructive focus:text-destructive"
-                                      onClick={() => handleDeleteEvent(event.id)}
+                                      onClick={() => setDeleteTargetId(event.id)}
                                     >
                                       <Trash2 className="h-4 w-4 mr-2" />
                                       Excluir
@@ -522,13 +519,21 @@ export default function EventsPage() {
                               </span>
                               <span className="flex items-center gap-1">
                                 <Calendar className="h-3 w-3" />
-                                {format(new Date(event.startDate), "HH:mm", {
-                                  locale: ptBR,
-                                })}
-                                {event.endDate &&
-                                  ` - ${format(new Date(event.endDate), "HH:mm", {
+                                <time dateTime={new Date(event.startDate).toISOString()}>
+                                  {format(new Date(event.startDate), "HH:mm", {
                                     locale: ptBR,
-                                  })}`}
+                                  })}
+                                </time>
+                                {event.endDate && (
+                                  <>
+                                    {" - "}
+                                    <time dateTime={new Date(event.endDate).toISOString()}>
+                                      {format(new Date(event.endDate), "HH:mm", {
+                                        locale: ptBR,
+                                      })}
+                                    </time>
+                                  </>
+                                )}
                               </span>
                             </div>
 
@@ -573,8 +578,8 @@ export default function EventsPage() {
                             </div>
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -678,7 +683,7 @@ export default function EventsPage() {
             <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleCreateEvent} disabled={isCreating}>
+            <Button variant="premium" onClick={handleCreateEvent} disabled={isCreating}>
               {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Criar Evento
             </Button>
@@ -788,6 +793,15 @@ export default function EventsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteTargetId}
+        onOpenChange={(open) => !open && setDeleteTargetId(null)}
+        title="Excluir este evento?"
+        confirmLabel="Excluir"
+        isLoading={isDeletingEvent}
+        onConfirm={handleDeleteEvent}
+      />
     </div>
   );
 }

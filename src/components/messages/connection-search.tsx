@@ -6,7 +6,7 @@ import { Search, MessageSquare, Loader2, Users } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface Connection {
@@ -27,15 +27,6 @@ interface ExistingConversation {
     id: string;
   };
 }
-
-const getInitials = (name: string): string => {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-};
 
 export function ConnectionSearch() {
   const router = useRouter();

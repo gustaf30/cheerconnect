@@ -35,6 +35,8 @@ export const config = {
     "/teams/:path*",
     "/events/:path*",
     "/search/:path*",
+    "/messages/:path*",
+    "/settings/:path*",
     "/api/((?!auth).*)",
   ],
 };

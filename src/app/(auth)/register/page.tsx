@@ -7,25 +7,7 @@ import { signIn } from "next-auth/react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Loader2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
 const registerSchema = z
@@ -105,125 +87,151 @@ export default function RegisterPage() {
   };
 
   return (
-    <Card className="border-0 shadow-xl backdrop-blur-sm bg-card/95 hover:shadow-2xl transition-shadow duration-300">
-      <CardHeader className="space-y-1 text-center">
-        <Link href="/" className="inline-block mb-4 group">
-          <h1 className="text-2xl font-bold">
+    <>
+      {/* Mobile Logo */}
+      <div className="mb-8 text-left">
+        <Link href="/" className="inline-block group">
+          <h2 className="text-4xl font-display font-extrabold tracking-tight">
             <span className="text-gradient-primary">Cheer</span>
-            <span className="group-hover:text-primary/80 transition-colors duration-200">Connect</span>
-          </h1>
+            <span className="text-foreground">Connect</span>
+          </h2>
         </Link>
-        <CardTitle className="text-xl">Crie sua conta</CardTitle>
-        <CardDescription>
-          Junte-se à comunidade de cheerleading
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nome completo</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Seu nome"
-                      disabled={isLoading}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+      </div>
+
+      <div className="space-y-2 mb-8">
+        <h3 className="text-3xl font-display font-bold text-foreground">
+          Crie sua conta
+        </h3>
+        <p className="text-muted-foreground">
+          Junte-se à comunidade de cheerleading do Brasil.
+        </p>
+      </div>
+
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="space-y-6"
+      >
+        <div className="floating-label-group relative flex flex-col">
+          <input
+            type="text"
+            placeholder=" "
+            disabled={isLoading}
+            {...form.register("name")}
+            className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-colors duration-300 outline-none text-foreground font-medium"
+          />
+          <label className="absolute left-0 pointer-events-none transition-all duration-300 font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
+            Nome Completo
+          </label>
+          {form.formState.errors.name && (
+            <p className="text-destructive text-sm mt-1">
+              {form.formState.errors.name.message}
+            </p>
+          )}
+        </div>
+
+        <div className="floating-label-group relative flex flex-col">
+          <input
+            type="email"
+            placeholder=" "
+            disabled={isLoading}
+            {...form.register("email")}
+            className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-colors duration-300 outline-none text-foreground font-medium"
+          />
+          <label className="absolute left-0 pointer-events-none transition-all duration-300 font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
+            Endereço de Email
+          </label>
+          {form.formState.errors.email && (
+            <p className="text-destructive text-sm mt-1">
+              {form.formState.errors.email.message}
+            </p>
+          )}
+        </div>
+
+        <div className="floating-label-group relative flex flex-col">
+          <input
+            type="text"
+            placeholder=" "
+            disabled={isLoading}
+            {...form.register("username")}
+            className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-colors duration-300 outline-none text-foreground font-medium"
+          />
+          <label className="absolute left-0 pointer-events-none transition-all duration-300 font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
+            Username
+          </label>
+          {form.formState.errors.username && (
+            <p className="text-destructive text-sm mt-1">
+              {form.formState.errors.username.message}
+            </p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="floating-label-group relative flex flex-col">
+            <input
+              type="password"
+              placeholder=" "
+              disabled={isLoading}
+              {...form.register("password")}
+              className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-colors duration-300 outline-none text-foreground font-medium"
             />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="email"
-                      placeholder="seu@email.com"
-                      disabled={isLoading}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+            <label className="absolute left-0 pointer-events-none transition-all duration-300 font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
+              Senha
+            </label>
+            {form.formState.errors.password && (
+              <p className="text-destructive text-sm mt-1">
+                {form.formState.errors.password.message}
+              </p>
+            )}
+          </div>
+
+          <div className="floating-label-group relative flex flex-col">
+            <input
+              type="password"
+              placeholder=" "
+              disabled={isLoading}
+              {...form.register("confirmPassword")}
+              className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-colors duration-300 outline-none text-foreground font-medium"
             />
-            <FormField
-              control={form.control}
-              name="username"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Username</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="seu_username"
-                      disabled={isLoading}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Senha</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      placeholder="••••••••"
-                      disabled={isLoading}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="confirmPassword"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Confirmar senha</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      placeholder="••••••••"
-                      disabled={isLoading}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Criar conta
-            </Button>
-          </form>
-        </Form>
-      </CardContent>
-      <CardFooter className="flex justify-center">
-        <p className="text-sm text-muted-foreground">
-          Já tem uma conta?{" "}
-          <Link href="/login" className="text-primary hover:underline">
-            Faça login
+            <label className="absolute left-0 pointer-events-none transition-all duration-300 font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
+              Confirmar Senha
+            </label>
+            {form.formState.errors.confirmPassword && (
+              <p className="text-destructive text-sm mt-1">
+                {form.formState.errors.confirmPassword.message}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="pt-2">
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full py-4 bg-primary hover:bg-[oklch(0.40_0.18_25)] text-primary-foreground font-bold rounded-xl transition-all duration-200 shadow-xl shadow-primary/20 active:scale-[0.98] flex items-center justify-center gap-2 group disabled:opacity-50"
+          >
+            {isLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <>
+                Criar Conta
+                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+
+      <div className="mt-8 text-center">
+        <p className="text-sm text-muted-foreground font-medium">
+          Já faz parte da comunidade?
+          <Link
+            href="/login"
+            className="text-primary font-extrabold hover:text-[oklch(0.40_0.18_25)] ml-1 transition-colors"
+          >
+            Fazer Login
           </Link>
         </p>
-      </CardFooter>
-    </Card>
+      </div>
+    </>
   );
 }

@@ -14,7 +14,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { toast } from "sonner";
 
 interface CommentAuthor {
@@ -61,18 +62,10 @@ export function CommentItem({
   const [editContent, setEditContent] = useState(comment.content);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const isAuthor = currentUserId === comment.author.id;
   const isEdited = comment.updatedAt && new Date(comment.updatedAt) > new Date(comment.createdAt);
-
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
 
   const handleLike = async () => {
     if (isLoading) return;
@@ -146,8 +139,6 @@ export function CommentItem({
   };
 
   const handleDelete = async () => {
-    if (!confirm("Tem certeza que deseja excluir este comentário?")) return;
-
     setIsDeleting(true);
     try {
       const response = await fetch(`/api/comments/${comment.id}`, {
@@ -173,9 +164,9 @@ export function CommentItem({
   };
 
   return (
-    <div className={cn("flex gap-3 py-3 transition-all duration-200", isReply && "py-2")}>
+    <div className={cn("flex gap-3 py-3 transition-base", isReply && "py-2")}>
       <Link href={`/profile/${comment.author.username}`}>
-        <Avatar className={cn("avatar-ring-hover transition-all duration-200", isReply ? "h-6 w-6" : "h-8 w-8")}>
+        <Avatar className={cn("avatar-ring-hover transition-base", isReply ? "h-6 w-6" : "h-8 w-8")}>
           <AvatarImage
             src={comment.author.avatar || undefined}
             alt={comment.author.name}
@@ -196,12 +187,12 @@ export function CommentItem({
             >
               {comment.author.name}
             </Link>
-            <span className="text-xs text-muted-foreground">
+            <time dateTime={new Date(comment.createdAt).toISOString()} className="text-xs text-muted-foreground">
               {formatDistanceToNow(new Date(comment.createdAt), {
                 addSuffix: true,
                 locale: ptBR,
               })}
-            </span>
+            </time>
             {isEdited && (
               <span className="text-xs text-muted-foreground">(editado)</span>
             )}
@@ -210,7 +201,7 @@ export function CommentItem({
           {isAuthor && !isEditing && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-6 w-6" disabled={isDeleting}>
+                <Button variant="ghost" size="icon" className="h-6 w-6" disabled={isDeleting} aria-label="Opções do comentário">
                   <MoreHorizontal className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
@@ -221,7 +212,7 @@ export function CommentItem({
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
-                  onClick={handleDelete}
+                  onClick={() => setShowDeleteConfirm(true)}
                   disabled={isDeleting}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
@@ -277,14 +268,14 @@ export function CommentItem({
             variant="ghost"
             size="sm"
             className={cn(
-              "h-7 px-2 gap-1 text-xs transition-all duration-200",
+              "h-7 px-2 gap-1 text-xs transition-base",
               isLiked && "text-primary hover:text-primary"
             )}
             onClick={handleLike}
             disabled={isLoading}
           >
             <Heart className={cn(
-              "h-3 w-3 transition-transform duration-200",
+              "h-3 w-3 transition-fast",
               isLiked && "fill-current animate-heart-pop"
             )} />
             {likesCount > 0 && <span>{likesCount}</span>}
@@ -303,6 +294,15 @@ export function CommentItem({
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Excluir este comentário?"
+        confirmLabel="Excluir"
+        isLoading={isDeleting}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

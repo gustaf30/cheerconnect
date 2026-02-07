@@ -17,7 +17,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -35,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { getInitials } from "@/lib/utils";
 
 interface TeamInvite {
   id: string;
@@ -175,15 +175,6 @@ export default function TeamInvitesPage() {
     }
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -193,8 +184,8 @@ export default function TeamInvitesPage() {
         </div>
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
-            <Card key={i}>
-              <CardContent className="p-4">
+            <div key={i} className="bento-card-static">
+              <div className="p-4">
                 <div className="flex items-center gap-4">
                   <Skeleton className="h-14 w-14 rounded-xl" />
                   <div className="flex-1 space-y-2">
@@ -203,8 +194,8 @@ export default function TeamInvitesPage() {
                   </div>
                   <Skeleton className="h-9 w-20" />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -228,8 +219,8 @@ export default function TeamInvitesPage() {
       </div>
 
       {invites.length === 0 ? (
-        <Card>
-          <CardContent className="p-12 text-center">
+        <div className="bento-card-static">
+          <div className="p-12 text-center">
             <div className="mx-auto h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
               <Users className="h-8 w-8 text-muted-foreground" />
             </div>
@@ -242,13 +233,13 @@ export default function TeamInvitesPage() {
             <Link href="/teams">
               <Button variant="outline">Explorar equipes</Button>
             </Link>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ) : (
         <div className="space-y-4">
           {invites.map((invite) => (
-            <Card key={invite.id}>
-              <CardContent className="p-4">
+            <div key={invite.id} className="bento-card-static">
+              <div className="p-4">
                 <div className="flex items-start gap-4">
                   <Link href={`/teams/${invite.team.slug}`}>
                     <Avatar className="h-14 w-14 rounded-xl">
@@ -317,8 +308,8 @@ export default function TeamInvitesPage() {
                     </Button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ))}
         </div>
       )}

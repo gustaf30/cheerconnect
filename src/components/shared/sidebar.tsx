@@ -5,23 +5,23 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
-  Home,
+  LayoutGrid,
   Users,
   Calendar,
-  UserCircle,
-  UsersRound,
+  Castle,
+  UserPlus,
+  MessageCircle,
+  Settings,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 
 const mainNavItems = [
   {
     title: "Feed",
     href: "/feed",
-    icon: Home,
+    icon: LayoutGrid,
   },
   {
     title: "Conexões",
@@ -31,7 +31,7 @@ const mainNavItems = [
   {
     title: "Equipes",
     href: "/teams",
-    icon: UsersRound,
+    icon: Castle,
   },
   {
     title: "Eventos",
@@ -39,14 +39,20 @@ const mainNavItems = [
     icon: Calendar,
   },
   {
-    title: "Pessoas",
-    href: "/search",
-    icon: UserCircle,
+    title: "Mensagens",
+    href: "/messages",
+    icon: MessageCircle,
+  },
+  {
+    title: "Configurações",
+    href: "/settings",
+    icon: Settings,
   },
 ];
 
 interface UserProfile {
   name: string;
+  username: string;
   avatar: string | null;
 }
 
@@ -68,6 +74,7 @@ export function Sidebar() {
         const data = await response.json();
         setUserProfile({
           name: data.user.name,
+          username: data.user.username,
           avatar: data.user.avatar,
         });
       }
@@ -87,7 +94,6 @@ export function Sidebar() {
         const connectionsData = await connectionsRes.json();
         const achievementsData = await achievementsRes.json();
 
-        // Count accepted connections
         const acceptedConnections = connectionsData.connections?.filter(
           (c: { status: string }) => c.status === "ACCEPTED"
         ).length || 0;
@@ -109,100 +115,118 @@ export function Sidebar() {
     }
   }, [session, fetchUserProfile, fetchStats]);
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   const displayName = userProfile?.name || session?.user?.name || "";
+  const displayUsername = userProfile?.username || "";
   const displayAvatar = userProfile?.avatar || session?.user?.image || undefined;
 
   return (
-    <div className="flex h-full flex-col bg-sidebar">
-      {/* Logo for mobile */}
-      <div className="flex h-14 items-center px-4 md:hidden border-b">
-        <Link href="/feed" className="flex items-center gap-1 font-bold text-xl group">
-          <span className="text-gradient-primary transition-all duration-300 group-hover:opacity-90">Cheer</span>
-          <span className="transition-all duration-300 group-hover:text-primary/80 group-hover:tracking-wide">Connect</span>
-        </Link>
-      </div>
-
-      <ScrollArea className="flex-1 px-3 py-4">
-        {/* Profile card */}
-        {session?.user && (
+    <ScrollArea className="flex-1">
+      <div className="flex flex-col gap-4">
+        {/* Logo for mobile */}
+        <div className="flex h-14 items-center px-4 lg:hidden border-b">
           <Link
-            href="/profile"
-            className="flex items-center gap-3 rounded-lg p-3 hover:bg-sidebar-accent transition-all duration-300 mb-4 group hover:shadow-sm hover-glow"
+            href="/feed"
+            className="flex items-center gap-0.5 font-display font-extrabold text-xl group"
           >
-            <Avatar className="h-10 w-10 ring-2 ring-transparent group-hover:ring-primary/30 transition-all duration-300">
-              <AvatarImage
-                src={displayAvatar}
-                alt={displayName}
-                className="object-cover"
-              />
-              <AvatarFallback className="bg-primary text-primary-foreground">
-                {displayName ? getInitials(displayName) : "U"}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col overflow-hidden">
-              <span className="font-medium truncate group-hover:text-primary transition-colors duration-300">{displayName}</span>
-              <span className="text-xs text-muted-foreground truncate">
-                Ver perfil
-              </span>
-            </div>
+            <span className="text-primary transition-base group-hover:opacity-90">
+              Cheer
+            </span>
+            <span className="transition-base group-hover:text-primary/80">
+              Connect
+            </span>
           </Link>
+        </div>
+
+        {/* Unified Profile & Stats Bento Card */}
+        {session?.user && (
+          <div className="bento-card-static">
+            <div className="accent-bar" />
+            <div className="p-5 flex flex-col items-center text-center">
+              <div className="relative">
+                <Avatar className="h-20 w-20 rounded-2xl border-2 border-white shadow-sm mb-3">
+                  <AvatarImage
+                    src={displayAvatar}
+                    alt={displayName}
+                    className="object-cover"
+                  />
+                  <AvatarFallback className="bg-primary text-primary-foreground font-display font-semibold text-xl rounded-2xl">
+                    {displayName ? getInitials(displayName) : "U"}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+              <h2 className="font-display font-bold text-lg">{displayName}</h2>
+              {displayUsername && (
+                <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest font-bold mb-5">
+                  @{displayUsername}
+                </p>
+              )}
+
+              <div className="grid grid-cols-2 w-full gap-4 border-t border-border/50 pt-5">
+                <div className="flex flex-col">
+                  <span className="font-mono text-xl font-bold text-primary">
+                    {stats.connections}
+                  </span>
+                  <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Conexões
+                  </span>
+                </div>
+                <div className="flex flex-col border-l border-border/50">
+                  <span className="font-mono text-xl font-bold text-primary">
+                    {stats.achievements}
+                  </span>
+                  <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Conquistas
+                  </span>
+                </div>
+              </div>
+            </div>
+            <Link
+              href={displayUsername ? `/profile/${displayUsername}` : "/profile"}
+              className="block w-full text-center py-3 bg-foreground/5 text-xs font-bold hover:bg-primary hover:text-white hover:scale-[1.05] active:scale-[0.98] transition-all duration-300"
+            >
+              VER MEU PERFIL
+            </Link>
+          </div>
         )}
 
-        <Separator className="mb-4" />
-
-        {/* Navigation */}
-        <nav className="space-y-1">
+        {/* Nav Grid Cards */}
+        <nav className="grid grid-cols-2 gap-3">
           {mainNavItems.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
             return (
-              <Link key={item.href} href={item.href}>
-                <Button
-                  variant={isActive ? "secondary" : "ghost"}
-                  className={cn(
-                    "w-full justify-start gap-3 relative transition-all duration-300 nav-indicator",
-                    isActive && "bg-sidebar-accent font-medium active",
-                    !isActive && "hover:translate-x-1.5"
-                  )}
-                >
-                  <item.icon className={cn(
-                    "h-5 w-5 transition-all duration-300",
-                    isActive && "text-primary scale-110"
-                  )} />
-                  {item.title}
-                </Button>
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "nav-card flex flex-col items-center justify-center p-4 rounded-2xl bento-card-static border-none shadow-sm",
+                  isActive && "active",
+                  !isActive && "text-muted-foreground"
+                )}
+              >
+                <item.icon className="h-6 w-6 mb-1" />
+                <span className="text-xs font-bold">{item.title}</span>
               </Link>
             );
           })}
         </nav>
 
-        <Separator className="my-4" />
-
-        {/* Quick stats */}
-        <div className="space-y-2 px-3">
-          <h4 className="text-sm font-medium text-muted-foreground">
-            Estatísticas
-          </h4>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-lg bg-gradient-to-br from-sidebar-accent to-sidebar-accent/50 p-3 text-center transition-all duration-300 hover:shadow-md hover:scale-[1.02] group cursor-pointer">
-              <div className="text-2xl font-bold text-gradient-primary">{stats.connections}</div>
-              <div className="text-xs text-muted-foreground group-hover:text-foreground transition-colors duration-300">Conexões</div>
-            </div>
-            <div className="rounded-lg bg-gradient-to-br from-sidebar-accent to-sidebar-accent/50 p-3 text-center transition-all duration-300 hover:shadow-md hover:scale-[1.02] group cursor-pointer">
-              <div className="text-2xl font-bold text-gradient-primary">{stats.achievements}</div>
-              <div className="text-xs text-muted-foreground group-hover:text-foreground transition-colors duration-300">Conquistas</div>
-            </div>
-          </div>
+        {/* Suggestions Mini Card */}
+        <div className="bento-card-static p-4 bg-primary/5 border-primary/20">
+          <p className="text-xs font-bold text-primary mb-3 uppercase tracking-wider">
+            Encontrar Atletas
+          </p>
+          <p className="text-[11px] text-muted-foreground mb-3">
+            Descubra atletas e técnicos na sua região.
+          </p>
+          <Link
+            href="/search"
+            className="flex items-center justify-center w-full py-1.5 text-[10px] font-bold border border-primary/30 rounded-lg text-primary hover:bg-primary hover:text-white hover:scale-[1.05] active:scale-[0.98] transition-all duration-300 gap-1"
+          >
+            <UserPlus className="h-3 w-3" />
+            BUSCAR PESSOAS
+          </Link>
         </div>
-      </ScrollArea>
-    </div>
+      </div>
+    </ScrollArea>
   );
 }

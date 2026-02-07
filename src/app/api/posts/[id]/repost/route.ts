@@ -75,11 +75,17 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
     const { content } = repostSchema.parse(body);
 
-    // Get current user info
-    const currentUser = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { name: true },
-    });
+    // Get current user info and original author preferences
+    const [currentUser, originalAuthorPrefs] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { name: true },
+      }),
+      prisma.user.findUnique({
+        where: { id: originalPost.authorId },
+        select: { notifyPostReposted: true },
+      }),
+    ]);
 
     // Create the repost
     const repost = await prisma.post.create({
@@ -136,17 +142,19 @@ export async function POST(
       },
     });
 
-    // Create notification for original post author
-    await prisma.notification.create({
-      data: {
-        userId: originalPost.authorId,
-        type: "POST_REPOSTED",
-        message: `${currentUser?.name || "Alguém"} repostou sua publicação`,
-        actorId: session.user.id,
-        relatedId: repost.id,
-        relatedType: "post",
-      },
-    });
+    // Create notification for original post author (if enabled)
+    if (originalAuthorPrefs?.notifyPostReposted) {
+      await prisma.notification.create({
+        data: {
+          userId: originalPost.authorId,
+          type: "POST_REPOSTED",
+          message: `${currentUser?.name || "Alguém"} repostou sua publicação`,
+          actorId: session.user.id,
+          relatedId: repost.id,
+          relatedType: "post",
+        },
+      });
+    }
 
     return NextResponse.json({
       post: {

@@ -4,11 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MapPin, Briefcase, UserPlus, UserMinus, Clock, Check, Pencil, MessageSquare } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
+import { positionLabels } from "@/lib/constants";
 
 interface ProfileHeaderProps {
   user: {
@@ -29,18 +31,6 @@ interface ProfileHeaderProps {
   postsCount: number;
 }
 
-const positionLabels: Record<string, string> = {
-  FLYER: "Flyer",
-  BASE: "Base",
-  BACKSPOT: "Backspot",
-  FRONTSPOT: "Frontspot",
-  TUMBLER: "Tumbler",
-  COACH: "Técnico",
-  CHOREOGRAPHER: "Coreógrafo",
-  JUDGE: "Juiz",
-  OTHER: "Outro",
-};
-
 export function ProfileHeader({
   user,
   isOwnProfile,
@@ -52,15 +42,7 @@ export function ProfileHeader({
   const [status, setStatus] = useState(connectionStatus);
   const [isLoading, setIsLoading] = useState(false);
   const [isStartingConversation, setIsStartingConversation] = useState(false);
-
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
+  const shouldReduceMotion = useReducedMotion();
 
   const handleConnection = async () => {
     setIsLoading(true);
@@ -130,9 +112,10 @@ export function ProfileHeader({
   };
 
   return (
-    <div className="bg-card rounded-xl overflow-hidden border animate-fade-in shadow-sm hover:shadow-md transition-shadow duration-300">
+    <div className="bento-card-static overflow-hidden animate-fade-in">
+      <div className="accent-bar" />
       {/* Banner */}
-      <div className="h-32 sm:h-48 bg-gradient-to-br from-primary via-primary/60 to-[oklch(0.40_0.18_25)] relative overflow-hidden animate-banner-shimmer">
+      <div className="h-32 sm:h-48 bg-gradient-to-br from-primary via-primary/60 to-[oklch(0.40_0.18_25)] relative overflow-hidden">
         {user.banner ? (
           <img
             src={user.banner}
@@ -147,12 +130,14 @@ export function ProfileHeader({
       {/* Profile info */}
       <div className="px-4 sm:px-6 pb-6">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between -mt-12 sm:-mt-16">
-          <Avatar className="h-24 w-24 sm:h-32 sm:w-32 border-4 border-background shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_oklch(0.55_0.22_25/0.3)]">
-            <AvatarImage src={user.avatar || undefined} alt={user.name} className="object-cover" />
-            <AvatarFallback className="bg-primary text-primary-foreground text-2xl sm:text-4xl">
-              {getInitials(user.name)}
-            </AvatarFallback>
-          </Avatar>
+          <div>
+            <Avatar className="h-24 w-24 sm:h-32 sm:w-32 border-4 border-background shadow-depth-4 transition-all duration-300 hover:scale-105 avatar-glow">
+              <AvatarImage src={user.avatar || undefined} alt={user.name} className="object-cover" />
+              <AvatarFallback className="bg-primary text-primary-foreground text-2xl sm:text-4xl font-display font-bold">
+                {getInitials(user.name)}
+              </AvatarFallback>
+            </Avatar>
+          </div>
 
           <div className="mt-4 sm:mt-0 flex gap-2">
             {isOwnProfile ? (
@@ -175,41 +160,46 @@ export function ProfileHeader({
                     Mensagem
                   </Button>
                 )}
-                <Button
-                  onClick={handleConnection}
-                  disabled={isLoading}
-                  variant={status === "connected" ? "outline" : "default"}
-                  className={cn(
-                    "transition-all duration-300",
-                    status === "none" && "hover-glow",
-                    status === "pending" && "animate-pulse-ring"
-                  )}
+                <motion.div
+                  whileHover={shouldReduceMotion ? {} : { scale: 1.05 }}
+                  whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 17 }}
                 >
-                  {status === "none" && (
-                    <>
-                      <UserPlus className="h-4 w-4 mr-2" />
-                      Conectar
-                    </>
-                  )}
-                  {status === "pending" && (
-                    <>
-                      <Clock className="h-4 w-4 mr-2" />
-                      Pendente
-                    </>
-                  )}
-                  {status === "received" && (
-                    <>
-                      <Check className="h-4 w-4 mr-2" />
-                      Aceitar
-                    </>
-                  )}
-                  {status === "connected" && (
-                    <>
-                      <UserMinus className="h-4 w-4 mr-2" />
-                      Conectado
-                    </>
-                  )}
-                </Button>
+                  <Button
+                    onClick={handleConnection}
+                    disabled={isLoading}
+                    variant={status === "connected" ? "outline" : status === "none" ? "premium" : "default"}
+                    className={cn(
+                      "transition-all duration-300",
+                      status === "pending" && "animate-pulse-ring"
+                    )}
+                  >
+                    {status === "none" && (
+                      <>
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Conectar
+                      </>
+                    )}
+                    {status === "pending" && (
+                      <>
+                        <Clock className="h-4 w-4 mr-2" />
+                        Pendente
+                      </>
+                    )}
+                    {status === "received" && (
+                      <>
+                        <Check className="h-4 w-4 mr-2" />
+                        Aceitar
+                      </>
+                    )}
+                    {status === "connected" && (
+                      <>
+                        <UserMinus className="h-4 w-4 mr-2" />
+                        Conectado
+                      </>
+                    )}
+                  </Button>
+                </motion.div>
               </>
             )}
           </div>
@@ -217,8 +207,8 @@ export function ProfileHeader({
 
         <div className="mt-4 space-y-3">
           <div>
-            <h1 className="text-2xl font-bold">{user.name}</h1>
-            <p className="text-muted-foreground">@{user.username}</p>
+            <h1 className="heading-section">{user.name}</h1>
+            <p className="text-muted-foreground font-mono">@{user.username}</p>
           </div>
 
           {/* Positions */}
@@ -227,7 +217,7 @@ export function ProfileHeader({
               {user.positions.map((position, index) => (
                 <Badge
                   key={position}
-                  variant="subtle"
+                  variant="gradient"
                   className="animate-slide-up"
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
@@ -238,7 +228,7 @@ export function ProfileHeader({
           )}
 
           {/* Bio */}
-          {user.bio && <p className="text-sm">{user.bio}</p>}
+          {user.bio && <p className="text-editorial">{user.bio}</p>}
 
           {/* Meta info */}
           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
@@ -258,14 +248,14 @@ export function ProfileHeader({
           </div>
 
           {/* Stats */}
-          <div className="flex gap-6 pt-2">
-            <div className="group cursor-pointer transition-all duration-300 hover:scale-105">
-              <span className="font-bold text-gradient-primary">{connectionsCount}</span>{" "}
-              <span className="text-muted-foreground group-hover:text-foreground transition-colors duration-200">conexões</span>
+          <div className="flex gap-4 pt-2">
+            <div className="bento-card-static px-5 py-3 text-center">
+              <span className="font-mono text-xl font-bold text-primary">{connectionsCount}</span>
+              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Conexões</p>
             </div>
-            <div className="group cursor-pointer transition-all duration-300 hover:scale-105">
-              <span className="font-bold text-gradient-primary">{postsCount}</span>{" "}
-              <span className="text-muted-foreground group-hover:text-foreground transition-colors duration-200">publicações</span>
+            <div className="bento-card-static px-5 py-3 text-center">
+              <span className="font-mono text-xl font-bold text-primary">{postsCount}</span>
+              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Publicações</p>
             </div>
           </div>
         </div>

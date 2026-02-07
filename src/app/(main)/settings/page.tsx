@@ -7,7 +7,6 @@ import { Loader2, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -254,13 +253,14 @@ export default function SettingsPage() {
       <div className="space-y-6">
         <Skeleton className="h-8 w-48" />
         {[1, 2, 3].map((i) => (
-          <Card key={i}>
-            <CardContent className="p-6 space-y-4">
+          <div key={i} className="bento-card-static">
+            <div className="accent-bar" />
+            <div className="p-6 space-y-4">
               <Skeleton className="h-6 w-32" />
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         ))}
       </div>
     );
@@ -282,18 +282,18 @@ export default function SettingsPage() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
-        <h1 className="text-2xl font-bold">Configurações</h1>
+        <h1 className="heading-section font-display">Configurações</h1>
       </div>
 
       {/* Account Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Conta</CardTitle>
-          <CardDescription>
+      <div className="bento-card-static">
+        <div className="accent-bar" />
+        <div className="p-6">
+          <h2 className="font-display font-bold text-lg mb-1">Conta</h2>
+          <p className="text-sm text-muted-foreground mb-6">
             Gerencie suas informações de conta
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
+          </p>
+          <div className="space-y-6">
           <div className="space-y-2">
             <Label>Email</Label>
             <Input value={settings.email} disabled className="bg-muted" />
@@ -394,18 +394,19 @@ export default function SettingsPage() {
               Excluir conta
             </Button>
           </div>
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+      </div>
 
       {/* Notifications Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Notificações</CardTitle>
-          <CardDescription>
+      <div className="bento-card-static">
+        <div className="accent-bar" />
+        <div className="p-6">
+          <h2 className="font-display font-bold text-lg mb-1">Notificações</h2>
+          <p className="text-sm text-muted-foreground mb-6">
             Escolha quais notificações você deseja receber
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
+          </p>
+          <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label>Curtidas em posts</Label>
@@ -483,18 +484,19 @@ export default function SettingsPage() {
               onCheckedChange={(checked) => updateNotification("messageReceived", checked)}
             />
           </div>
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+      </div>
 
       {/* Privacy Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Privacidade</CardTitle>
-          <CardDescription>
+      <div className="bento-card-static">
+        <div className="accent-bar" />
+        <div className="p-6">
+          <h2 className="font-display font-bold text-lg mb-1">Privacidade</h2>
+          <p className="text-sm text-muted-foreground mb-6">
             Controle quem pode ver suas informações
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
+          </p>
+          <div className="space-y-6">
           <div className="space-y-2">
             <Label>Visibilidade do perfil</Label>
             <Select
@@ -525,8 +527,9 @@ export default function SettingsPage() {
               onCheckedChange={(checked) => updatePrivacy("showEmail", checked)}
             />
           </div>
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+      </div>
 
       {/* Save Button */}
       <div className="flex justify-end gap-3">

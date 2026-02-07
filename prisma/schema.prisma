@@ -17,7 +17,9 @@ model User {
   username      String    @unique
   password      String?   // null se usar OAuth
   avatar        String?
+  avatarPublicId String?
   banner        String?
+  bannerPublicId String?
   bio           String?
   location      String?
   birthDate     DateTime?
@@ -64,6 +66,8 @@ model User {
   notifyConnectionAccepted Boolean @default(true)
   notifyCommentReplied    Boolean @default(true)
   notifyMessageReceived   Boolean @default(true)
+  notifyPostReposted      Boolean @default(true)
+  notifyTeamInvite        Boolean @default(true)
 
   // Configurações de privacidade
   profileVisibility       ProfileVisibility @default(PUBLIC)
@@ -155,6 +159,8 @@ model CareerHistory {
 
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
+
+  @@index([userId])
 }
 
 enum CareerRole {
@@ -176,6 +182,8 @@ model Achievement {
 
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 // ============ CONEXÕES ============
@@ -193,6 +201,8 @@ model Connection {
   updatedAt  DateTime         @updatedAt
 
   @@unique([senderId, receiverId])
+  @@index([senderId, status])
+  @@index([receiverId, status])
 }
 
 enum ConnectionStatus {
@@ -224,6 +234,10 @@ model Post {
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+
+  @@index([authorId])
+  @@index([teamId])
+  @@index([createdAt])
 }
 
 model Comment {
@@ -276,6 +290,7 @@ model Like {
   createdAt DateTime @default(now())
 
   @@unique([userId, postId])
+  @@index([postId])
 }
 
 // ============ EQUIPES ============
@@ -333,6 +348,7 @@ model TeamMember {
   team      Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@unique([userId, teamId])
+  @@index([userId])
 }
 
 model TeamFollow {
@@ -403,6 +419,9 @@ model Event {
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  @@index([startDate])
+  @@index([type])
 }
 
 enum EventType {
@@ -415,12 +434,23 @@ enum EventType {
 }
 
 // ============ NOTIFICAÇÕES ============
+enum NotificationType {
+  POST_LIKED
+  POST_COMMENTED
+  COMMENT_REPLIED
+  CONNECTION_REQUEST
+  CONNECTION_ACCEPTED
+  MESSAGE_RECEIVED
+  POST_REPOSTED
+  TEAM_INVITE
+}
+
 model Notification {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
 
-  type      String   // POST_LIKED, POST_COMMENTED, CONNECTION_REQUEST, CONNECTION_ACCEPTED, MESSAGE_RECEIVED
+  type      NotificationType
   message   String
   isRead    Boolean  @default(false)
 

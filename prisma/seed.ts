@@ -1,5 +1,5 @@
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient, Position, CareerRole, ConnectionStatus, TeamCategory, EventType, InviteStatus, ProfileVisibility } from "@prisma/client";
+import { PrismaClient, Position, CareerRole, ConnectionStatus, TeamCategory, EventType, InviteStatus, ProfileVisibility, NotificationType } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { Pool } from "pg";
 import "dotenv/config";
@@ -995,28 +995,28 @@ async function main() {
   console.log("🔔 Criando notificações...");
   const notificationsData = [
     // Notificações para Gustavo
-    { userId: gustavo.id, type: "POST_LIKED", message: "Maria Santos curtiu seu post", actorId: maria.id, relatedId: posts[0].id, relatedType: "post", isRead: true, createdAt: daysAgo(14) },
-    { userId: gustavo.id, type: "POST_LIKED", message: "João Oliveira curtiu seu post", actorId: joao.id, relatedId: posts[0].id, relatedType: "post", isRead: true, createdAt: daysAgo(14) },
-    { userId: gustavo.id, type: "POST_COMMENTED", message: "Maria Santos comentou no seu post", actorId: maria.id, relatedId: posts[0].id, relatedType: "post", isRead: true, createdAt: daysAgo(14) },
-    { userId: gustavo.id, type: "CONNECTION_REQUEST", message: "Julia Lima quer se conectar com você", actorId: julia.id, isRead: false, createdAt: daysAgo(5) },
-    { userId: gustavo.id, type: "CONNECTION_REQUEST", message: "Rafael Alves quer se conectar com você", actorId: rafael.id, isRead: false, createdAt: daysAgo(3) },
-    { userId: gustavo.id, type: "MESSAGE_RECEIVED", message: "Lucas Ferreira enviou uma mensagem", actorId: lucas.id, relatedId: conv3.id, relatedType: "conversation", isRead: false, createdAt: daysAgo(0) },
+    { userId: gustavo.id, type: NotificationType.POST_LIKED, message: "Maria Santos curtiu seu post", actorId: maria.id, relatedId: posts[0].id, relatedType: "post", isRead: true, createdAt: daysAgo(14) },
+    { userId: gustavo.id, type: NotificationType.POST_LIKED, message: "João Oliveira curtiu seu post", actorId: joao.id, relatedId: posts[0].id, relatedType: "post", isRead: true, createdAt: daysAgo(14) },
+    { userId: gustavo.id, type: NotificationType.POST_COMMENTED, message: "Maria Santos comentou no seu post", actorId: maria.id, relatedId: posts[0].id, relatedType: "post", isRead: true, createdAt: daysAgo(14) },
+    { userId: gustavo.id, type: NotificationType.CONNECTION_REQUEST, message: "Julia Lima quer se conectar com você", actorId: julia.id, isRead: false, createdAt: daysAgo(5) },
+    { userId: gustavo.id, type: NotificationType.CONNECTION_REQUEST, message: "Rafael Alves quer se conectar com você", actorId: rafael.id, isRead: false, createdAt: daysAgo(3) },
+    { userId: gustavo.id, type: NotificationType.MESSAGE_RECEIVED, message: "Lucas Ferreira enviou uma mensagem", actorId: lucas.id, relatedId: conv3.id, relatedType: "conversation", isRead: false, createdAt: daysAgo(0) },
     // Notificações para Maria
-    { userId: maria.id, type: "POST_LIKED", message: "Gustavo Silva curtiu seu post", actorId: gustavo.id, relatedId: posts[3].id, relatedType: "post", isRead: true, createdAt: daysAgo(11) },
-    { userId: maria.id, type: "POST_COMMENTED", message: "Julia Lima comentou no seu post", actorId: julia.id, relatedId: posts[3].id, relatedType: "post", isRead: true, createdAt: daysAgo(11) },
-    { userId: maria.id, type: "CONNECTION_REQUEST", message: "Fernanda Rocha quer se conectar com você", actorId: fernanda.id, isRead: false, createdAt: daysAgo(2) },
+    { userId: maria.id, type: NotificationType.POST_LIKED, message: "Gustavo Silva curtiu seu post", actorId: gustavo.id, relatedId: posts[3].id, relatedType: "post", isRead: true, createdAt: daysAgo(11) },
+    { userId: maria.id, type: NotificationType.POST_COMMENTED, message: "Julia Lima comentou no seu post", actorId: julia.id, relatedId: posts[3].id, relatedType: "post", isRead: true, createdAt: daysAgo(11) },
+    { userId: maria.id, type: NotificationType.CONNECTION_REQUEST, message: "Fernanda Rocha quer se conectar com você", actorId: fernanda.id, isRead: false, createdAt: daysAgo(2) },
     // Notificações para Lucas
-    { userId: lucas.id, type: "POST_LIKED", message: "Gustavo Silva curtiu seu post", actorId: gustavo.id, relatedId: posts[10].id, relatedType: "post", isRead: true, createdAt: daysAgo(13) },
-    { userId: lucas.id, type: "POST_COMMENTED", message: "Ana Costa comentou no seu post", actorId: ana.id, relatedId: posts[10].id, relatedType: "post", isRead: true, createdAt: daysAgo(13) },
+    { userId: lucas.id, type: NotificationType.POST_LIKED, message: "Gustavo Silva curtiu seu post", actorId: gustavo.id, relatedId: posts[10].id, relatedType: "post", isRead: true, createdAt: daysAgo(13) },
+    { userId: lucas.id, type: NotificationType.POST_COMMENTED, message: "Ana Costa comentou no seu post", actorId: ana.id, relatedId: posts[10].id, relatedType: "post", isRead: true, createdAt: daysAgo(13) },
     // Notificações para Ana
-    { userId: ana.id, type: "POST_COMMENTED", message: "Maria Santos comentou no seu post", actorId: maria.id, relatedId: posts[9].id, relatedType: "post", isRead: true, createdAt: daysAgo(3) },
-    { userId: ana.id, type: "MESSAGE_RECEIVED", message: "Carla Mendes enviou uma mensagem", actorId: carla.id, relatedId: conv6.id, relatedType: "conversation", isRead: false, createdAt: daysAgo(0) },
+    { userId: ana.id, type: NotificationType.POST_COMMENTED, message: "Maria Santos comentou no seu post", actorId: maria.id, relatedId: posts[9].id, relatedType: "post", isRead: true, createdAt: daysAgo(3) },
+    { userId: ana.id, type: NotificationType.MESSAGE_RECEIVED, message: "Carla Mendes enviou uma mensagem", actorId: carla.id, relatedId: conv6.id, relatedType: "conversation", isRead: false, createdAt: daysAgo(0) },
     // Notificações para Pedro
-    { userId: pedro.id, type: "POST_COMMENTED", message: "Maria Santos comentou no seu post", actorId: maria.id, relatedId: posts[14].id, relatedType: "post", isRead: true, createdAt: daysAgo(8) },
-    { userId: pedro.id, type: "COMMENT_REPLIED", message: "Lucas Ferreira respondeu seu comentário", actorId: lucas.id, relatedId: posts[14].id, relatedType: "post", isRead: false, createdAt: daysAgo(8) },
+    { userId: pedro.id, type: NotificationType.POST_COMMENTED, message: "Maria Santos comentou no seu post", actorId: maria.id, relatedId: posts[14].id, relatedType: "post", isRead: true, createdAt: daysAgo(8) },
+    { userId: pedro.id, type: NotificationType.COMMENT_REPLIED, message: "Lucas Ferreira respondeu seu comentário", actorId: lucas.id, relatedId: posts[14].id, relatedType: "post", isRead: false, createdAt: daysAgo(8) },
     // Notificações variadas
-    { userId: joao.id, type: "CONNECTION_ACCEPTED", message: "Gustavo Silva aceitou sua conexão", actorId: gustavo.id, isRead: true, createdAt: daysAgo(20) },
-    { userId: julia.id, type: "CONNECTION_REQUEST", message: "Carla Mendes quer se conectar com você", actorId: carla.id, isRead: false, createdAt: daysAgo(1) },
+    { userId: joao.id, type: NotificationType.CONNECTION_ACCEPTED, message: "Gustavo Silva aceitou sua conexão", actorId: gustavo.id, isRead: true, createdAt: daysAgo(20) },
+    { userId: julia.id, type: NotificationType.CONNECTION_REQUEST, message: "Carla Mendes quer se conectar com você", actorId: carla.id, isRead: false, createdAt: daysAgo(1) },
   ];
 
   await Promise.all(
