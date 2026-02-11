@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { Position } from "@prisma/client";
 
@@ -9,7 +8,7 @@ const positionEnum = z.enum(["FLYER", "BASE", "BACKSPOT", "FRONTSPOT", "TUMBLER"
 
 const updateCareerSchema = z.object({
   role: z.enum(["ATHLETE", "COACH", "ASSISTANT_COACH", "CHOREOGRAPHER", "TEAM_MANAGER", "JUDGE", "OTHER"]).optional(),
-  positions: z.array(positionEnum).optional(),
+  positions: z.array(positionEnum).max(10).optional(),
   startDate: z.string().transform((str) => new Date(str)).optional(),
   endDate: z.string().transform((str) => new Date(str)).optional().nullable(),
   isCurrent: z.boolean().optional(),
@@ -19,16 +18,14 @@ const updateCareerSchema = z.object({
   location: z.string().optional().nullable(),
 });
 
-// GET /api/career/[id] - Get single career entry
+// GET /api/career/[id] - Buscar experiência de carreira específica
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id } = await params;
 
@@ -58,28 +55,22 @@ export async function GET(
 
     return NextResponse.json({ career });
   } catch (error) {
-    console.error("Get career error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao buscar experiência de carreira", error);
   }
 }
 
-// PATCH /api/career/[id] - Update career entry
+// PATCH /api/career/[id] - Atualizar experiência de carreira
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id } = await params;
 
-    // Verify ownership
+    // Verificar propriedade
     const existing = await prisma.careerHistory.findFirst({
       where: {
         id,
@@ -97,16 +88,16 @@ export async function PATCH(
     const body = await request.json();
     const parsed = updateCareerSchema.parse(body);
 
-    // Handle teamId separately for Prisma's relation update syntax
+    // Separar teamId para a sintaxe de atualização de relação do Prisma
     const { teamId, positions, ...restData } = parsed;
 
     const career = await prisma.careerHistory.update({
       where: { id },
       data: {
         ...restData,
-        // Cast positions to Position[] for Prisma
+        // Converter positions para Position[] do Prisma
         ...(positions !== undefined && { positions: positions as Position[] }),
-        // Only include team relation update if teamId was explicitly provided
+        // Incluir atualização de relação team apenas se teamId foi explicitamente fornecido
         ...(teamId !== undefined && {
           team: teamId ? { connect: { id: teamId } } : { disconnect: true },
         }),
@@ -125,35 +116,22 @@ export async function PATCH(
 
     return NextResponse.json({ career });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    console.error("Update career error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return handleZodError(error) ?? internalError("Erro ao atualizar experiência de carreira", error);
   }
 }
 
-// DELETE /api/career/[id] - Delete career entry
+// DELETE /api/career/[id] - Excluir experiência de carreira
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id } = await params;
 
-    // Verify ownership
+    // Verificar propriedade
     const existing = await prisma.careerHistory.findFirst({
       where: {
         id,
@@ -174,10 +152,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Delete career error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao excluir experiência de carreira", error);
   }
 }

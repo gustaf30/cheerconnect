@@ -62,7 +62,7 @@ export function AchievementList({
       setCursor(data.nextCursor);
       setHasMore(!!data.nextCursor);
     } catch {
-      // Keep existing items visible on error
+      // Manter itens existentes visíveis em caso de erro
     } finally {
       setIsLoadingMore(false);
     }

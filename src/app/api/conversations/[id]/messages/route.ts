@@ -1,23 +1,20 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const sendMessageSchema = z.object({
   content: z.string().min(1, "Mensagem não pode estar vazia").max(2000, "Mensagem muito longa"),
 });
 
-// GET /api/conversations/[id]/messages - List messages (paginated)
+// GET /api/conversations/[id]/messages - Listar mensagens (paginado)
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id: conversationId } = await params;
     const userId = session.user.id;
@@ -25,7 +22,7 @@ export async function GET(
     const cursor = searchParams.get("cursor");
     const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100);
 
-    // Verify user is part of the conversation
+    // Verificar se o usuário faz parte da conversa
     const conversation = await prisma.conversation.findUnique({
       where: { id: conversationId },
       select: {
@@ -77,7 +74,7 @@ export async function GET(
       nextCursor = nextItem?.id || null;
     }
 
-    // Reverse to get chronological order (oldest first)
+    // Inverter para ordem cronológica (mais antigo primeiro)
     const chronologicalMessages = messages.reverse();
 
     return NextResponse.json({
@@ -85,31 +82,25 @@ export async function GET(
       nextCursor,
     });
   } catch (error) {
-    console.error("Get messages error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao buscar mensagens", error);
   }
 }
 
-// POST /api/conversations/[id]/messages - Send a message
+// POST /api/conversations/[id]/messages - Enviar mensagem
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id: conversationId } = await params;
     const userId = session.user.id;
     const body = await request.json();
     const { content } = sendMessageSchema.parse(body);
 
-    // Verify user is part of the conversation
+    // Verificar se o usuário faz parte da conversa
     const conversation = await prisma.conversation.findUnique({
       where: { id: conversationId },
       select: {
@@ -140,7 +131,7 @@ export async function POST(
         ? conversation.participant2Id
         : conversation.participant1Id;
 
-    // Get sender and recipient info for notification
+    // Buscar informações do remetente e destinatário para notificação
     const [sender, recipient] = await Promise.all([
       prisma.user.findUnique({
         where: { id: userId },
@@ -152,7 +143,7 @@ export async function POST(
       }),
     ]);
 
-    // Create message and update conversation in transaction
+    // Criar mensagem e atualizar conversa em transação
     const message = await prisma.$transaction(async (tx) => {
       const msg = await tx.message.create({
         data: {
@@ -172,7 +163,7 @@ export async function POST(
         },
       });
 
-      // Update conversation with last message info
+      // Atualizar conversa com informações da última mensagem
       const preview = content.length > 100 ? content.substring(0, 100) + "..." : content;
       await tx.conversation.update({
         where: { id: conversationId },
@@ -182,7 +173,7 @@ export async function POST(
         },
       });
 
-      // Create notification if recipient has it enabled
+      // Criar notificação se o destinatário tem habilitado
       if (recipient?.notifyMessageReceived) {
         await tx.notification.create({
           data: {
@@ -201,17 +192,6 @@ export async function POST(
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    console.error("Send message error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return handleZodError(error) ?? internalError("Erro ao enviar mensagem", error);
   }
 }

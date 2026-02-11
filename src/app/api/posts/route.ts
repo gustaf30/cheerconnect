@@ -1,71 +1,76 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const createPostSchema = z.object({
   content: z.string().min(1, "Conteúdo é obrigatório").max(5000),
-  images: z.array(z.string()).optional(),
-  videoUrl: z.string().optional(),
+  images: z.array(z.string().url("URL de imagem inválida")).max(4).optional(),
+  videoUrl: z.string().url("URL de vídeo inválida").optional(),
   teamId: z.string().optional(),
 });
 
-// GET /api/posts - Get feed posts
+// GET /api/posts - Buscar posts do feed
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { searchParams } = new URL(request.url);
     const cursor = searchParams.get("cursor");
     const limit = parseInt(searchParams.get("limit") || "20");
     const filter = searchParams.get("filter") || "following";
+    const query = searchParams.get("q");
 
-    // Build where clause based on filter
-    let whereClause = {};
+    // Montar cláusula where baseada no filtro
+    // TODO: For better search performance, consider adding PostgreSQL tsvector full-text search indexes
+    const conditions: Record<string, unknown>[] = [];
+
+    // Text search filter (post content)
+    if (query) {
+      conditions.push({ content: { contains: query, mode: "insensitive" } });
+    }
 
     if (filter === "following") {
-      // Get user's connections
-      const connections = await prisma.connection.findMany({
-        where: {
-          status: "ACCEPTED",
-          OR: [
-            { senderId: session.user.id },
-            { receiverId: session.user.id },
-          ],
-        },
-        select: {
-          senderId: true,
-          receiverId: true,
-        },
-      });
+      // Buscar conexões e equipes seguidas em paralelo (evita N+1 sequencial)
+      const [connections, followedTeams] = await Promise.all([
+        prisma.connection.findMany({
+          where: {
+            status: "ACCEPTED",
+            OR: [
+              { senderId: session.user.id },
+              { receiverId: session.user.id },
+            ],
+          },
+          select: {
+            senderId: true,
+            receiverId: true,
+          },
+        }),
+        prisma.teamFollow.findMany({
+          where: { userId: session.user.id },
+          select: { teamId: true },
+        }),
+      ]);
 
       const connectionIds = connections.map((c) =>
         c.senderId === session.user.id ? c.receiverId : c.senderId
       );
-
-      // Get user's followed teams
-      const followedTeams = await prisma.teamFollow.findMany({
-        where: { userId: session.user.id },
-        select: { teamId: true },
-      });
-
       const followedTeamIds = followedTeams.map((f) => f.teamId);
 
-      // Include own posts, connections' posts, and followed teams' posts
+      // Incluir posts próprios, das conexões e das equipes seguidas
       const authorIds = [session.user.id, ...connectionIds];
 
-      whereClause = {
+      conditions.push({
         OR: [
           { authorId: { in: authorIds } },
           { teamId: { in: followedTeamIds } },
         ],
-      };
+      });
     }
-    // If filter === "all", whereClause stays empty (all posts)
+    // Se filter === "all", sem filtro de autor (todos os posts)
+
+    const whereClause = conditions.length > 0 ? { AND: conditions } : {};
 
     const posts = await prisma.post.findMany({
       where: whereClause,
@@ -157,21 +162,15 @@ export async function GET(request: Request) {
       nextCursor: posts.length === limit ? posts[posts.length - 1]?.id : null,
     });
   } catch (error) {
-    console.error("Get posts error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao buscar posts", error);
   }
 }
 
-// POST /api/posts - Create a new post
+// POST /api/posts - Criar um novo post
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const body = await request.json();
     const { content, images, videoUrl, teamId } = createPostSchema.parse(body);
@@ -210,18 +209,6 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      const zodError = error as z.ZodError;
-      return NextResponse.json(
-        { error: zodError.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    console.error("Create post error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return handleZodError(error) ?? internalError("Erro ao criar post", error);
   }
 }

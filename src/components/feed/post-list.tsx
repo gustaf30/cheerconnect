@@ -6,37 +6,7 @@ import { PostCard } from "./post-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/shared/error-state";
 import { Loader2 } from "lucide-react";
-
-interface PostAuthor {
-  id: string;
-  name: string;
-  username: string;
-  avatar: string | null;
-  positions: string[];
-}
-
-interface Post {
-  id: string;
-  content: string;
-  images: string[];
-  videoUrl?: string | null;
-  createdAt: string;
-  author: PostAuthor;
-  team?: {
-    id: string;
-    name: string;
-    slug: string;
-    logo: string | null;
-  } | null;
-  originalPostId?: string | null;
-  originalPost?: Post | null;
-  _count: {
-    likes: number;
-    comments: number;
-    reposts: number;
-  };
-  isLiked: boolean;
-}
+import { PostData } from "@/types";
 
 interface PostListProps {
   filter?: "following" | "all";
@@ -63,7 +33,7 @@ const itemVariants = {
 } as const;
 
 export function PostList({ filter = "following" }: PostListProps) {
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<PostData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -103,7 +73,7 @@ export function PostList({ filter = "following" }: PostListProps) {
       setNextCursor(data.nextCursor);
       setHasMore(!!data.nextCursor);
     } catch {
-      console.error("Error loading more posts");
+      console.error("Erro ao carregar mais posts");
     } finally {
       setIsLoadingMore(false);
     }
@@ -113,7 +83,7 @@ export function PostList({ filter = "following" }: PostListProps) {
     fetchPosts();
   }, [fetchPosts]);
 
-  // IntersectionObserver for infinite scroll
+  // IntersectionObserver para scroll infinito
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;

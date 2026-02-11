@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const registerSchema = z.object({
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { name, email, username, password } = registerSchema.parse(body);
 
-    // Check if email already exists
+    // Verificar se o email já existe
     const existingEmail = await prisma.user.findUnique({
       where: { email },
     });
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if username already exists
+    // Verificar se o username já existe
     const existingUsername = await prisma.user.findUnique({
       where: { username },
     });
@@ -45,10 +46,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // Hash password
+    // Criptografar senha
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Create user
+    // Criar usuário
     const user = await prisma.user.create({
       data: {
         name,
@@ -70,18 +71,6 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      const zodError = error as z.ZodError;
-      return NextResponse.json(
-        { error: zodError.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    console.error("Register error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return handleZodError(error) ?? internalError("Erro ao registrar usuário", error);
   }
 }

@@ -2,15 +2,24 @@
 
 import { useEffect, useCallback } from "react";
 import { MessageSquare, Loader2 } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
 import { ConversationItem, Conversation } from "./conversation-item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
+import {
+  staggerContainer,
+  fadeSlideUp,
+  noMotion,
+  noMotionContainer,
+} from "@/lib/animations";
 
 interface ConversationListProps {
   activeConversationId?: string;
 }
 
 export function ConversationList({ activeConversationId }: ConversationListProps) {
+  const shouldReduceMotion = useReducedMotion();
+
   const fetchConversations = useCallback(async (cursor: string | null) => {
     const url = cursor
       ? `/api/conversations?cursor=${cursor}`
@@ -29,7 +38,7 @@ export function ConversationList({ activeConversationId }: ConversationListProps
     reset,
   } = useInfiniteScroll({ fetchFn: fetchConversations });
 
-  // Refresh conversations periodically (re-fetches first page)
+  // Atualizar conversas periodicamente (rebusca a primeira página)
   useEffect(() => {
     const interval = setInterval(() => {
       reset();
@@ -67,14 +76,25 @@ export function ConversationList({ activeConversationId }: ConversationListProps
     );
   }
 
+  const containerVariants = shouldReduceMotion
+    ? noMotionContainer
+    : staggerContainer(0.06);
+  const itemVariants = shouldReduceMotion ? noMotion : fadeSlideUp;
+
   return (
-    <div className="flex flex-col">
+    <motion.div
+      className="flex flex-col"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {conversations.map((conversation) => (
-        <ConversationItem
-          key={conversation.id}
-          conversation={conversation}
-          isActive={conversation.id === activeConversationId}
-        />
+        <motion.div key={conversation.id} variants={itemVariants}>
+          <ConversationItem
+            conversation={conversation}
+            isActive={conversation.id === activeConversationId}
+          />
+        </motion.div>
       ))}
       <div ref={sentinelRef} />
       {isLoadingMore && (
@@ -82,6 +102,6 @@ export function ConversationList({ activeConversationId }: ConversationListProps
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

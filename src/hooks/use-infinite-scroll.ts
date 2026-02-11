@@ -78,7 +78,7 @@ export function useInfiniteScroll<T>({
       setHasMore(!!data.nextCursor);
     } catch {
       if (id !== requestIdRef.current) return;
-      // Keep existing items visible on loadMore error
+      // Manter itens existentes visíveis em caso de erro ao carregar mais
     } finally {
       if (id === requestIdRef.current) {
         setIsLoadingMore(false);
@@ -87,14 +87,14 @@ export function useInfiniteScroll<T>({
     }
   }, [fetchFn]);
 
-  // Initial fetch
+  // Busca inicial
   useEffect(() => {
     if (enabled) {
       fetchInitial();
     }
   }, [enabled, fetchInitial]);
 
-  // IntersectionObserver for infinite scroll
+  // IntersectionObserver para scroll infinito
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel || !enabled) return;

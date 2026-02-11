@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const updateProfileSchema = z.object({
@@ -9,17 +8,15 @@ const updateProfileSchema = z.object({
   bio: z.string().max(500).optional().nullable(),
   location: z.string().max(100).optional().nullable(),
   experience: z.number().min(0).max(50).optional().nullable(),
-  skills: z.array(z.string()).optional(),
-  positions: z.array(z.string()).optional(),
+  skills: z.array(z.string()).max(20).optional(),
+  positions: z.array(z.string()).max(10).optional(),
 });
 
-// GET /api/users/me - Get current user's profile
+// GET /api/users/me - Buscar perfil do usuário atual
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -48,26 +45,20 @@ export async function GET() {
 
     return NextResponse.json({ user });
   } catch (error) {
-    console.error("Get profile error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao buscar perfil", error);
   }
 }
 
-// PATCH /api/users/me - Update current user's profile
+// PATCH /api/users/me - Atualizar perfil do usuário atual
 export async function PATCH(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const body = await request.json();
     const data = updateProfileSchema.parse(body);
 
-    // Convert positions strings to enum values if provided
+    // Converter strings de posições para valores enum se fornecidas
     const updateData: Record<string, unknown> = {};
 
     if (data.name !== undefined) updateData.name = data.name;
@@ -95,41 +86,23 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ user });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      const zodError = error as z.ZodError;
-      return NextResponse.json(
-        { error: zodError.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    console.error("Update profile error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return handleZodError(error) ?? internalError("Erro ao atualizar perfil", error);
   }
 }
 
-// DELETE /api/users/me - Delete current user's account
+// DELETE /api/users/me - Excluir conta do usuário atual
 export async function DELETE() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
-    // Delete user (cascading deletes are handled by Prisma schema)
+    // Excluir usuário (exclusões em cascata são tratadas pelo schema do Prisma)
     await prisma.user.delete({
       where: { id: session.user.id },
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Delete account error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao excluir conta", error);
   }
 }

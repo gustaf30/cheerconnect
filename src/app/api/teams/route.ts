@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
+import { Prisma } from "@prisma/client";
+import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const createTeamSchema = z.object({
@@ -14,13 +14,11 @@ const createTeamSchema = z.object({
   instagram: z.string().optional().nullable(),
 });
 
-// GET /api/teams - Get teams list
+// GET /api/teams - Buscar lista de equipes
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { error } = await requireAuth();
+    if (error) return error;
 
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q") || "";
@@ -29,13 +27,14 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get("limit") || "20");
     const cursor = searchParams.get("cursor");
 
-    // Parse location into city/state parts for OR matching
-    // e.g., "Ponta Grossa, Paraná" → ["Ponta Grossa", "Paraná"]
+    // Separar localização em partes cidade/estado para busca OR
+    // ex: "Ponta Grossa, Paraná" -> ["Ponta Grossa", "Paraná"]
     const locationParts = location
       ?.split(",")
       .map((p) => p.trim())
       .filter(Boolean) || [];
 
+    // TODO: For better search performance, consider adding PostgreSQL tsvector full-text search indexes
     const teams = await prisma.team.findMany({
       where: {
         AND: [
@@ -86,26 +85,20 @@ export async function GET(request: Request) {
       nextCursor: teams.length === limit ? teams[teams.length - 1]?.id : null,
     });
   } catch (error) {
-    console.error("Get teams error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao buscar equipes", error);
   }
 }
 
-// POST /api/teams - Create a new team
+// POST /api/teams - Criar uma nova equipe
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const body = await request.json();
     const data = createTeamSchema.parse(body);
 
-    // Generate slug from name
+    // Gerar slug a partir do nome
     const baseSlug = data.name
       .toLowerCase()
       .normalize("NFD")
@@ -113,7 +106,7 @@ export async function POST(request: Request) {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
 
-    // Check if slug exists and add number if needed
+    // Verificar se o slug existe e adicionar número se necessário
     let slug = baseSlug;
     let counter = 1;
     while (await prisma.team.findUnique({ where: { slug } })) {
@@ -121,44 +114,53 @@ export async function POST(request: Request) {
       counter++;
     }
 
-    const team = await prisma.team.create({
-      data: {
-        ...data,
-        slug,
-        website: data.website || null,
-        members: {
-          create: {
-            userId: session.user.id,
-            role: "",
-            hasPermission: true,
-            isAdmin: true,
+    // Tentar criar com retry em caso de race condition no slug
+    const MAX_RETRIES = 3;
+    let team;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        team = await prisma.team.create({
+          data: {
+            ...data,
+            slug,
+            website: data.website || null,
+            members: {
+              create: {
+                userId: session.user.id,
+                role: "",
+                hasPermission: true,
+                isAdmin: true,
+              },
+            },
           },
-        },
-      },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        description: true,
-        location: true,
-        category: true,
-        level: true,
-      },
-    });
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            description: true,
+            location: true,
+            category: true,
+            level: true,
+          },
+        });
+        break;
+      } catch (err) {
+        if (
+          err instanceof Prisma.PrismaClientKnownRequestError &&
+          err.code === "P2002" &&
+          attempt < MAX_RETRIES
+        ) {
+          counter++;
+          slug = `${baseSlug}-${counter}`;
+          continue;
+        }
+        throw err;
+      }
+    }
 
     return NextResponse.json({ team }, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    console.error("Create team error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return handleZodError(error) ?? internalError("Erro ao criar equipe", error);
   }
 }

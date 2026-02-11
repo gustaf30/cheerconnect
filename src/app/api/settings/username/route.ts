@@ -1,20 +1,17 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
-// GET /api/settings/username?username=xxx - Check username availability
+// GET /api/settings/username?username=xxx - Verificar disponibilidade do username
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { searchParams } = new URL(request.url);
     const username = searchParams.get("username");
 
-    // Validate format
+    // Validar formato
     if (!username || username.length < 3) {
       return NextResponse.json({
         available: false,
@@ -34,15 +31,11 @@ export async function GET(request: Request) {
       select: { id: true },
     });
 
-    // Available if no user found or if it's the current user's username
+    // Disponível se nenhum usuário encontrado ou se é o username do usuário atual
     const available = !existingUser || existingUser.id === session.user.id;
 
     return NextResponse.json({ available });
   } catch (error) {
-    console.error("Check username error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao verificar username", error);
   }
 }

@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
-// GET /api/comments/[id]/replies - Get replies for a comment
+// GET /api/comments/[id]/replies - Buscar respostas de um comentário
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id: commentId } = await params;
     const { searchParams } = new URL(request.url);
@@ -20,7 +17,7 @@ export async function GET(
     const offset = parseInt(searchParams.get("offset") || "0");
     const limit = Math.min(parseInt(searchParams.get("limit") || "10"), 50);
 
-    // Check if comment exists
+    // Verificar se o comentário existe
     const comment = await prisma.comment.findUnique({
       where: { id: commentId },
       select: { id: true, parentId: true },
@@ -33,7 +30,7 @@ export async function GET(
       );
     }
 
-    // Only top-level comments can have replies
+    // Apenas comentários de nível superior podem ter respostas
     if (comment.parentId !== null) {
       return NextResponse.json(
         { error: "Respostas não podem ter respostas" },
@@ -41,7 +38,7 @@ export async function GET(
       );
     }
 
-    // Fetch replies
+    // Buscar respostas
     const replies = await prisma.comment.findMany({
       where: { parentId: commentId },
       include: {
@@ -69,7 +66,7 @@ export async function GET(
       take: limit,
     });
 
-    // Transform replies
+    // Transformar respostas
     const transformedReplies = replies.map((reply) => ({
       id: reply.id,
       content: reply.content,
@@ -85,10 +82,6 @@ export async function GET(
       replies: transformedReplies,
     });
   } catch (error) {
-    console.error("Get replies error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao buscar respostas", error);
   }
 }

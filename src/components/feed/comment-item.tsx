@@ -199,7 +199,7 @@ export function CommentItem({
           </div>
 
           {isAuthor && !isEditing && (
-            <DropdownMenu>
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-6 w-6" disabled={isDeleting} aria-label="Opções do comentário">
                   <MoreHorizontal className="h-3 w-3" />

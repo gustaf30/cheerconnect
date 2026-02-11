@@ -79,6 +79,11 @@ model User {
   // Convites de time
   teamInvites   TeamInvite[]
 
+  // Denúncias e bloqueios
+  reports          Report[] @relation("ReportsMade")
+  blocksMade       Block[]  @relation("BlocksMade")
+  blocksReceived   Block[]  @relation("BlocksReceived")
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -235,9 +240,12 @@ model Post {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
+  @@unique([authorId, originalPostId])
   @@index([authorId])
   @@index([teamId])
   @@index([createdAt])
+  @@index([authorId, createdAt])
+  @@index([teamId, createdAt])
 }
 
 model Comment {
@@ -349,6 +357,7 @@ model TeamMember {
 
   @@unique([userId, teamId])
   @@index([userId])
+  @@index([teamId, userId])
 }
 
 model TeamFollow {
@@ -497,4 +506,48 @@ model Message {
 
   @@index([conversationId, createdAt])
   @@index([senderId])
+}
+
+// ============ DENÚNCIAS ============
+model Report {
+  id          String   @id @default(cuid())
+  reason      String
+  description String?
+
+  reporterId  String
+  reporter    User     @relation("ReportsMade", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  contentType String   // "post", "comment", "user"
+  contentId   String
+
+  status      ReportStatus @default(PENDING)
+
+  createdAt   DateTime @default(now())
+
+  @@index([reporterId])
+  @@index([contentType, contentId])
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
+
+// ============ BLOQUEIOS ============
+model Block {
+  id          String   @id @default(cuid())
+
+  userId      String
+  user        User     @relation("BlocksMade", fields: [userId], references: [id], onDelete: Cascade)
+
+  blockedUserId String
+  blockedUser   User   @relation("BlocksReceived", fields: [blockedUserId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, blockedUserId])
+  @@index([userId])
+  @@index([blockedUserId])
 }

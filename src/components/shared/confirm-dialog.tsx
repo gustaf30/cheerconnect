@@ -2,15 +2,14 @@
 
 import { Loader2 } from "lucide-react";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -41,28 +40,32 @@ export function ConfirmDialog({
   };
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
+    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
+      <DialogContent showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
           {description && (
-            <AlertDialogDescription>{description}</AlertDialogDescription>
+            <DialogDescription>{description}</DialogDescription>
           )}
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            disabled={isLoading}
+            onClick={() => onOpenChange(false)}
+          >
             {cancelLabel}
-          </AlertDialogCancel>
-          <AlertDialogAction
+          </Button>
+          <Button
             variant={variant}
             onClick={handleConfirm}
             disabled={isLoading}
           >
             {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {confirmLabel}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

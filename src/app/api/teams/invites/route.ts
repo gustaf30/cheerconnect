@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
-// GET /api/teams/invites - Get current user's pending team invites
+// GET /api/teams/invites - Buscar convites pendentes do usuário atual
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const invites = await prisma.teamInvite.findMany({
       where: {
@@ -35,10 +32,6 @@ export async function GET() {
 
     return NextResponse.json({ invites });
   } catch (error) {
-    console.error("Get user invites error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao buscar convites do usuário", error);
   }
 }

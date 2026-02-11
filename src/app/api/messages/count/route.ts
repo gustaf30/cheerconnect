@@ -1,19 +1,16 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
-// GET /api/messages/count - Get unread messages count
+// GET /api/messages/count - Buscar contagem de mensagens não lidas
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const userId = session.user.id;
 
-    // Count unread messages where user is the recipient (not the sender)
+    // Contar mensagens não lidas onde o usuário é o destinatário (não o remetente)
     const count = await prisma.message.count({
       where: {
         isRead: false,
@@ -29,10 +26,6 @@ export async function GET() {
 
     return NextResponse.json({ count });
   } catch (error) {
-    console.error("Get unread messages count error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao buscar contagem de mensagens não lidas", error);
   }
 }

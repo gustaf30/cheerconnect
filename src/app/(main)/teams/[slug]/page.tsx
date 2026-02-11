@@ -15,7 +15,7 @@ import { PostCard } from "@/components/feed/post-card";
 import { FollowButton } from "@/components/teams/follow-button";
 import { AchievementList } from "@/components/profile/achievement-list";
 import { getInitials } from "@/lib/utils";
-import { positionLabels } from "@/lib/constants";
+import { categoryLabels, eventTypeLabels } from "@/lib/constants";
 
 interface TeamPageProps {
   params: Promise<{ slug: string }>;
@@ -29,23 +29,6 @@ export async function generateMetadata({ params }: TeamPageProps): Promise<Metad
   });
   return { title: team ? `${team.name} - CheerConnect` : "Equipe - CheerConnect" };
 }
-
-const categoryLabels: Record<string, string> = {
-  ALLSTAR: "All Star",
-  SCHOOL: "Escolar",
-  COLLEGE: "Universitário",
-  RECREATIONAL: "Recreativo",
-  PROFESSIONAL: "Profissional",
-};
-
-const eventTypeLabels: Record<string, string> = {
-  COMPETITION: "Competição",
-  TRYOUT: "Tryout",
-  CAMP: "Camp",
-  WORKSHOP: "Workshop",
-  SHOWCASE: "Showcase",
-  OTHER: "Outro",
-};
 
 export default async function TeamPage({ params }: TeamPageProps) {
   const { slug } = await params;
@@ -117,7 +100,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
     },
   });
 
-  // Check if current user has admin/permission privileges
+  // Verificar se o usuário atual tem privilégios de admin/permissão
   const currentUserMember = session?.user?.id
     ? team?.members.find((m) => m.user.id === session.user.id)
     : null;
@@ -139,7 +122,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
 
   return (
     <div className="space-y-6">
-      {/* Team header */}
+      {/* Cabeçalho da equipe */}
       <div className="bento-card-static">
         <div className="h-32 sm:h-48 bg-gradient-to-r from-primary/30 to-primary/10 relative rounded-t-xl">
           {team.banner && (

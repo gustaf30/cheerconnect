@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 interface RouteParams {
@@ -12,17 +11,15 @@ const createPostSchema = z.object({
   content: z.string().min(1, "Conteúdo é obrigatório"),
 });
 
-// POST /api/teams/[slug]/posts - Create a post for the team
+// POST /api/teams/[slug]/posts - Criar um post para a equipe
 export async function POST(request: Request, { params }: RouteParams) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { slug } = await params;
 
-    // Check if user has permission to post for this team
+    // Verificar se o usuário tem permissão para postar pela equipe
     const team = await prisma.team.findUnique({
       where: { slug },
       include: {
@@ -85,17 +82,6 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     return NextResponse.json({ post }, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    console.error("Create team post error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return handleZodError(error) ?? internalError("Erro ao criar post da equipe", error);
   }
 }

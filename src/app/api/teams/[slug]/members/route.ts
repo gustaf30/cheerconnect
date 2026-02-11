@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
-// GET /api/teams/[slug]/members - List team members
+// GET /api/teams/[slug]/members - Listar membros da equipe
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
@@ -40,7 +41,7 @@ export async function GET(
       orderBy: [{ isAdmin: "desc" }, { hasPermission: "desc" }, { joinedAt: "asc" }],
     });
 
-    // Check if current user has permission/admin status
+    // Verificar se o usuário atual tem permissão/admin
     const currentUserMember = session?.user?.id
       ? members.find((m) => m.userId === session.user.id)
       : null;
@@ -51,10 +52,6 @@ export async function GET(
       hasPermission: currentUserMember?.hasPermission ?? false,
     });
   } catch (error) {
-    console.error("List members error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao listar membros", error);
   }
 }

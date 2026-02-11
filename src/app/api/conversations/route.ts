@@ -1,20 +1,17 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const createConversationSchema = z.object({
   participantId: z.string().min(1, "participantId é obrigatório"),
 });
 
-// GET /api/conversations - List user's conversations
+// GET /api/conversations - Listar conversas do usuário
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const userId = session.user.id;
     const { searchParams } = new URL(request.url);
@@ -60,7 +57,7 @@ export async function GET(request: Request) {
       ...(cursor && { skip: 1, cursor: { id: cursor } }),
     });
 
-    // Transform to include the "other" participant and unread count
+    // Transformar para incluir o "outro" participante e contagem de não lidas
     const transformedConversations = conversations.map((conv) => {
       const otherParticipant =
         conv.participant1Id === userId ? conv.participant2 : conv.participant1;
@@ -79,28 +76,22 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ conversations: transformedConversations, nextCursor });
   } catch (error) {
-    console.error("Get conversations error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao buscar conversas", error);
   }
 }
 
-// POST /api/conversations - Start a new conversation
+// POST /api/conversations - Iniciar nova conversa
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const body = await request.json();
     const { participantId } = createConversationSchema.parse(body);
 
     const userId = session.user.id;
 
-    // Can't create conversation with self
+    // Não pode criar conversa consigo mesmo
     if (participantId === userId) {
       return NextResponse.json(
         { error: "Não é possível iniciar conversa consigo mesmo" },
@@ -108,7 +99,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if participant exists
+    // Verificar se o participante existe
     const participant = await prisma.user.findUnique({
       where: { id: participantId },
       select: { id: true },
@@ -121,7 +112,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if there's an accepted connection between users
+    // Verificar se existe conexão aceita entre os usuários
     const connection = await prisma.connection.findFirst({
       where: {
         status: "ACCEPTED",
@@ -139,7 +130,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if conversation already exists (in either direction)
+    // Verificar se a conversa já existe (em ambas as direções)
     const existingConversation = await prisma.conversation.findFirst({
       where: {
         OR: [
@@ -185,7 +176,7 @@ export async function POST(request: Request) {
       });
     }
 
-    // Create new conversation
+    // Criar nova conversa
     const conversation = await prisma.conversation.create({
       data: {
         participant1Id: userId,
@@ -230,17 +221,6 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    console.error("Create conversation error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return handleZodError(error) ?? internalError("Erro ao criar conversa", error);
   }
 }

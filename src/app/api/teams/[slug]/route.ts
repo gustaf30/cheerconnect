@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
+import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const updateTeamSchema = z.object({
@@ -16,7 +17,7 @@ const updateTeamSchema = z.object({
   banner: z.string().optional().nullable(),
 });
 
-// GET /api/teams/[slug] - Get team details
+// GET /api/teams/[slug] - Buscar detalhes da equipe
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
@@ -93,7 +94,7 @@ export async function GET(
       );
     }
 
-    // Check if current user is a member
+    // Verificar se o usuário atual é membro
     const isMember = session?.user?.id
       ? team.members.some((m) => m.userId === session.user.id)
       : false;
@@ -112,28 +113,22 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("Get team error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao buscar equipe", error);
   }
 }
 
-// PATCH /api/teams/[slug] - Update team
+// PATCH /api/teams/[slug] - Atualizar equipe
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { slug } = await params;
 
-    // Check if user has permission to edit this team
+    // Verificar se o usuário tem permissão para editar a equipe
     const team = await prisma.team.findUnique({
       where: { slug },
       include: {
@@ -171,35 +166,22 @@ export async function PATCH(
 
     return NextResponse.json({ team: updatedTeam });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    console.error("Update team error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return handleZodError(error) ?? internalError("Erro ao atualizar equipe", error);
   }
 }
 
-// DELETE /api/teams/[slug] - Delete team (owner only)
+// DELETE /api/teams/[slug] - Excluir equipe (apenas admin)
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { slug } = await params;
 
-    // Check if user is admin of this team
+    // Verificar se o usuário é admin da equipe
     const team = await prisma.team.findUnique({
       where: { slug },
       include: {
@@ -230,10 +212,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Delete team error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao excluir equipe", error);
   }
 }

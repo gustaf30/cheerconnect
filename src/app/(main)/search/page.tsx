@@ -16,6 +16,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { motion, useReducedMotion } from "framer-motion";
+import { staggerContainer, fadeSlideUp, noMotion, noMotionContainer, stagger } from "@/lib/animations";
 import { CitySelector } from "@/components/ui/city-selector";
 import { getInitials } from "@/lib/utils";
 import { positionLabels } from "@/lib/constants";
@@ -45,7 +47,7 @@ const positions = [
 
 function SearchContent() {
   const searchParams = useSearchParams();
-  const urlQuery = searchParams.get("q"); // Extract value to avoid infinite loop
+  const urlQuery = searchParams.get("q"); // Extrair valor para evitar loop infinito
 
   const [query, setQuery] = useState("");
   const [position, setPosition] = useState<string>("");
@@ -57,6 +59,7 @@ function SearchContent() {
   const [userLocation, setUserLocation] = useState<string | null>(null);
   const [filterByUserLocation, setFilterByUserLocation] = useState(true);
   const [isLoadingUserLocation, setIsLoadingUserLocation] = useState(true);
+  const shouldReduceMotion = useReducedMotion();
 
   const handleSearchWithQuery = useCallback(
     async (
@@ -76,7 +79,7 @@ function SearchContent() {
         if (searchPosition && searchPosition !== " ")
           params.set("position", searchPosition);
 
-        // Use location filter or user's location
+        // Usar filtro de localização ou localização do usuário
         if (searchLocation) {
           params.set("location", searchLocation);
         } else if (useUserLocation && currentUserLocation) {
@@ -97,7 +100,7 @@ function SearchContent() {
     []
   );
 
-  // Fetch user location on mount
+  // Buscar localização do usuário ao montar
   useEffect(() => {
     const fetchUserLocation = async () => {
       try {
@@ -109,7 +112,7 @@ function SearchContent() {
           }
         }
       } catch {
-        console.error("Error fetching user location");
+        console.error("Erro ao buscar localização do usuário");
       } finally {
         setIsLoadingUserLocation(false);
       }
@@ -117,7 +120,7 @@ function SearchContent() {
     fetchUserLocation();
   }, []);
 
-  // Load query from URL on mount (depends only on urlQuery value, not searchParams object)
+  // Carregar busca da URL ao montar (depende apenas do valor urlQuery, não do objeto searchParams)
   useEffect(() => {
     if (urlQuery) {
       setQuery(urlQuery);
@@ -145,7 +148,7 @@ function SearchContent() {
     <div className="space-y-6">
       <h1 className="heading-section font-display">Buscar</h1>
 
-      {/* Search form */}
+      {/* Formulário de busca */}
       <div className="bento-card-static p-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
@@ -186,7 +189,7 @@ function SearchContent() {
           </div>
       </div>
 
-      {/* Location filter banner */}
+      {/* Banner de filtro por localização */}
       {!isLoadingUserLocation &&
         filterByUserLocation &&
         userLocation &&
@@ -208,7 +211,7 @@ function SearchContent() {
           </div>
         )}
 
-      {/* Results */}
+      {/* Resultados */}
       {error ? (
         <ErrorState message={error} onRetry={() => { setError(null); handleSearch(); }} />
       ) : isLoading ? (
@@ -232,9 +235,15 @@ function SearchContent() {
             Nenhum usuário encontrado. Tente outros termos de busca.
           </div>
         ) : (
-          <div className="space-y-3 stagger-children">
+          <motion.div
+            className="space-y-3"
+            variants={shouldReduceMotion ? noMotionContainer : staggerContainer(0.06)}
+            initial="hidden"
+            animate="visible"
+          >
             {users.map((user) => (
-              <Link key={user.id} href={`/profile/${user.username}`}>
+              <motion.div key={user.id} variants={shouldReduceMotion ? noMotion : fadeSlideUp}>
+              <Link href={`/profile/${user.username}`}>
                 <div className="bento-card">
                   <div className="p-4">
                     <div className="flex items-start gap-4">
@@ -292,8 +301,9 @@ function SearchContent() {
                   </div>
                 </div>
               </Link>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         )
       ) : (
         <div className="bento-card-static p-8 text-center text-muted-foreground">
@@ -307,7 +317,7 @@ function SearchContent() {
 
 export default function SearchPage() {
   return (
-    <Suspense fallback={<div className="space-y-6"><h1 className="text-2xl font-bold">Buscar</h1></div>}>
+    <Suspense fallback={<div className="space-y-6"><h2 className="text-2xl font-bold">Buscar</h2></div>}>
       <SearchContent />
     </Suspense>
   );

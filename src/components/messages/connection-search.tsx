@@ -3,11 +3,18 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Search, MessageSquare, Loader2, Users } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, getInitials } from "@/lib/utils";
 import { toast } from "sonner";
+import {
+  staggerContainer,
+  fadeSlideUp,
+  noMotion,
+  noMotionContainer,
+} from "@/lib/animations";
 
 interface Connection {
   id: string;
@@ -29,6 +36,7 @@ interface ExistingConversation {
 }
 
 export function ConnectionSearch() {
+  const shouldReduceMotion = useReducedMotion();
   const router = useRouter();
   const [connections, setConnections] = useState<Connection[]>([]);
   const [conversations, setConversations] = useState<ExistingConversation[]>([]);
@@ -72,7 +80,7 @@ export function ConnectionSearch() {
     return map;
   }, [conversations]);
 
-  // Filter connections by search term
+  // Filtrar conexões pelo termo de busca
   const filteredConnections = useMemo(() => {
     if (!search.trim()) return connections;
 
@@ -92,7 +100,7 @@ export function ConnectionSearch() {
       return;
     }
 
-    // Create new conversation
+    // Criar nova conversa
     setStartingConversation(userId);
     try {
       const response = await fetch("/api/conversations", {
@@ -148,6 +156,11 @@ export function ConnectionSearch() {
     );
   }
 
+  const containerVariants = shouldReduceMotion
+    ? noMotionContainer
+    : staggerContainer(0.06);
+  const itemVariants = shouldReduceMotion ? noMotion : fadeSlideUp;
+
   return (
     <div className="space-y-3 p-3">
       <div className="relative">
@@ -164,7 +177,13 @@ export function ConnectionSearch() {
         Conexões ({filteredConnections.length})
       </div>
 
-      <div className="space-y-1 max-h-48 overflow-y-auto">
+      <motion.div
+        className="space-y-1 max-h-48 overflow-y-auto"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        key={search}
+      >
         {filteredConnections.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">
             Nenhuma conexão encontrada
@@ -175,43 +194,44 @@ export function ConnectionSearch() {
             const isStarting = startingConversation === conn.user.id;
 
             return (
-              <button
-                key={conn.id}
-                onClick={() => handleSelectConnection(conn.user.id)}
-                disabled={isStarting}
-                className={cn(
-                  "w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors text-left",
-                  isStarting && "opacity-50 cursor-not-allowed"
-                )}
-              >
-                <Avatar className="h-10 w-10">
-                  <AvatarImage
-                    src={conn.user.avatar || undefined}
-                    alt={conn.user.name}
-                    className="object-cover"
-                  />
-                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                    {getInitials(conn.user.name)}
-                  </AvatarFallback>
-                </Avatar>
+              <motion.div key={conn.id} variants={itemVariants}>
+                <button
+                  onClick={() => handleSelectConnection(conn.user.id)}
+                  disabled={isStarting}
+                  className={cn(
+                    "w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors text-left",
+                    isStarting && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage
+                      src={conn.user.avatar || undefined}
+                      alt={conn.user.name}
+                      className="object-cover"
+                    />
+                    <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                      {getInitials(conn.user.name)}
+                    </AvatarFallback>
+                  </Avatar>
 
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{conn.user.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    @{conn.user.username}
-                  </p>
-                </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{conn.user.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      @{conn.user.username}
+                    </p>
+                  </div>
 
-                {isStarting ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                ) : hasConversation ? (
-                  <MessageSquare className="h-4 w-4 text-primary" />
-                ) : null}
-              </button>
+                  {isStarting ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  ) : hasConversation ? (
+                    <MessageSquare className="h-4 w-4 text-primary" />
+                  ) : null}
+                </button>
+              </motion.div>
             );
           })
         )}
-      </div>
+      </motion.div>
     </div>
   );
 }

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { Position } from "@prisma/client";
 
@@ -9,7 +8,7 @@ const positionEnum = z.enum(["FLYER", "BASE", "BACKSPOT", "FRONTSPOT", "TUMBLER"
 
 const careerSchema = z.object({
   role: z.enum(["ATHLETE", "COACH", "ASSISTANT_COACH", "CHOREOGRAPHER", "TEAM_MANAGER", "JUDGE", "OTHER"]),
-  positions: z.array(positionEnum).default([]),
+  positions: z.array(positionEnum).max(10).default([]),
   startDate: z.string().transform((str) => new Date(str)),
   endDate: z.string().transform((str) => new Date(str)).optional().nullable(),
   isCurrent: z.boolean().default(false),
@@ -19,13 +18,11 @@ const careerSchema = z.object({
   location: z.string().optional().nullable(),
 });
 
-// GET /api/career - Get user's career history
+// GET /api/career - Buscar histórico de carreira do usuário
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const careerHistory = await prisma.careerHistory.findMany({
       where: { userId: session.user.id },
@@ -47,26 +44,20 @@ export async function GET() {
 
     return NextResponse.json({ careerHistory });
   } catch (error) {
-    console.error("Get career error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao buscar carreira", error);
   }
 }
 
-// POST /api/career - Add career entry
+// POST /api/career - Adicionar experiência de carreira
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const body = await request.json();
     const parsed = careerSchema.parse(body);
 
-    // Handle teamId and positions separately for Prisma's relation/enum types
+    // Separar teamId e positions para os tipos de relação/enum do Prisma
     const { teamId, positions, ...restData } = parsed;
 
     const career = await prisma.careerHistory.create({
@@ -90,17 +81,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ career }, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    console.error("Create career error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return handleZodError(error) ?? internalError("Erro ao criar experiência de carreira", error);
   }
 }

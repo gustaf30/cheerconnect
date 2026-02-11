@@ -133,7 +133,7 @@ export default async function UserProfilePage({ params }: ProfilePageProps) {
 
   const isOwnProfile = session?.user?.id === user.id;
 
-  // Check connection status
+  // Verificar status da conexão
   let connectionStatus: "none" | "pending" | "connected" | "received" = "none";
   if (session?.user?.id && !isOwnProfile) {
     const connection = await prisma.connection.findFirst({

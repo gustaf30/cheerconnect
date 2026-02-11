@@ -1,27 +1,24 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const repostSchema = z.object({
   content: z.string().max(5000).optional(),
 });
 
-// POST /api/posts/[id]/repost - Repost a post
+// POST /api/posts/[id]/repost - Repostar um post
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id: postId } = await params;
 
-    // Get the original post
+    // Buscar o post original
     const originalPost = await prisma.post.findUnique({
       where: { id: postId },
       select: {
@@ -41,7 +38,7 @@ export async function POST(
       );
     }
 
-    // Can't repost own post
+    // Não pode repostar o próprio post
     if (originalPost.authorId === session.user.id) {
       return NextResponse.json(
         { error: "Você não pode repostar sua própria publicação" },
@@ -49,7 +46,7 @@ export async function POST(
       );
     }
 
-    // Can't repost a repost - must repost the original
+    // Não pode repostar um repost - deve repostar o original
     if (originalPost.originalPostId) {
       return NextResponse.json(
         { error: "Você não pode repostar um repost. Reposte a publicação original." },
@@ -57,7 +54,7 @@ export async function POST(
       );
     }
 
-    // Check if user already reposted this
+    // Verificar se o usuário já repostou
     const existingRepost = await prisma.post.findFirst({
       where: {
         authorId: session.user.id,
@@ -75,7 +72,7 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
     const { content } = repostSchema.parse(body);
 
-    // Get current user info and original author preferences
+    // Buscar info do usuário atual e preferências do autor original
     const [currentUser, originalAuthorPrefs] = await Promise.all([
       prisma.user.findUnique({
         where: { id: session.user.id },
@@ -87,7 +84,7 @@ export async function POST(
       }),
     ]);
 
-    // Create the repost
+    // Criar o repost
     const repost = await prisma.post.create({
       data: {
         content: content || "",
@@ -142,7 +139,7 @@ export async function POST(
       },
     });
 
-    // Create notification for original post author (if enabled)
+    // Criar notificação para o autor do post original (se habilitado)
     if (originalAuthorPrefs?.notifyPostReposted) {
       await prisma.notification.create({
         data: {
@@ -169,35 +166,22 @@ export async function POST(
       },
     });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    console.error("Repost error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return handleZodError(error) ?? internalError("Erro ao repostar", error);
   }
 }
 
-// DELETE /api/posts/[id]/repost - Remove a repost
+// DELETE /api/posts/[id]/repost - Remover um repost
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id: postId } = await params;
 
-    // Find user's repost of this original post
+    // Encontrar o repost do usuário para este post original
     const repost = await prisma.post.findFirst({
       where: {
         authorId: session.user.id,
@@ -212,17 +196,13 @@ export async function DELETE(
       );
     }
 
-    // Delete the repost
+    // Excluir o repost
     await prisma.post.delete({
       where: { id: repost.id },
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Delete repost error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao excluir repost", error);
   }
 }

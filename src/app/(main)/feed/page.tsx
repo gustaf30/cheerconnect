@@ -22,7 +22,7 @@ function FeedContent() {
       <h1 className="sr-only">Feed</h1>
       <CreatePostCard />
 
-      {/* Bento filter toggle */}
+      {/* Alternância de filtro bento */}
       <div className="bento-card-static p-1 inline-flex gap-1">
         <button
           onClick={() => setFeedFilter("following")}

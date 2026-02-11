@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { Loader2, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
@@ -60,13 +59,12 @@ interface Settings {
 }
 
 export default function SettingsPage() {
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [username, setUsername] = useState("");
 
-  // Password change state
+  // Estado de alteração de senha
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -75,12 +73,12 @@ export default function SettingsPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
-  // Delete account state
+  // Estado de exclusão de conta
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Username availability check state
+  // Estado de verificação de disponibilidade de username
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
 
@@ -275,7 +273,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 stagger-children">
       <div className="flex items-center gap-4">
         <Link href="/profile">
           <Button variant="ghost" size="icon">
@@ -285,7 +283,7 @@ export default function SettingsPage() {
         <h1 className="heading-section font-display">Configurações</h1>
       </div>
 
-      {/* Account Card */}
+      {/* Card de Conta */}
       <div className="bento-card-static">
         <div className="accent-bar" />
         <div className="p-6">
@@ -334,7 +332,7 @@ export default function SettingsPage() {
               )}
             </div>
 
-            {/* Username availability feedback */}
+            {/* Feedback de disponibilidade do username */}
             {usernameAvailable !== null && (
               <p
                 className={`text-xs ${
@@ -347,7 +345,7 @@ export default function SettingsPage() {
               </p>
             )}
 
-            {/* Restriction message or URL info */}
+            {/* Mensagem de restrição ou info da URL */}
             {settings.canChangeUsername ? (
               <p className="text-xs text-muted-foreground">
                 Usado para sua URL de perfil: /profile/{username}
@@ -398,7 +396,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Notifications Card */}
+      {/* Card de Notificações */}
       <div className="bento-card-static">
         <div className="accent-bar" />
         <div className="p-6">
@@ -488,7 +486,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Privacy Card */}
+      {/* Card de Privacidade */}
       <div className="bento-card-static">
         <div className="accent-bar" />
         <div className="p-6">
@@ -531,7 +529,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Save Button */}
+      {/* Botão Salvar */}
       <div className="flex justify-end gap-3">
         <Link href="/profile">
           <Button variant="outline">Cancelar</Button>
@@ -542,7 +540,7 @@ export default function SettingsPage() {
         </Button>
       </div>
 
-      {/* Change Password Dialog */}
+      {/* Dialog de Alteração de Senha */}
       <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -627,7 +625,7 @@ export default function SettingsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Account Dialog */}
+      {/* Dialog de Exclusão de Conta */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

@@ -1,20 +1,17 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const createConnectionSchema = z.object({
   receiverId: z.string(),
 });
 
-// GET /api/connections - Get user's connections
+// GET /api/connections - Buscar conexões do usuário
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status") || "ACCEPTED";
@@ -56,7 +53,7 @@ export async function GET(request: Request) {
       ...(cursor && { skip: 1, cursor: { id: cursor } }),
     });
 
-    // Format connections to show the other user
+    // Formatar conexões para mostrar o outro usuário
     const formattedConnections = connections.map((connection) => ({
       id: connection.id,
       status: connection.status,
@@ -72,21 +69,15 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ connections: formattedConnections, nextCursor });
   } catch (error) {
-    console.error("Get connections error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao buscar conexões", error);
   }
 }
 
-// POST /api/connections - Send connection request
+// POST /api/connections - Enviar solicitação de conexão
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const body = await request.json();
     const { receiverId } = createConnectionSchema.parse(body);
@@ -98,7 +89,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if user exists
+    // Verificar se o usuário existe
     const receiver = await prisma.user.findUnique({
       where: { id: receiverId },
     });
@@ -110,7 +101,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if connection already exists
+    // Verificar se a conexão já existe
     const existingConnection = await prisma.connection.findFirst({
       where: {
         OR: [
@@ -127,7 +118,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get current user info and receiver notification preferences
+    // Buscar info do usuário atual e preferências de notificação do receptor
     const [currentUser, receiverPrefs] = await Promise.all([
       prisma.user.findUnique({
         where: { id: session.user.id },
@@ -146,7 +137,7 @@ export async function POST(request: Request) {
       },
     });
 
-    // Create notification for receiver (if enabled)
+    // Criar notificação para o receptor (se habilitado)
     if (receiverPrefs?.notifyConnectionRequest) {
       await prisma.notification.create({
         data: {
@@ -162,18 +153,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ connection }, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      const zodError = error as z.ZodError;
-      return NextResponse.json(
-        { error: zodError.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    console.error("Create connection error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return handleZodError(error) ?? internalError("Erro ao criar conexão", error);
   }
 }

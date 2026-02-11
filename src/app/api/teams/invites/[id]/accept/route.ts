@@ -1,22 +1,19 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
-// POST /api/teams/invites/[id]/accept - Accept invite
+// POST /api/teams/invites/[id]/accept - Aceitar convite
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id } = await params;
 
-    // Find the invite
+    // Encontrar o convite
     const invite = await prisma.teamInvite.findUnique({
       where: { id },
       include: {
@@ -34,7 +31,7 @@ export async function POST(
       return NextResponse.json({ error: "Convite não encontrado" }, { status: 404 });
     }
 
-    // Check if the invite is for the current user
+    // Verificar se o convite é para o usuário atual
     if (invite.userId !== session.user.id) {
       return NextResponse.json(
         { error: "Este convite não é para você" },
@@ -42,7 +39,7 @@ export async function POST(
       );
     }
 
-    // Check if invite is still pending
+    // Verificar se o convite ainda está pendente
     if (invite.status !== "PENDING") {
       return NextResponse.json(
         { error: "Este convite não está mais pendente" },
@@ -50,7 +47,7 @@ export async function POST(
       );
     }
 
-    // Check if invite has expired
+    // Verificar se o convite expirou
     if (invite.expiresAt && invite.expiresAt < new Date()) {
       await prisma.teamInvite.update({
         where: { id },
@@ -62,15 +59,15 @@ export async function POST(
       );
     }
 
-    // Use a transaction to update invite and create/update member
+    // Usar transação para atualizar convite e criar/atualizar membro
     await prisma.$transaction(async (tx) => {
-      // Update invite status
+      // Atualizar status do convite
       await tx.teamInvite.update({
         where: { id },
         data: { status: "ACCEPTED" },
       });
 
-      // Check if there's an inactive member record
+      // Verificar se existe registro de membro inativo
       const existingMember = await tx.teamMember.findUnique({
         where: {
           userId_teamId: {
@@ -81,7 +78,7 @@ export async function POST(
       });
 
       if (existingMember) {
-        // Reactivate existing member
+        // Reativar membro existente
         await tx.teamMember.update({
           where: { id: existingMember.id },
           data: {
@@ -94,7 +91,7 @@ export async function POST(
           },
         });
       } else {
-        // Create new member
+        // Criar novo membro
         await tx.teamMember.create({
           data: {
             userId: session.user.id,
@@ -113,10 +110,6 @@ export async function POST(
       team: invite.team,
     });
   } catch (error) {
-    console.error("Accept invite error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao aceitar convite", error);
   }
 }

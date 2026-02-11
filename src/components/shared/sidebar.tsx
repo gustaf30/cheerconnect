@@ -14,8 +14,10 @@ import {
   Settings,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
+import { UserProfile } from "@/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAnimatedNumber } from "@/hooks/use-animated-number";
 
 const mainNavItems = [
   {
@@ -50,12 +52,6 @@ const mainNavItems = [
   },
 ];
 
-interface UserProfile {
-  name: string;
-  username: string;
-  avatar: string | null;
-}
-
 interface Stats {
   connections: number;
   achievements: number;
@@ -79,7 +75,7 @@ export function Sidebar() {
         });
       }
     } catch {
-      console.error("Error fetching user profile");
+      console.error("Erro ao buscar perfil do usuário");
     }
   }, []);
 
@@ -104,7 +100,7 @@ export function Sidebar() {
         });
       }
     } catch {
-      console.error("Error fetching stats");
+      console.error("Erro ao buscar estatísticas");
     }
   }, []);
 
@@ -119,10 +115,13 @@ export function Sidebar() {
   const displayUsername = userProfile?.username || "";
   const displayAvatar = userProfile?.avatar || session?.user?.image || undefined;
 
+  const animatedConnections = useAnimatedNumber(stats.connections);
+  const animatedAchievements = useAnimatedNumber(stats.achievements);
+
   return (
     <ScrollArea className="flex-1">
-      <div className="flex flex-col gap-4">
-        {/* Logo for mobile */}
+      <div className="flex flex-col gap-4 stagger-children">
+        {/* Logo para mobile */}
         <div className="flex h-14 items-center px-4 lg:hidden border-b">
           <Link
             href="/feed"
@@ -137,7 +136,7 @@ export function Sidebar() {
           </Link>
         </div>
 
-        {/* Unified Profile & Stats Bento Card */}
+        {/* Card Bento unificado de Perfil e Estatísticas */}
         {session?.user && (
           <div className="bento-card-static">
             <div className="accent-bar" />
@@ -164,7 +163,7 @@ export function Sidebar() {
               <div className="grid grid-cols-2 w-full gap-4 border-t border-border/50 pt-5">
                 <div className="flex flex-col">
                   <span className="font-mono text-xl font-bold text-primary">
-                    {stats.connections}
+                    {animatedConnections}
                   </span>
                   <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
                     Conexões
@@ -172,7 +171,7 @@ export function Sidebar() {
                 </div>
                 <div className="flex flex-col border-l border-border/50">
                   <span className="font-mono text-xl font-bold text-primary">
-                    {stats.achievements}
+                    {animatedAchievements}
                   </span>
                   <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
                     Conquistas
@@ -189,28 +188,29 @@ export function Sidebar() {
           </div>
         )}
 
-        {/* Nav Grid Cards */}
+        {/* Cards de navegação em grid */}
         <nav className="grid grid-cols-2 gap-3">
           {mainNavItems.map((item) => {
             const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "nav-card flex flex-col items-center justify-center p-4 rounded-2xl bento-card-static border-none shadow-sm",
-                  isActive && "active",
-                  !isActive && "text-muted-foreground"
-                )}
-              >
-                <item.icon className="h-6 w-6 mb-1" />
-                <span className="text-xs font-bold">{item.title}</span>
-              </Link>
+              <div key={item.href}>
+                <Link
+                  href={item.href}
+                  className={cn(
+                    "nav-card flex flex-col items-center justify-center p-4 rounded-2xl bento-card-static border-none shadow-sm",
+                    isActive && "active",
+                    !isActive && "text-muted-foreground"
+                  )}
+                >
+                  <item.icon className="h-6 w-6 mb-1" />
+                  <span className="text-xs font-bold">{item.title}</span>
+                </Link>
+              </div>
             );
           })}
         </nav>
 
-        {/* Suggestions Mini Card */}
+        {/* Mini card de sugestões */}
         <div className="bento-card-static p-4 bg-primary/5 border-primary/20">
           <p className="text-xs font-bold text-primary mb-3 uppercase tracking-wider">
             Encontrar Atletas

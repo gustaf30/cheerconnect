@@ -94,7 +94,7 @@ export default function TeamInvitesPage() {
 
   const openAcceptDialog = (invite: TeamInvite) => {
     setSelectedInvite(invite);
-    // Map the invite role to a career role
+    // Mapear o papel do convite para um papel de carreira
     const mappedRole = roleMapping[invite.role] || "ATHLETE";
     setCareerRole(mappedRole);
     setAddToCareer(true);
@@ -106,7 +106,7 @@ export default function TeamInvitesPage() {
 
     setIsAccepting(true);
     try {
-      // Accept the invite
+      // Aceitar o convite
       const acceptResponse = await fetch(`/api/teams/invites/${selectedInvite.id}/accept`, {
         method: "POST",
       });
@@ -116,7 +116,7 @@ export default function TeamInvitesPage() {
         throw new Error(error.error || "Erro ao aceitar convite");
       }
 
-      // If user wants to add to career, create career entry
+      // Se o usuário quiser adicionar ao histórico, criar entrada de carreira
       if (addToCareer) {
         const careerResponse = await fetch("/api/career", {
           method: "POST",

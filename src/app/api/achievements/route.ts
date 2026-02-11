@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const achievementSchema = z.object({
@@ -11,13 +10,11 @@ const achievementSchema = z.object({
   category: z.string().optional().nullable(),
 });
 
-// GET /api/achievements - Get user's achievements
+// GET /api/achievements - Buscar conquistas do usuário
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId") || session.user.id;
@@ -35,21 +32,15 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ achievements, nextCursor });
   } catch (error) {
-    console.error("Get achievements error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao buscar conquistas", error);
   }
 }
 
-// POST /api/achievements - Add achievement
+// POST /api/achievements - Adicionar conquista
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const body = await request.json();
     const data = achievementSchema.parse(body);
@@ -63,17 +54,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ achievement }, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    console.error("Create achievement error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return handleZodError(error) ?? internalError("Erro ao criar conquista", error);
   }
 }
