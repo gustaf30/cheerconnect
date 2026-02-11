@@ -9,21 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { staggerContainer, fadeSlideUp, noMotion, noMotionContainer, stagger } from "@/lib/animations";
 import { toast } from "sonner";
 import { getInitials } from "@/lib/utils";
 import { positionLabels } from "@/lib/constants";
+import { ConnectionUser } from "@/types";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ErrorState } from "@/components/shared/error-state";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
-
-interface ConnectionUser {
-  id: string;
-  name: string;
-  username: string;
-  avatar: string | null;
-  positions: string[];
-  location: string | null;
-}
 
 interface Connection {
   id: string;
@@ -45,7 +39,7 @@ function ConnectionsContent() {
   const [removeTargetId, setRemoveTargetId] = useState<string | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
 
-  // Infinite scroll for accepted connections
+  // Scroll infinito para conexões aceitas
   const fetchAccepted = useCallback(async (cursor: string | null) => {
     const url = cursor
       ? `/api/connections?status=ACCEPTED&cursor=${cursor}`
@@ -66,7 +60,7 @@ function ConnectionsContent() {
     reset: resetConnections,
   } = useInfiniteScroll({ fetchFn: fetchAccepted });
 
-  // Single fetch for pending connections (typically small set)
+  // Busca única para conexões pendentes (conjunto tipicamente pequeno)
   const fetchPending = useCallback(async () => {
     setPendingError(null);
     try {
@@ -239,12 +233,21 @@ function ConnectionsContent() {
     </div>
   );
 
+  const shouldReduceMotion = useReducedMotion();
+  const containerVariants = shouldReduceMotion
+    ? noMotionContainer
+    : staggerContainer(stagger.default);
+  const itemVariants = shouldReduceMotion ? noMotion : fadeSlideUp;
+  const exitVariants = shouldReduceMotion
+    ? { opacity: 0, transition: { duration: 0.1 } }
+    : { opacity: 0, x: -20, transition: { duration: 0.2 } };
+
   const isLoading = isAcceptedLoading || isPendingLoading;
 
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <h1 className="heading-section font-display">Conexões</h1>
+        <h2 className="heading-section font-display">Conexões</h2>
         <div className="bento-card-static p-4 space-y-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="flex items-center gap-3 p-4">
@@ -263,7 +266,7 @@ function ConnectionsContent() {
   if (acceptedError && pendingError) {
     return (
       <div className="space-y-6">
-        <h1 className="heading-section font-display">Conexões</h1>
+        <h2 className="heading-section font-display">Conexões</h2>
         <ErrorState message="Erro ao carregar conexões" onRetry={() => { resetConnections(); fetchPending(); }} />
       </div>
     );
@@ -271,7 +274,7 @@ function ConnectionsContent() {
 
   return (
     <div className="space-y-6">
-      {/* Stats header */}
+      {/* Cabeçalho com estatísticas */}
       <div className="bento-card-static">
         <div className="accent-bar" />
         <div className="p-5">
@@ -314,15 +317,28 @@ function ConnectionsContent() {
                   atletas!
                 </div>
               ) : (
-                <div className="space-y-3 stagger-children">
-                  {connections.map((connection) => (
-                    <ConnectionCard
-                      key={connection.id}
-                      connection={connection}
-                      type="connected"
-                    />
-                  ))}
-                </div>
+                <motion.div
+                  className="space-y-3"
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="visible"
+                >
+                  <AnimatePresence mode="popLayout">
+                    {connections.map((connection) => (
+                      <motion.div
+                        key={connection.id}
+                        variants={itemVariants}
+                        exit={exitVariants}
+                        layout
+                      >
+                        <ConnectionCard
+                          connection={connection}
+                          type="connected"
+                        />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </motion.div>
               )}
               <div ref={sentinelRef} />
               {isLoadingMore && (
@@ -340,15 +356,28 @@ function ConnectionsContent() {
                   Nenhuma solicitação pendente.
                 </div>
               ) : (
-                <div className="space-y-3 stagger-children">
-                  {pendingReceived.map((connection) => (
-                    <ConnectionCard
-                      key={connection.id}
-                      connection={connection}
-                      type="received"
-                    />
-                  ))}
-                </div>
+                <motion.div
+                  className="space-y-3"
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="visible"
+                >
+                  <AnimatePresence mode="popLayout">
+                    {pendingReceived.map((connection) => (
+                      <motion.div
+                        key={connection.id}
+                        variants={itemVariants}
+                        exit={exitVariants}
+                        layout
+                      >
+                        <ConnectionCard
+                          connection={connection}
+                          type="received"
+                        />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </motion.div>
               )}
           </div>
         </TabsContent>
@@ -360,15 +389,28 @@ function ConnectionsContent() {
                   Você não tem solicitações pendentes.
                 </div>
               ) : (
-                <div className="space-y-3 stagger-children">
-                  {pendingSent.map((connection) => (
-                    <ConnectionCard
-                      key={connection.id}
-                      connection={connection}
-                      type="sent"
-                    />
-                  ))}
-                </div>
+                <motion.div
+                  className="space-y-3"
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="visible"
+                >
+                  <AnimatePresence mode="popLayout">
+                    {pendingSent.map((connection) => (
+                      <motion.div
+                        key={connection.id}
+                        variants={itemVariants}
+                        exit={exitVariants}
+                        layout
+                      >
+                        <ConnectionCard
+                          connection={connection}
+                          type="sent"
+                        />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </motion.div>
               )}
           </div>
         </TabsContent>
@@ -397,7 +439,7 @@ export default function ConnectionsPage() {
 function ConnectionsSkeleton() {
   return (
     <div className="space-y-6">
-      <h1 className="heading-section font-display">Conexões</h1>
+      <h2 className="heading-section font-display">Conexões</h2>
       <div className="bento-card-static p-4 space-y-4">
         {[1, 2, 3].map((i) => (
           <div key={i} className="flex items-center gap-3 p-4">

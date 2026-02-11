@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const createEventSchema = z.object({
@@ -14,13 +13,11 @@ const createEventSchema = z.object({
   teamId: z.string().optional().nullable(),
 });
 
-// GET /api/events - Get upcoming events
+// GET /api/events - Buscar próximos eventos
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { error } = await requireAuth();
+    if (error) return error;
 
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type");
@@ -29,8 +26,8 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get("limit") || "20");
     const cursor = searchParams.get("cursor");
 
-    // Parse location into city/state parts for OR matching
-    // e.g., "Ponta Grossa, Paraná" → ["Ponta Grossa", "Paraná"]
+    // Separar localização em partes de cidade/estado para busca OR
+    // ex.: "Ponta Grossa, Paraná" → ["Ponta Grossa", "Paraná"]
     const locationParts = location
       ?.split(",")
       .map((p) => p.trim())
@@ -95,21 +92,15 @@ export async function GET(request: Request) {
       nextCursor: events.length === limit ? events[events.length - 1]?.id : null,
     });
   } catch (error) {
-    console.error("Get events error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao buscar eventos", error);
   }
 }
 
-// POST /api/events - Create a new event
+// POST /api/events - Criar novo evento
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const body = await request.json();
     const data = createEventSchema.parse(body);
@@ -147,17 +138,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ event }, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    console.error("Create event error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return handleZodError(error) ?? internalError("Erro ao criar evento", error);
   }
 }

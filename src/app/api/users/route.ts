@@ -1,16 +1,13 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { Position } from "@prisma/client";
 
-// GET /api/users - Search users
+// GET /api/users - Buscar usuários
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q") || "";
@@ -19,7 +16,7 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get("limit") || "20");
     const cursor = searchParams.get("cursor");
 
-    // Get IDs of users with accepted connections to current user
+    // Buscar IDs de usuários com conexões aceitas com o usuário atual
     const acceptedConnections = await prisma.connection.findMany({
       where: {
         status: "ACCEPTED",
@@ -35,11 +32,12 @@ export async function GET(request: Request) {
       c.senderId === session.user.id ? c.receiverId : c.senderId
     );
 
+    // TODO: For better search performance, consider adding PostgreSQL tsvector full-text search indexes
     const users = await prisma.user.findMany({
       where: {
         id: { not: session.user.id },
         AND: [
-          // Profile visibility filter
+          // Filtro de visibilidade do perfil
           {
             OR: [
               { profileVisibility: "PUBLIC" },
@@ -83,10 +81,6 @@ export async function GET(request: Request) {
       nextCursor: users.length === limit ? users[users.length - 1]?.id : null,
     });
   } catch (error) {
-    console.error("Search users error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao buscar usuários", error);
   }
 }

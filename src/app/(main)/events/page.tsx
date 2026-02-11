@@ -32,9 +32,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { motion, useReducedMotion } from "framer-motion";
+import { staggerContainer, fadeSlideUp, noMotion, noMotionContainer, stagger } from "@/lib/animations";
 import { toast } from "sonner";
 import { CitySelector } from "@/components/ui/city-selector";
 import { getInitials } from "@/lib/utils";
+import { eventTypeLabels, eventTypes } from "@/lib/constants";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ErrorState } from "@/components/shared/error-state";
 
@@ -61,24 +64,6 @@ interface Event {
   } | null;
 }
 
-const eventTypeLabels: Record<string, string> = {
-  COMPETITION: "Competição",
-  TRYOUT: "Tryout",
-  CAMP: "Camp",
-  WORKSHOP: "Workshop",
-  SHOWCASE: "Showcase",
-  OTHER: "Outro",
-};
-
-const eventTypes = [
-  { value: "COMPETITION", label: "Competição" },
-  { value: "TRYOUT", label: "Tryout" },
-  { value: "CAMP", label: "Camp" },
-  { value: "WORKSHOP", label: "Workshop" },
-  { value: "SHOWCASE", label: "Showcase" },
-  { value: "OTHER", label: "Outro" },
-];
-
 export default function EventsPage() {
   const { data: session } = useSession();
   const [events, setEvents] = useState<Event[]>([]);
@@ -90,12 +75,12 @@ export default function EventsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
 
-  // User location for automatic filtering
+  // Localização do usuário para filtragem automática
   const [userLocation, setUserLocation] = useState<string | null>(null);
   const [filterByUserLocation, setFilterByUserLocation] = useState(true);
   const [isLoadingUserLocation, setIsLoadingUserLocation] = useState(true);
 
-  // Create event dialog
+  // Dialog de criação de evento
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [eventForm, setEventForm] = useState({
@@ -109,7 +94,7 @@ export default function EventsPage() {
     type: "COMPETITION",
   });
 
-  // Edit event dialog
+  // Dialog de edição de evento
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -124,7 +109,7 @@ export default function EventsPage() {
     type: "COMPETITION",
   });
 
-  // Fetch user location on mount
+  // Buscar localização do usuário ao montar
   useEffect(() => {
     const fetchUserLocation = async () => {
       try {
@@ -136,7 +121,7 @@ export default function EventsPage() {
           }
         }
       } catch {
-        console.error("Error fetching user location");
+        console.error("Erro ao buscar localização do usuário");
       } finally {
         setIsLoadingUserLocation(false);
       }
@@ -152,7 +137,7 @@ export default function EventsPage() {
       if (typeFilter && typeFilter !== " ") params.set("type", typeFilter);
       if (searchQuery) params.set("q", searchQuery);
 
-      // Use user location as default filter if enabled and no manual location filter
+      // Usar localização do usuário como filtro padrão se habilitado e sem filtro manual
       const shouldUseUserLocation = useUserLocationFilter ?? filterByUserLocation;
       if (locationFilter) {
         params.set("location", locationFilter);
@@ -172,7 +157,7 @@ export default function EventsPage() {
     }
   }, [typeFilter, searchQuery, locationFilter, filterByUserLocation, userLocation]);
 
-  // Fetch events once user location is loaded
+  // Buscar eventos após a localização do usuário ser carregada
   useEffect(() => {
     if (!isLoadingUserLocation) {
       fetchEvents();
@@ -333,7 +318,7 @@ export default function EventsPage() {
     }
   };
 
-  // Group events by month
+  // Agrupar eventos por mês
   const groupedEvents = events.reduce(
     (groups, event) => {
       const month = format(new Date(event.startDate), "MMMM yyyy", {
@@ -347,6 +332,12 @@ export default function EventsPage() {
     },
     {} as Record<string, Event[]>
   );
+
+  const shouldReduceMotion = useReducedMotion();
+  const containerVariants = shouldReduceMotion
+    ? noMotionContainer
+    : staggerContainer(stagger.default);
+  const itemVariants = shouldReduceMotion ? noMotion : fadeSlideUp;
 
   const handleSearch = () => {
     fetchEvents();
@@ -362,7 +353,7 @@ export default function EventsPage() {
         </Button>
       </div>
 
-      {/* Search and Filters */}
+      {/* Busca e Filtros */}
       <div className="bento-card-static p-4 space-y-4">
           {/* Linha 1: Busca grande */}
           <div className="relative">
@@ -407,7 +398,7 @@ export default function EventsPage() {
           </div>
       </div>
 
-      {/* Location filter indicator */}
+      {/* Indicador de filtro por localização */}
       {filterByUserLocation && userLocation && !locationFilter && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-2">
           <MapPin className="h-4 w-4" />
@@ -453,12 +444,17 @@ export default function EventsPage() {
           {Object.entries(groupedEvents).map(([month, monthEvents]) => (
             <div key={month}>
               <h2 className="heading-card mb-4 capitalize">{month}</h2>
-              <div className="space-y-3 stagger-children">
+              <motion.div
+                className="space-y-3"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+              >
                 {monthEvents.map((event) => {
                   const isCreator = session?.user?.id === event.creatorId;
 
                   return (
-                    <div key={event.id} className="bento-card">
+                    <motion.div key={event.id} variants={itemVariants} className="bento-card">
                       <div className="accent-bar" />
                       <div className="p-4">
                         <div className="flex items-start gap-4">
@@ -579,16 +575,16 @@ export default function EventsPage() {
                           </div>
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
-              </div>
+              </motion.div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Create Event Dialog */}
+      {/* Dialog de Criação de Evento */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -691,7 +687,7 @@ export default function EventsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Event Dialog */}
+      {/* Dialog de Edição de Evento */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>

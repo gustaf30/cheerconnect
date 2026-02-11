@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { MapPin, Briefcase, UserPlus, UserMinus, Clock, Check, Pencil, MessageSquare } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
+import { useAnimatedNumber } from "@/hooks/use-animated-number";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +45,8 @@ export function ProfileHeader({
   const [isLoading, setIsLoading] = useState(false);
   const [isStartingConversation, setIsStartingConversation] = useState(false);
   const shouldReduceMotion = useReducedMotion();
+  const animatedConnectionsCount = useAnimatedNumber(connectionsCount);
+  const animatedPostsCount = useAnimatedNumber(postsCount);
 
   const handleConnection = async () => {
     setIsLoading(true);
@@ -114,20 +118,23 @@ export function ProfileHeader({
   return (
     <div className="bento-card-static overflow-hidden animate-fade-in">
       <div className="accent-bar" />
-      {/* Banner */}
+      {/* Capa */}
       <div className="h-32 sm:h-48 bg-gradient-to-br from-primary via-primary/60 to-[oklch(0.40_0.18_25)] relative overflow-hidden">
         {user.banner ? (
-          <img
+          <Image
             src={user.banner}
-            alt=""
-            className="w-full h-full object-cover"
+            alt={`Banner de ${user.name}`}
+            fill
+            sizes="(max-width: 640px) 100vw, 840px"
+            className="object-cover"
+            unoptimized
           />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-[oklch(0.40_0.18_25)]" />
         )}
       </div>
 
-      {/* Profile info */}
+      {/* Informações do perfil */}
       <div className="px-4 sm:px-6 pb-6">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between -mt-12 sm:-mt-16">
           <div>
@@ -211,7 +218,7 @@ export function ProfileHeader({
             <p className="text-muted-foreground font-mono">@{user.username}</p>
           </div>
 
-          {/* Positions */}
+          {/* Posições */}
           {user.positions.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {user.positions.map((position, index) => (
@@ -227,10 +234,10 @@ export function ProfileHeader({
             </div>
           )}
 
-          {/* Bio */}
+          {/* Biografia */}
           {user.bio && <p className="text-editorial">{user.bio}</p>}
 
-          {/* Meta info */}
+          {/* Informações adicionais */}
           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
             {user.location && (
               <span className="flex items-center gap-1 transition-colors duration-200 hover:text-foreground">
@@ -247,14 +254,14 @@ export function ProfileHeader({
             )}
           </div>
 
-          {/* Stats */}
+          {/* Estatísticas */}
           <div className="flex gap-4 pt-2">
             <div className="bento-card-static px-5 py-3 text-center">
-              <span className="font-mono text-xl font-bold text-primary">{connectionsCount}</span>
+              <span className="font-mono text-xl font-bold text-primary">{animatedConnectionsCount}</span>
               <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Conexões</p>
             </div>
             <div className="bento-card-static px-5 py-3 text-center">
-              <span className="font-mono text-xl font-bold text-primary">{postsCount}</span>
+              <span className="font-mono text-xl font-bold text-primary">{animatedPostsCount}</span>
               <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Publicações</p>
             </div>
           </div>

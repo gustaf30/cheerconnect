@@ -1,16 +1,13 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { cloudinary, deleteCloudinaryAsset } from "@/lib/cloudinary";
 
-// POST /api/users/me/avatar - Upload avatar to Cloudinary
+// POST /api/users/me/avatar - Upload de avatar para o Cloudinary
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
@@ -36,13 +33,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get current avatar publicId to delete later
+    // Buscar publicId do avatar atual para excluir depois
     const currentUser = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { avatarPublicId: true },
     });
 
-    // Upload to Cloudinary
+    // Upload para o Cloudinary
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const base64 = `data:${file.type};base64,${buffer.toString("base64")}`;
@@ -52,7 +49,7 @@ export async function POST(request: Request) {
       resource_type: "image",
     });
 
-    // Update user in DB
+    // Atualizar usuário no banco
     const user = await prisma.user.update({
       where: { id: session.user.id },
       data: {
@@ -65,32 +62,26 @@ export async function POST(request: Request) {
       },
     });
 
-    // Delete old asset from Cloudinary (fire-and-forget)
+    // Excluir asset antigo do Cloudinary (fire-and-forget)
     if (currentUser?.avatarPublicId) {
       deleteCloudinaryAsset(currentUser.avatarPublicId).catch((err) =>
-        console.error("Failed to delete old avatar from Cloudinary:", err)
+        console.error("Falha ao excluir avatar antigo do Cloudinary:", err)
       );
     }
 
     return NextResponse.json({ user });
   } catch (error) {
-    console.error("Upload avatar error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao fazer upload do avatar", error);
   }
 }
 
-// DELETE /api/users/me/avatar - Remove avatar
+// DELETE /api/users/me/avatar - Remover avatar
 export async function DELETE() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
-    // Get current publicId
+    // Buscar publicId atual
     const currentUser = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { avatarPublicId: true },
@@ -105,19 +96,15 @@ export async function DELETE() {
       },
     });
 
-    // Delete from Cloudinary (fire-and-forget)
+    // Excluir do Cloudinary (fire-and-forget)
     if (currentUser?.avatarPublicId) {
       deleteCloudinaryAsset(currentUser.avatarPublicId).catch((err) =>
-        console.error("Failed to delete avatar from Cloudinary:", err)
+        console.error("Falha ao excluir avatar do Cloudinary:", err)
       );
     }
 
     return NextResponse.json({ user });
   } catch (error) {
-    console.error("Delete avatar error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao excluir avatar", error);
   }
 }

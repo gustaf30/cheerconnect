@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const updateAchievementSchema = z.object({
@@ -11,20 +10,18 @@ const updateAchievementSchema = z.object({
   category: z.string().optional().nullable(),
 });
 
-// PATCH /api/achievements/[id] - Update achievement
+// PATCH /api/achievements/[id] - Atualizar conquista
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id } = await params;
 
-    // Verify ownership
+    // Verificar propriedade
     const existing = await prisma.achievement.findFirst({
       where: {
         id,
@@ -49,35 +46,22 @@ export async function PATCH(
 
     return NextResponse.json({ achievement });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    console.error("Update achievement error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return handleZodError(error) ?? internalError("Erro ao atualizar conquista", error);
   }
 }
 
-// DELETE /api/achievements/[id] - Delete achievement
+// DELETE /api/achievements/[id] - Excluir conquista
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id } = await params;
 
-    // Verify ownership
+    // Verificar propriedade
     const existing = await prisma.achievement.findFirst({
       where: {
         id,
@@ -98,10 +82,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Delete achievement error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao excluir conquista", error);
   }
 }

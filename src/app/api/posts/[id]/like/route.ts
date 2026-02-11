@@ -1,22 +1,19 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
-// POST /api/posts/[id]/like - Like a post
+// POST /api/posts/[id]/like - Curtir um post
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id: postId } = await params;
 
-    // Check if post exists and get author info
+    // Verificar se o post existe e obter info do autor
     const post = await prisma.post.findUnique({
       where: { id: postId },
       include: {
@@ -33,7 +30,7 @@ export async function POST(
       );
     }
 
-    // Check if already liked
+    // Verificar se já curtiu
     const existingLike = await prisma.like.findUnique({
       where: {
         userId_postId: {
@@ -50,7 +47,7 @@ export async function POST(
       );
     }
 
-    // Get current user and post author preferences
+    // Buscar usuário atual e preferências do autor do post
     const [currentUser, postAuthor] = await Promise.all([
       prisma.user.findUnique({
         where: { id: session.user.id },
@@ -69,7 +66,7 @@ export async function POST(
       },
     });
 
-    // Create notification for post author (not self, if enabled)
+    // Criar notificação para o autor do post (não para si mesmo, se habilitado)
     if (post.author.id !== session.user.id && postAuthor?.notifyPostLiked) {
       await prisma.notification.create({
         data: {
@@ -85,24 +82,18 @@ export async function POST(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Like post error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao curtir post", error);
   }
 }
 
-// DELETE /api/posts/[id]/like - Unlike a post
+// DELETE /api/posts/[id]/like - Descurtir um post
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id: postId } = await params;
 
@@ -117,10 +108,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Unlike post error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao descurtir post", error);
   }
 }

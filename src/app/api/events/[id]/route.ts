@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 interface RouteParams {
@@ -17,13 +16,11 @@ const updateEventSchema = z.object({
   type: z.enum(["COMPETITION", "TRYOUT", "CAMP", "WORKSHOP", "SHOWCASE", "OTHER"]).optional(),
 });
 
-// GET /api/events/[id] - Get single event
+// GET /api/events/[id] - Buscar evento específico
 export async function GET(request: Request, { params }: RouteParams) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id } = await params;
 
@@ -57,21 +54,15 @@ export async function GET(request: Request, { params }: RouteParams) {
 
     return NextResponse.json({ event, isCreator });
   } catch (error) {
-    console.error("Get event error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao buscar evento", error);
   }
 }
 
-// PATCH /api/events/[id] - Update event
+// PATCH /api/events/[id] - Atualizar evento
 export async function PATCH(request: Request, { params }: RouteParams) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id } = await params;
 
@@ -84,7 +75,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "Evento não encontrado" }, { status: 404 });
     }
 
-    // Check if user is the creator or team admin
+    // Verificar se o usuário é o criador ou membro com permissão na equipe
     let canEdit = event.creatorId === session.user.id;
 
     if (!canEdit && event.teamId) {
@@ -93,7 +84,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
           teamId: event.teamId,
           userId: session.user.id,
           isActive: true,
-          role: { in: ["OWNER", "ADMIN"] },
+          OR: [{ hasPermission: true }, { isAdmin: true }],
         },
       });
       canEdit = !!teamMember;
@@ -134,28 +125,15 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     return NextResponse.json({ event: updatedEvent });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    console.error("Update event error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return handleZodError(error) ?? internalError("Erro ao atualizar evento", error);
   }
 }
 
-// DELETE /api/events/[id] - Delete event
+// DELETE /api/events/[id] - Excluir evento
 export async function DELETE(request: Request, { params }: RouteParams) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id } = await params;
 
@@ -168,7 +146,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "Evento não encontrado" }, { status: 404 });
     }
 
-    // Check if user is the creator or team admin
+    // Verificar se o usuário é o criador ou membro com permissão na equipe
     let canDelete = event.creatorId === session.user.id;
 
     if (!canDelete && event.teamId) {
@@ -177,7 +155,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
           teamId: event.teamId,
           userId: session.user.id,
           isActive: true,
-          role: { in: ["OWNER", "ADMIN"] },
+          OR: [{ hasPermission: true }, { isAdmin: true }],
         },
       });
       canDelete = !!teamMember;
@@ -196,10 +174,6 @@ export async function DELETE(request: Request, { params }: RouteParams) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Delete event error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao excluir evento", error);
   }
 }

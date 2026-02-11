@@ -1,23 +1,20 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 interface RouteParams {
   params: Promise<{ slug: string; id: string }>;
 }
 
-// DELETE /api/teams/[slug]/achievements/[id] - Delete team achievement
+// DELETE /api/teams/[slug]/achievements/[id] - Excluir conquista da equipe
 export async function DELETE(request: Request, { params }: RouteParams) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { slug, id } = await params;
 
-    // Check if user is admin of this team
+    // Verificar se o usuário tem permissão na equipe
     const team = await prisma.team.findUnique({
       where: { slug },
       include: {
@@ -25,7 +22,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
           where: {
             userId: session.user.id,
             isActive: true,
-            role: { in: ["OWNER", "ADMIN"] },
+            OR: [{ hasPermission: true }, { isAdmin: true }],
           },
         },
       },
@@ -42,7 +39,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       );
     }
 
-    // Check if achievement belongs to this team
+    // Verificar se a conquista pertence a esta equipe
     const achievement = await prisma.teamAchievement.findFirst({
       where: {
         id,
@@ -60,10 +57,6 @@ export async function DELETE(request: Request, { params }: RouteParams) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Delete team achievement error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao excluir conquista da equipe", error);
   }
 }

@@ -1,20 +1,18 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
-// GET /api/notifications - List user's notifications
+// GET /api/notifications - Listar notificações do usuário (cursor-based)
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { searchParams } = new URL(request.url);
     const unreadOnly = searchParams.get("unreadOnly") === "true";
     const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
+    const cursor = searchParams.get("cursor");
 
     const notifications = await prisma.notification.findMany({
       where: {
@@ -33,31 +31,37 @@ export async function GET(request: Request) {
         },
       },
       orderBy: { createdAt: "desc" },
-      take: limit,
+      take: limit + 1,
+      ...(cursor && {
+        skip: 1,
+        cursor: { id: cursor },
+      }),
     });
 
-    return NextResponse.json({ notifications });
+    const hasMore = notifications.length > limit;
+    const data = hasMore ? notifications.slice(0, limit) : notifications;
+    const nextCursor = hasMore ? data[data.length - 1]?.id ?? null : null;
+
+    return NextResponse.json({
+      notifications: data,
+      data,
+      meta: { nextCursor },
+    });
   } catch (error) {
-    console.error("Get notifications error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao buscar notificações", error);
   }
 }
 
 const markReadSchema = z.object({
-  ids: z.array(z.string()).optional(),
+  ids: z.array(z.string()).max(100).optional(),
   all: z.boolean().optional(),
 });
 
-// PATCH /api/notifications - Mark notifications as read
+// PATCH /api/notifications - Marcar notificações como lidas
 export async function PATCH(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const body = await request.json();
     const { ids, all } = markReadSchema.parse(body);
@@ -82,17 +86,6 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: "Dados inválidos" },
-        { status: 400 }
-      );
-    }
-
-    console.error("Mark notifications read error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return handleZodError(error) ?? internalError("Erro ao marcar notificações como lidas", error);
   }
 }

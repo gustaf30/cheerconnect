@@ -1,19 +1,16 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 interface RouteParams {
   params: Promise<{ slug: string }>;
 }
 
-// GET /api/teams/[slug]/follow - Check if user follows this team
+// GET /api/teams/[slug]/follow - Verificar se o usuário segue esta equipe
 export async function GET(request: Request, { params }: RouteParams) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { slug } = await params;
 
@@ -37,21 +34,15 @@ export async function GET(request: Request, { params }: RouteParams) {
 
     return NextResponse.json({ isFollowing: !!follow });
   } catch (error) {
-    console.error("Check follow error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao verificar follow", error);
   }
 }
 
-// POST /api/teams/[slug]/follow - Follow a team
+// POST /api/teams/[slug]/follow - Seguir uma equipe
 export async function POST(request: Request, { params }: RouteParams) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { slug } = await params;
 
@@ -64,7 +55,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "Equipe não encontrada" }, { status: 404 });
     }
 
-    // Check if already following
+    // Verificar se já está seguindo
     const existingFollow = await prisma.teamFollow.findUnique({
       where: {
         userId_teamId: {
@@ -87,21 +78,15 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     return NextResponse.json({ success: true, isFollowing: true });
   } catch (error) {
-    console.error("Follow team error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao seguir equipe", error);
   }
 }
 
-// DELETE /api/teams/[slug]/follow - Unfollow a team
+// DELETE /api/teams/[slug]/follow - Deixar de seguir uma equipe
 export async function DELETE(request: Request, { params }: RouteParams) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { slug } = await params;
 
@@ -123,10 +108,6 @@ export async function DELETE(request: Request, { params }: RouteParams) {
 
     return NextResponse.json({ success: true, isFollowing: false });
   } catch (error) {
-    console.error("Unfollow team error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao deixar de seguir equipe", error);
   }
 }

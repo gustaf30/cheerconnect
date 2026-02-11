@@ -1,22 +1,19 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
-// DELETE /api/teams/[slug]/invites/[id] - Cancel invite
+// DELETE /api/teams/[slug]/invites/[id] - Cancelar convite
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ slug: string; id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { slug, id } = await params;
 
-    // Check if user is OWNER or ADMIN of this team
+    // Verificar se o usuário é OWNER ou ADMIN da equipe
     const team = await prisma.team.findUnique({
       where: { slug },
       include: {
@@ -41,7 +38,7 @@ export async function DELETE(
       );
     }
 
-    // Find the invite
+    // Encontrar o convite
     const invite = await prisma.teamInvite.findUnique({
       where: { id },
     });
@@ -50,17 +47,13 @@ export async function DELETE(
       return NextResponse.json({ error: "Convite não encontrado" }, { status: 404 });
     }
 
-    // Delete the invite
+    // Excluir o convite
     await prisma.teamInvite.delete({
       where: { id },
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Cancel invite error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao cancelar convite", error);
   }
 }

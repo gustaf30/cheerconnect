@@ -1,23 +1,20 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
-// POST /api/conversations/[id]/messages/read - Mark messages as read
+// POST /api/conversations/[id]/messages/read - Marcar mensagens como lidas
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id: conversationId } = await params;
     const userId = session.user.id;
 
-    // Verify user is part of the conversation
+    // Verificar se o usuário faz parte da conversa
     const conversation = await prisma.conversation.findUnique({
       where: { id: conversationId },
       select: {
@@ -43,7 +40,7 @@ export async function POST(
       );
     }
 
-    // Mark all unread messages from the other user as read
+    // Marcar todas as mensagens não lidas do outro usuário como lidas
     const result = await prisma.message.updateMany({
       where: {
         conversationId,
@@ -61,10 +58,6 @@ export async function POST(
       markedAsRead: result.count,
     });
   } catch (error) {
-    console.error("Mark messages as read error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao marcar mensagens como lidas", error);
   }
 }

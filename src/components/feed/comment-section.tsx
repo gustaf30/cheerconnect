@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { ChevronDown, ChevronUp, Loader2, Send, X } from "lucide-react";
+import { springs, scaleIn, noMotion } from "@/lib/animations";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,12 +46,16 @@ interface Comment {
 interface CommentSectionProps {
   postId: string;
   initialCommentsCount: number;
+  showInput?: boolean;
+  onCommentsCountChange?: (count: number) => void;
+  onInputClose?: () => void;
 }
 
 type SortOption = "popular" | "recent";
 
-export function CommentSection({ postId, initialCommentsCount }: CommentSectionProps) {
+export function CommentSection({ postId, initialCommentsCount, showInput = false, onCommentsCountChange, onInputClose }: CommentSectionProps) {
   const { data: session } = useSession();
+  const shouldReduceMotion = useReducedMotion();
   const [comments, setComments] = useState<Comment[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -58,8 +64,16 @@ export function CommentSection({ postId, initialCommentsCount }: CommentSectionP
   const [sort, setSort] = useState<SortOption>("popular");
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [commentsCount, setCommentsCount] = useState(initialCommentsCount);
+  const [commentsCount, setCommentsCountRaw] = useState(initialCommentsCount);
   const [previewLoaded, setPreviewLoaded] = useState(false);
+
+  const setCommentsCount = (updater: number | ((prev: number) => number)) => {
+    setCommentsCountRaw((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      onCommentsCountChange?.(next);
+      return next;
+    });
+  };
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyingToAuthor, setReplyingToAuthor] = useState<string | null>(null);
   const [loadingReplies, setLoadingReplies] = useState<Set<string>>(new Set());
@@ -82,10 +96,10 @@ export function CommentSection({ postId, initialCommentsCount }: CommentSectionP
       const data = await response.json();
 
       if (cursor) {
-        // Append to existing comments
+        // Adicionar aos comentários existentes
         setComments((prev) => [...prev, ...data.comments]);
       } else {
-        // Replace comments
+        // Substituir comentários
         setComments(data.comments);
       }
 
@@ -98,7 +112,7 @@ export function CommentSection({ postId, initialCommentsCount }: CommentSectionP
     }
   }, [postId]);
 
-  // Fetch current user avatar (not stored in JWT to avoid HTTP 431)
+  // Buscar avatar do usuário atual (não armazenado no JWT para evitar HTTP 431)
   useEffect(() => {
     const fetchUserAvatar = async () => {
       try {
@@ -108,7 +122,7 @@ export function CommentSection({ postId, initialCommentsCount }: CommentSectionP
           setCurrentUserAvatar(data.user.avatar);
         }
       } catch {
-        // Ignore errors - fallback to initials
+        // Ignorar erros - fallback para iniciais
       }
     };
     if (session?.user) {
@@ -116,7 +130,7 @@ export function CommentSection({ postId, initialCommentsCount }: CommentSectionP
     }
   }, [session]);
 
-  // Load preview when component mounts and there are comments
+  // Carregar preview ao montar o componente se houver comentários
   useEffect(() => {
     if (initialCommentsCount > 0 && !previewLoaded) {
       fetchComments("popular");
@@ -124,7 +138,7 @@ export function CommentSection({ postId, initialCommentsCount }: CommentSectionP
     }
   }, [initialCommentsCount, previewLoaded, fetchComments]);
 
-  // Refetch when sort changes and expanded
+  // Rebuscar quando a ordenação muda e está expandido
   useEffect(() => {
     if (isExpanded && previewLoaded) {
       fetchComments(sort, null, 10);
@@ -143,7 +157,7 @@ export function CommentSection({ postId, initialCommentsCount }: CommentSectionP
       // O useEffect vai refetch automaticamente com limit=10
     } else {
       setIsExpanded(false);
-      // Show only preview again
+      // Mostrar apenas preview novamente
       fetchComments("popular", null, 3);
     }
   };
@@ -176,7 +190,7 @@ export function CommentSection({ postId, initialCommentsCount }: CommentSectionP
       const data = await response.json();
 
       if (replyingTo) {
-        // Add reply to the parent comment
+        // Adicionar resposta ao comentário pai
         const newReply: Reply = {
           id: data.comment.id,
           content: data.comment.content,
@@ -202,7 +216,7 @@ export function CommentSection({ postId, initialCommentsCount }: CommentSectionP
         setReplyingToAuthor(null);
         toast.success("Resposta adicionada");
       } else {
-        // Add new top-level comment
+        // Adicionar novo comentário de nível superior
         const newCommentData: Comment = {
           id: data.comment.id,
           content: data.comment.content,
@@ -220,6 +234,7 @@ export function CommentSection({ postId, initialCommentsCount }: CommentSectionP
       }
 
       setNewComment("");
+      onInputClose?.();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao adicionar comentário");
     } finally {
@@ -255,7 +270,7 @@ export function CommentSection({ postId, initialCommentsCount }: CommentSectionP
   };
 
   const handleDeleteComment = (commentId: string) => {
-    // Also cancel reply if we're replying to this comment
+    // Cancelar resposta se estamos respondendo a este comentário
     if (replyingTo === commentId) {
       handleCancelReply();
     }
@@ -330,12 +345,16 @@ export function CommentSection({ postId, initialCommentsCount }: CommentSectionP
     }
   };
 
-  // Don't render if no comments and not expanded
-  if (commentsCount === 0 && !isExpanded && comments.length === 0) {
+  // Sem comentários e input oculto — nada a renderizar
+  if (commentsCount === 0 && !isExpanded && comments.length === 0 && !showInput) {
+    return null;
+  }
+
+  // Sem comentários mas input visível
+  if (commentsCount === 0 && !isExpanded && comments.length === 0 && showInput) {
     return (
       <div className="px-6 pb-4">
         <Separator className="mb-4" />
-        {/* Comment input */}
         {session?.user && (
           <div className="flex gap-3">
             <Avatar className="h-8 w-8">
@@ -356,6 +375,7 @@ export function CommentSection({ postId, initialCommentsCount }: CommentSectionP
                 onKeyDown={handleKeyDown}
                 className="min-h-[40px] max-h-[120px] resize-none"
                 rows={1}
+                autoFocus
               />
               <Button
                 size="icon"
@@ -380,7 +400,7 @@ export function CommentSection({ postId, initialCommentsCount }: CommentSectionP
     <div className="px-6 pb-4">
       <Separator className="mb-4" />
 
-      {/* Header with sort toggle */}
+      {/* Cabeçalho com alternância de ordenação */}
       {commentsCount > 0 && (
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-muted-foreground">
@@ -399,10 +419,10 @@ export function CommentSection({ postId, initialCommentsCount }: CommentSectionP
         </div>
       )}
 
-      {/* Comment input */}
-      {session?.user && (
+      {/* Input de comentário — visível apenas quando showInput ou respondendo */}
+      {(showInput || replyingTo) && session?.user && (
         <div className="mb-4">
-          {/* Reply indicator */}
+          {/* Indicador de resposta */}
           {replyingTo && replyingToAuthor && (
             <div className="flex items-center gap-2 mb-2 text-sm text-muted-foreground">
               <span>Respondendo a <span className="font-medium text-foreground">@{replyingToAuthor}</span></span>
@@ -436,6 +456,7 @@ export function CommentSection({ postId, initialCommentsCount }: CommentSectionP
                 onKeyDown={handleKeyDown}
                 className="min-h-[40px] max-h-[120px] resize-none"
                 rows={1}
+                autoFocus
               />
               <Button
                 size="icon"
@@ -454,81 +475,109 @@ export function CommentSection({ postId, initialCommentsCount }: CommentSectionP
         </div>
       )}
 
-      {/* Comments list */}
+      {/* Lista de comentários */}
       {isLoading && comments.length === 0 ? (
         <div className="flex justify-center py-4">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       ) : (
         <div className="space-y-1">
-          {comments.map((comment, index) => (
-            <div key={comment.id} className="animate-slide-up" style={{ animationDelay: `${index * 50}ms` }}>
-              <CommentItem
-                comment={comment}
-                currentUserId={session?.user?.id}
-                onEdit={handleEditComment}
-                onDelete={handleDeleteComment}
-                onReply={handleReply}
-                showReplyButton={true}
-              />
+          <AnimatePresence initial={false}>
+            {comments.map((comment) => (
+              <motion.div
+                key={comment.id}
+                variants={shouldReduceMotion ? noMotion : scaleIn}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                transition={shouldReduceMotion ? { duration: 0.15 } : springs.bouncy}
+              >
+                <CommentItem
+                  comment={comment}
+                  currentUserId={session?.user?.id}
+                  onEdit={handleEditComment}
+                  onDelete={handleDeleteComment}
+                  onReply={handleReply}
+                  showReplyButton={true}
+                />
 
-              {/* Replies */}
-              {comment.replies && comment.replies.length > 0 && (
-                <div className="ml-8 border-l-2 border-primary/20 pl-4">
-                  {comment.replies.map((reply) => (
-                    <CommentItem
-                      key={reply.id}
-                      comment={reply}
-                      currentUserId={session?.user?.id}
-                      onEdit={(replyId, newContent) => handleEditReply(replyId, newContent, comment.id)}
-                      onDelete={(replyId) => handleDeleteReply(replyId, comment.id)}
-                      onReply={handleReply}
-                      isReply={true}
-                      showReplyButton={false}
-                    />
-                  ))}
+                {/* Respostas */}
+                {comment.replies && comment.replies.length > 0 && (
+                  <div className="ml-8 border-l-2 border-primary/20 pl-4">
+                    <AnimatePresence initial={false}>
+                      {comment.replies.map((reply) => (
+                        <motion.div
+                          key={reply.id}
+                          variants={shouldReduceMotion ? noMotion : scaleIn}
+                          initial="hidden"
+                          animate="visible"
+                          exit="exit"
+                          transition={shouldReduceMotion ? { duration: 0.15 } : springs.bouncy}
+                        >
+                          <CommentItem
+                            comment={reply}
+                            currentUserId={session?.user?.id}
+                            onEdit={(replyId, newContent) => handleEditReply(replyId, newContent, comment.id)}
+                            onDelete={(replyId) => handleDeleteReply(replyId, comment.id)}
+                            onReply={handleReply}
+                            isReply={true}
+                            showReplyButton={false}
+                          />
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
 
-                  {/* Load more replies button */}
-                  {(comment.repliesCount || 0) > (comment.replies?.length || 0) && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-xs text-muted-foreground ml-2 mt-1"
-                      onClick={() => handleLoadMoreReplies(comment.id)}
-                      disabled={loadingReplies.has(comment.id)}
-                    >
-                      {loadingReplies.has(comment.id) ? (
-                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                      ) : null}
-                      Ver mais {(comment.repliesCount || 0) - (comment.replies?.length || 0)} resposta(s)
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+                    {/* Botão de carregar mais respostas */}
+                    {(comment.repliesCount || 0) > (comment.replies?.length || 0) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs text-muted-foreground ml-2 mt-1"
+                        onClick={() => handleLoadMoreReplies(comment.id)}
+                        disabled={loadingReplies.has(comment.id)}
+                      >
+                        {loadingReplies.has(comment.id) ? (
+                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                        ) : null}
+                        Ver mais {(comment.repliesCount || 0) - (comment.replies?.length || 0)} resposta(s)
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       )}
 
-      {/* Expand/Collapse and Load more */}
+      {/* Expandir/Recolher e Carregar mais */}
       <div className="flex flex-col items-center gap-2 mt-2">
-        {/* Load more (when expanded and has more) */}
-        {isExpanded && hasMore && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs"
-            onClick={handleLoadMore}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : null}
-            Carregar mais
-          </Button>
-        )}
+        {/* Carregar mais (quando expandido e há mais) */}
+        <AnimatePresence>
+          {isExpanded && hasMore && (
+            <motion.div
+              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+              animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, height: "auto" }}
+              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+              transition={shouldReduceMotion ? { duration: 0.15 } : springs.gentle}
+            >
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs"
+                onClick={handleLoadMore}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
+                Carregar mais
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {/* Expand/Collapse toggle */}
+        {/* Botão expandir/recolher */}
         {commentsCount > 3 && (
           <Button
             variant="ghost"

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const createCommentSchema = z.object({
@@ -9,25 +8,23 @@ const createCommentSchema = z.object({
   parentId: z.string().optional(),
 });
 
-// GET /api/posts/[id]/comments - Get comments for a post
+// GET /api/posts/[id]/comments - Buscar comentários de um post
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id: postId } = await params;
     const { searchParams } = new URL(request.url);
 
-    const sort = searchParams.get("sort") || "popular"; // "popular" or "recent"
+    const sort = searchParams.get("sort") || "popular"; // "popular" ou "recent"
     const cursor = searchParams.get("cursor");
     const limit = Math.min(parseInt(searchParams.get("limit") || "10"), 50);
 
-    // Check if post exists
+    // Verificar se o post existe
     const post = await prisma.post.findUnique({
       where: { id: postId },
       select: { id: true },
@@ -40,14 +37,13 @@ export async function GET(
       );
     }
 
-    // Base query conditions - only fetch top-level comments (parentId: null)
+    // Condições base - buscar apenas comentários de nível superior (parentId: null)
     const whereCondition = {
       postId,
-      parentId: null,
-      ...(cursor ? { id: { lt: cursor } } : {}),
+      parentId: null as string | null,
     };
 
-    // Fetch comments with replies
+    // Buscar comentários com respostas — ordenação server-side
     const comments = await prisma.comment.findMany({
       where: whereCondition,
       include: {
@@ -95,31 +91,22 @@ export async function GET(
           },
         },
       },
-      orderBy: sort === "recent"
-        ? { createdAt: "desc" }
-        : undefined, // We'll sort by likes count in memory for "popular"
-      take: sort === "recent" ? limit + 1 : undefined, // Only apply limit for recent
+      orderBy:
+        sort === "popular"
+          ? [{ likes: { _count: "desc" } }, { createdAt: "desc" }]
+          : { createdAt: "desc" },
+      take: limit + 1,
+      ...(cursor && {
+        skip: 1,
+        cursor: { id: cursor },
+      }),
     });
 
-    // For popular sorting, sort in memory by likes count
-    let sortedComments = comments;
-    if (sort === "popular") {
-      sortedComments = [...comments].sort((a, b) => b._count.likes - a._count.likes);
-      // Apply cursor pagination for popular
-      if (cursor) {
-        const cursorIndex = sortedComments.findIndex(c => c.id === cursor);
-        if (cursorIndex !== -1) {
-          sortedComments = sortedComments.slice(cursorIndex + 1);
-        }
-      }
-      sortedComments = sortedComments.slice(0, limit + 1);
-    }
+    // Verificar se há mais resultados
+    const hasMore = comments.length > limit;
+    const resultComments = hasMore ? comments.slice(0, limit) : comments;
 
-    // Check if there are more results
-    const hasMore = sortedComments.length > limit;
-    const resultComments = hasMore ? sortedComments.slice(0, limit) : sortedComments;
-
-    // Transform comments to include isLiked flag and replies
+    // Transformar comentários para incluir flag isLiked e respostas
     const transformedComments = resultComments.map((comment) => ({
       id: comment.id,
       content: comment.content,
@@ -147,28 +134,22 @@ export async function GET(
       hasMore,
     });
   } catch (error) {
-    console.error("Get comments error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao buscar comentários", error);
   }
 }
 
-// POST /api/posts/[id]/comments - Create a comment
+// POST /api/posts/[id]/comments - Criar um comentário
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id: postId } = await params;
 
-    // Check if post exists and get author info
+    // Verificar se o post existe e obter info do autor
     const post = await prisma.post.findUnique({
       where: { id: postId },
       include: {
@@ -188,7 +169,7 @@ export async function POST(
     const body = await request.json();
     const { content, parentId } = createCommentSchema.parse(body);
 
-    // If replying to a comment, validate parent
+    // Se respondendo a um comentário, validar o pai
     let parentComment = null;
     if (parentId) {
       parentComment = await prisma.comment.findUnique({
@@ -214,7 +195,7 @@ export async function POST(
         );
       }
 
-      // Prevent nested replies (only one level of nesting allowed)
+      // Impedir respostas aninhadas (apenas um nível de aninhamento permitido)
       if (parentComment.parentId !== null) {
         return NextResponse.json(
           { error: "Não é possível responder a uma resposta" },
@@ -223,7 +204,7 @@ export async function POST(
       }
     }
 
-    // Get current user info and notification preferences
+    // Buscar info do usuário atual e preferências de notificação
     const notifyTargetId = parentId && parentComment
       ? parentComment.author.id
       : post.author.id;
@@ -265,9 +246,9 @@ export async function POST(
       },
     });
 
-    // Create notification (respecting user preferences)
+    // Criar notificação (respeitando preferências do usuário)
     if (parentId && parentComment) {
-      // Notify parent comment author about reply (not self, if enabled)
+      // Notificar autor do comentário pai sobre a resposta (não para si mesmo, se habilitado)
       if (parentComment.author.id !== session.user.id && notifyTarget?.notifyCommentReplied) {
         await prisma.notification.create({
           data: {
@@ -281,7 +262,7 @@ export async function POST(
         });
       }
     } else {
-      // Notify post author about comment (not self, if enabled)
+      // Notificar autor do post sobre o comentário (não para si mesmo, se habilitado)
       if (post.author.id !== session.user.id && notifyTarget?.notifyPostCommented) {
         await prisma.notification.create({
           data: {
@@ -296,7 +277,7 @@ export async function POST(
       }
     }
 
-    // Return transformed comment
+    // Retornar comentário transformado
     const transformedComment = {
       id: comment.id,
       content: comment.content,
@@ -310,18 +291,6 @@ export async function POST(
 
     return NextResponse.json({ comment: transformedComment }, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      const zodError = error as z.ZodError;
-      return NextResponse.json(
-        { error: zodError.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    console.error("Create comment error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return handleZodError(error) ?? internalError("Erro ao criar comentário", error);
   }
 }

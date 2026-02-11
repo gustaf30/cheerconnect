@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const updateMemberSchema = z.object({
@@ -10,20 +9,18 @@ const updateMemberSchema = z.object({
   isAdmin: z.boolean().optional(),
 });
 
-// PATCH /api/teams/[slug]/members/[memberId] - Update member role/permissions
+// PATCH /api/teams/[slug]/members/[memberId] - Atualizar papel/permissões do membro
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ slug: string; memberId: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { slug, memberId } = await params;
 
-    // Get team with current user's membership
+    // Buscar equipe com o membro atual do usuário
     const team = await prisma.team.findUnique({
       where: { slug },
       include: {
@@ -42,7 +39,7 @@ export async function PATCH(
 
     const currentUserMember = team.members[0];
 
-    // Check if current user has permission
+    // Verificar se o usuário atual tem permissão
     if (!currentUserMember?.hasPermission) {
       return NextResponse.json(
         { error: "Você não tem permissão para gerenciar membros" },
@@ -50,7 +47,7 @@ export async function PATCH(
       );
     }
 
-    // Find the member to update
+    // Encontrar o membro a ser atualizado
     const memberToUpdate = await prisma.teamMember.findUnique({
       where: { id: memberId },
     });
@@ -62,8 +59,8 @@ export async function PATCH(
     const body = await request.json();
     const data = updateMemberSchema.parse(body);
 
-    // If trying to update own permissions (not just role), block it
-    // Only block if the permission values are actually changing
+    // Se tentando atualizar próprias permissões (não apenas papel), bloquear
+    // Bloquear apenas se os valores de permissão estão realmente mudando
     if (memberToUpdate.userId === session.user.id) {
       const permissionChanged = data.hasPermission !== undefined &&
         data.hasPermission !== memberToUpdate.hasPermission;
@@ -78,7 +75,15 @@ export async function PATCH(
       }
     }
 
-    // If updating permissions of someone with hasPermission, need isAdmin
+    // Se o membro alvo é admin, apenas outro admin pode modificá-lo
+    if (memberToUpdate.isAdmin && !currentUserMember.isAdmin) {
+      return NextResponse.json(
+        { error: "Apenas administradores podem gerenciar outros administradores" },
+        { status: 403 }
+      );
+    }
+
+    // Se atualizando permissões de alguém com hasPermission, precisa ser isAdmin
     if (memberToUpdate.hasPermission && !currentUserMember.isAdmin) {
       return NextResponse.json(
         { error: "Apenas administradores podem gerenciar membros com permissão" },
@@ -86,7 +91,7 @@ export async function PATCH(
       );
     }
 
-    // Only admins can grant hasPermission or isAdmin
+    // Apenas admins podem conceder hasPermission ou isAdmin
     if ((data.hasPermission || data.isAdmin) && !currentUserMember.isAdmin) {
       return NextResponse.json(
         { error: "Apenas administradores podem conceder permissões especiais" },
@@ -94,7 +99,7 @@ export async function PATCH(
       );
     }
 
-    // Use transaction to prevent race condition when removing last admin
+    // Usar transação para prevenir condição de corrida ao remover último admin
     const updatedMember = await prisma.$transaction(async (tx) => {
       if (data.isAdmin === false && memberToUpdate.isAdmin) {
         const adminCount = await tx.teamMember.count({
@@ -147,28 +152,22 @@ export async function PATCH(
       );
     }
 
-    console.error("Update member error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao atualizar membro", error);
   }
 }
 
-// DELETE /api/teams/[slug]/members/[memberId] - Remove member from team
+// DELETE /api/teams/[slug]/members/[memberId] - Remover membro da equipe
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ slug: string; memberId: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { slug, memberId } = await params;
 
-    // Get team with current user's membership
+    // Buscar equipe com o membro atual do usuário
     const team = await prisma.team.findUnique({
       where: { slug },
       include: {
@@ -187,7 +186,7 @@ export async function DELETE(
 
     const currentUserMember = team.members[0];
 
-    // Check if current user has permission
+    // Verificar se o usuário atual tem permissão
     if (!currentUserMember?.hasPermission) {
       return NextResponse.json(
         { error: "Você não tem permissão para remover membros" },
@@ -195,7 +194,7 @@ export async function DELETE(
       );
     }
 
-    // Find the member to remove
+    // Encontrar o membro a ser removido
     const memberToRemove = await prisma.teamMember.findUnique({
       where: { id: memberId },
       include: {
@@ -212,7 +211,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Membro não encontrado" }, { status: 404 });
     }
 
-    // Cannot remove yourself
+    // Não pode remover a si mesmo
     if (memberToRemove.userId === session.user.id) {
       return NextResponse.json(
         { error: "Você não pode se remover da equipe" },
@@ -220,7 +219,15 @@ export async function DELETE(
       );
     }
 
-    // If removing someone with hasPermission, need isAdmin
+    // Se o membro alvo é admin, apenas outro admin pode removê-lo
+    if (memberToRemove.isAdmin && !currentUserMember.isAdmin) {
+      return NextResponse.json(
+        { error: "Apenas administradores podem remover outros administradores" },
+        { status: 403 }
+      );
+    }
+
+    // Se removendo alguém com hasPermission, precisa ser isAdmin
     if (memberToRemove.hasPermission && !currentUserMember.isAdmin) {
       return NextResponse.json(
         { error: "Apenas administradores podem remover membros com permissão" },
@@ -228,7 +235,7 @@ export async function DELETE(
       );
     }
 
-    // Use transaction to prevent race condition when removing last admin
+    // Usar transação para prevenir condição de corrida ao remover último admin
     await prisma.$transaction(async (tx) => {
       if (memberToRemove.isAdmin) {
         const adminCount = await tx.teamMember.count({
@@ -244,7 +251,7 @@ export async function DELETE(
         }
       }
 
-      // Soft delete - mark as inactive
+      // Soft delete - marcar como inativo
       await tx.teamMember.update({
         where: { id: memberId },
         data: {
@@ -263,10 +270,6 @@ export async function DELETE(
       );
     }
 
-    console.error("Remove member error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao remover membro", error);
   }
 }

@@ -8,6 +8,8 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, ArrowRight } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
+import { staggerContainer, fadeSlideUp, noMotion, noMotionContainer, stagger } from "@/lib/animations";
 import { toast } from "sonner";
 
 const registerSchema = z
@@ -86,32 +88,42 @@ export default function RegisterPage() {
     }
   };
 
+  const shouldReduceMotion = useReducedMotion();
+  const containerVariants = shouldReduceMotion
+    ? noMotionContainer
+    : staggerContainer(stagger.default, 0.15);
+  const itemVariants = shouldReduceMotion ? noMotion : fadeSlideUp;
+
   return (
-    <>
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {/* Mobile Logo */}
-      <div className="mb-8 text-left">
+      <motion.div variants={itemVariants} className="mb-8 text-left">
         <Link href="/" className="inline-block group">
           <h2 className="text-4xl font-display font-extrabold tracking-tight">
             <span className="text-gradient-primary">Cheer</span>
             <span className="text-foreground">Connect</span>
           </h2>
         </Link>
-      </div>
+      </motion.div>
 
-      <div className="space-y-2 mb-8">
+      <motion.div variants={itemVariants} className="space-y-2 mb-8">
         <h3 className="text-3xl font-display font-bold text-foreground">
           Crie sua conta
         </h3>
         <p className="text-muted-foreground">
           Junte-se à comunidade de cheerleading do Brasil.
         </p>
-      </div>
+      </motion.div>
 
       <form
         onSubmit={form.handleSubmit(onSubmit)}
         className="space-y-6"
       >
-        <div className="floating-label-group relative flex flex-col">
+        <motion.div variants={itemVariants} className="floating-label-group relative flex flex-col">
           <input
             type="text"
             placeholder=" "
@@ -127,9 +139,9 @@ export default function RegisterPage() {
               {form.formState.errors.name.message}
             </p>
           )}
-        </div>
+        </motion.div>
 
-        <div className="floating-label-group relative flex flex-col">
+        <motion.div variants={itemVariants} className="floating-label-group relative flex flex-col">
           <input
             type="email"
             placeholder=" "
@@ -145,9 +157,9 @@ export default function RegisterPage() {
               {form.formState.errors.email.message}
             </p>
           )}
-        </div>
+        </motion.div>
 
-        <div className="floating-label-group relative flex flex-col">
+        <motion.div variants={itemVariants} className="floating-label-group relative flex flex-col">
           <input
             type="text"
             placeholder=" "
@@ -163,9 +175,9 @@ export default function RegisterPage() {
               {form.formState.errors.username.message}
             </p>
           )}
-        </div>
+        </motion.div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <motion.div variants={itemVariants} className="grid grid-cols-2 gap-4">
           <div className="floating-label-group relative flex flex-col">
             <input
               type="password"
@@ -201,9 +213,9 @@ export default function RegisterPage() {
               </p>
             )}
           </div>
-        </div>
+        </motion.div>
 
-        <div className="pt-2">
+        <motion.div variants={itemVariants} className="pt-2">
           <button
             type="submit"
             disabled={isLoading}
@@ -218,10 +230,10 @@ export default function RegisterPage() {
               </>
             )}
           </button>
-        </div>
+        </motion.div>
       </form>
 
-      <div className="mt-8 text-center">
+      <motion.div variants={itemVariants} className="mt-8 text-center">
         <p className="text-sm text-muted-foreground font-medium">
           Já faz parte da comunidade?
           <Link
@@ -231,7 +243,7 @@ export default function RegisterPage() {
             Fazer Login
           </Link>
         </p>
-      </div>
-    </>
+      </motion.div>
+    </motion.div>
   );
 }

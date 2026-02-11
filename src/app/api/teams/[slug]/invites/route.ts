@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const createInviteSchema = z.object({
@@ -11,20 +10,18 @@ const createInviteSchema = z.object({
   isAdmin: z.boolean().default(false),
 });
 
-// POST /api/teams/[slug]/invites - Send invite to user
+// POST /api/teams/[slug]/invites - Enviar convite para usuário
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { slug } = await params;
 
-    // Check if user has permission to invite members
+    // Verificar se o usuário tem permissão para convidar membros
     const team = await prisma.team.findUnique({
       where: { slug },
       include: {
@@ -52,7 +49,7 @@ export async function POST(
     const body = await request.json();
     const { userId, role, hasPermission, isAdmin } = createInviteSchema.parse(body);
 
-    // Only admins can invite with admin permissions
+    // Apenas admins podem convidar com permissões de admin
     const currentMember = team.members[0];
     if ((hasPermission || isAdmin) && !currentMember.isAdmin) {
       return NextResponse.json(
@@ -61,7 +58,7 @@ export async function POST(
       );
     }
 
-    // Check if user exists and get notification preferences
+    // Verificar se o usuário existe e obter preferências de notificação
     const targetUser = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, name: true, notifyTeamInvite: true },
@@ -71,7 +68,7 @@ export async function POST(
       return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
     }
 
-    // Check if user is already a member
+    // Verificar se o usuário já é membro
     const existingMember = await prisma.teamMember.findUnique({
       where: {
         userId_teamId: {
@@ -88,7 +85,7 @@ export async function POST(
       );
     }
 
-    // Check for existing pending invite
+    // Verificar se existe convite pendente
     const existingInvite = await prisma.teamInvite.findUnique({
       where: {
         teamId_userId: {
@@ -105,7 +102,7 @@ export async function POST(
       );
     }
 
-    // Create or update invite
+    // Criar ou atualizar convite
     const invite = await prisma.teamInvite.upsert({
       where: {
         teamId_userId: {
@@ -120,7 +117,7 @@ export async function POST(
         hasPermission,
         isAdmin,
         status: "PENDING",
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias
       },
       update: {
         role,
@@ -141,7 +138,7 @@ export async function POST(
       },
     });
 
-    // Create notification for the invited user (if enabled)
+    // Criar notificação para o usuário convidado (se habilitado)
     if (targetUser.notifyTeamInvite) {
       await prisma.notification.create({
         data: {
@@ -157,35 +154,22 @@ export async function POST(
 
     return NextResponse.json({ invite }, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    console.error("Create invite error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return handleZodError(error) ?? internalError("Erro ao criar convite", error);
   }
 }
 
-// GET /api/teams/[slug]/invites - List pending invites
+// GET /api/teams/[slug]/invites - Listar convites pendentes
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { slug } = await params;
 
-    // Check if user has permission to view invites
+    // Verificar se o usuário tem permissão para ver convites
     const team = await prisma.team.findUnique({
       where: { slug },
       include: {
@@ -218,6 +202,10 @@ export async function GET(
       where: {
         teamId: team.id,
         status: "PENDING",
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: new Date() } },
+        ],
       },
       include: {
         user: {
@@ -238,10 +226,6 @@ export async function GET(
 
     return NextResponse.json({ invites, nextCursor });
   } catch (error) {
-    console.error("List invites error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao listar convites", error);
   }
 }

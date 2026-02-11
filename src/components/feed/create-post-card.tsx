@@ -2,16 +2,14 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { ImagePlus, Video, Send, X, Loader2 } from "lucide-react";
+import { scaleIn, noMotion } from "@/lib/animations";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { getInitials } from "@/lib/utils";
+import { UserProfile } from "@/types";
 import { toast } from "sonner";
-
-interface UserProfile {
-  name: string;
-  avatar: string | null;
-}
 
 interface MediaFile {
   file: File;
@@ -21,6 +19,7 @@ interface MediaFile {
 
 export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }) {
   const { data: session } = useSession();
+  const shouldReduceMotion = useReducedMotion();
   const [content, setContent] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -37,7 +36,7 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
     }
   }, [session]);
 
-  // Cleanup preview URLs on unmount
+  // Limpar URLs de preview ao desmontar
   useEffect(() => {
     return () => {
       mediaFiles.forEach((media) => URL.revokeObjectURL(media.preview));
@@ -51,11 +50,12 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
         const data = await response.json();
         setUserProfile({
           name: data.user.name,
+          username: data.user.username,
           avatar: data.user.avatar,
         });
       }
     } catch {
-      console.error("Error fetching user profile");
+      console.error("Erro ao buscar perfil do usuário");
     }
   };
 
@@ -235,34 +235,43 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
               className="w-full min-h-[80px] resize-none border-0 bg-transparent focus:outline-none text-foreground placeholder:text-muted-foreground font-body"
             />
 
-            {/* Media Preview */}
+            {/* Preview de mídia */}
             {mediaFiles.length > 0 && (
               <div className={`grid gap-2 ${mediaFiles.length > 1 ? "grid-cols-2" : ""}`}>
-                {mediaFiles.map((media, index) => (
-                  <div key={index} className="relative group animate-scale-in">
-                    {media.type === "image" ? (
-                      <img
-                        src={media.preview}
-                        alt=""
-                        className="rounded-xl w-full h-32 object-cover"
-                      />
-                    ) : (
-                      <video
-                        src={media.preview}
-                        className="rounded-xl w-full h-32 object-cover"
-                        controls
-                      />
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => removeMedia(index)}
-                      aria-label="Remover mídia"
-                      className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-black/80"
+                <AnimatePresence>
+                  {mediaFiles.map((media, index) => (
+                    <motion.div
+                      key={media.preview}
+                      variants={shouldReduceMotion ? noMotion : scaleIn}
+                      initial="hidden"
+                      animate="visible"
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      className="relative group"
                     >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
+                      {media.type === "image" ? (
+                        <img
+                          src={media.preview}
+                          alt={`Prévia da imagem ${index + 1}`}
+                          className="rounded-xl w-full h-32 object-cover"
+                        />
+                      ) : (
+                        <video
+                          src={media.preview}
+                          className="rounded-xl w-full h-32 object-cover"
+                          controls
+                        />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeMedia(index)}
+                        aria-label="Remover mídia"
+                        className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-black/80"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
               </div>
             )}
 

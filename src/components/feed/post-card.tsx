@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Heart, MoreHorizontal, Trash2, X, Repeat2, ZoomIn } from "lucide-react";
+import { Heart, MessageCircle, MoreHorizontal, Trash2, X, Repeat2, ZoomIn } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { motion, useAnimation, useReducedMotion } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,42 +20,10 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn, getInitials } from "@/lib/utils";
 import { positionLabels } from "@/lib/constants";
+import { PostAuthor, PostTeam, PostData } from "@/types";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { CommentSection } from "./comment-section";
-
-interface PostAuthor {
-  id: string;
-  name: string;
-  username: string;
-  avatar: string | null;
-  positions: string[];
-}
-
-interface PostTeam {
-  id: string;
-  name: string;
-  slug: string;
-  logo: string | null;
-}
-
-interface PostData {
-  id: string;
-  content: string;
-  images: string[];
-  videoUrl?: string | null;
-  createdAt: string;
-  author: PostAuthor;
-  team?: PostTeam | null;
-  originalPostId?: string | null;
-  originalPost?: PostData | null;
-  _count: {
-    likes: number;
-    comments: number;
-    reposts?: number;
-  };
-  isLiked: boolean;
-}
 
 interface PostProps {
   post: PostData;
@@ -67,7 +36,7 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
   const likeControls = useAnimation();
   const shouldReduceMotion = useReducedMotion();
 
-  // For reposts, likes/comments go to the original post
+  // Para reposts, likes/comentários vão para o post original
   const targetPost = post.originalPost || post;
   const isRepost = !!post.originalPostId;
 
@@ -80,13 +49,15 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [justLiked, setJustLiked] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCommentInput, setShowCommentInput] = useState(false);
+  const [commentsCount, setCommentsCount] = useState(targetPost._count.comments);
 
   const isAuthor = session?.user?.id === post.author.id;
   const isTargetAuthor = session?.user?.id === targetPost.author.id;
 
   const handleLike = async () => {
     try {
-      // Spring animation for like button
+      // Animação spring para botão de curtida
       if (!isLiked && !shouldReduceMotion) {
         likeControls.start({
           scale: [1, 1.3, 0.95, 1.1, 1],
@@ -122,7 +93,7 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
     setIsReposting(true);
     try {
       if (hasReposted) {
-        // Remove repost
+        // Remover repost
         const response = await fetch(`/api/posts/${targetPost.id}/repost`, {
           method: "DELETE",
         });
@@ -133,7 +104,7 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
         setRepostsCount((prev) => prev - 1);
         toast.success("Repost removido");
       } else {
-        // Create repost
+        // Criar repost
         const response = await fetch(`/api/posts/${targetPost.id}/repost`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -177,13 +148,13 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
   const renderAuthorHeader = (
     author: PostAuthor,
     team: PostTeam | null | undefined,
-    createdAt: string,
+    createdAt: string | Date,
     showRepostIndicator: boolean = false
   ) => (
     <div className="flex items-start justify-between">
       <div className="flex items-center gap-3">
         {team ? (
-          // Post de equipe - mostrar equipe como autor
+          // Post de equipe — mostrar equipe como autor
           <>
             <Link href={`/teams/${team.slug}`}>
               <div>
@@ -222,7 +193,7 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
             </div>
           </>
         ) : (
-          // Post de usuário - mostrar usuário como autor
+          // Post de usuário — mostrar usuário como autor
           <>
             <Link href={`/profile/${author.username}`}>
               <div>
@@ -274,7 +245,7 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
       </div>
 
       {showRepostIndicator && isAuthor && (
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent/80" aria-label="Mais opções">
               <MoreHorizontal className="h-4 w-4" />
@@ -295,7 +266,7 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
     </div>
   );
 
-  const renderPostContent = (content: string, images: string[], videoUrl?: string | null) => (
+  const renderPostContent = (content: string, images: string[], videoUrl?: string | null, authorName?: string) => (
     <>
       {content && <p className="whitespace-pre-wrap">{content}</p>}
 
@@ -307,10 +278,14 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
               className="relative group cursor-pointer overflow-hidden rounded-xl"
               onClick={() => setSelectedImage(image)}
             >
-              <img
+              <Image
                 src={image}
-                alt=""
-                className="max-h-80 w-full object-contain transition-base group-hover:brightness-95 group-hover:scale-[1.02] bg-muted"
+                alt={`Imagem ${index + 1} do post de ${authorName || "usuário"}`}
+                width={600}
+                height={400}
+                sizes="(max-width: 768px) 100vw, 600px"
+                className="max-h-80 w-full object-contain bg-muted"
+                unoptimized
               />
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-base flex items-center justify-center">
                 <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-base drop-shadow-lg" />
@@ -334,11 +309,11 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
 
   return (
     <div
-      className="bento-card"
+      className="bento-card-static relative"
     >
       <div className="accent-bar" />
 
-      {/* Repost indicator */}
+      {/* Indicador de repost */}
       {isRepost && (
         <div className="px-5 pt-3 flex items-center gap-2 text-sm text-muted-foreground">
           <Repeat2 className="h-4 w-4" />
@@ -361,7 +336,7 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
           <>
             {renderAuthorHeader(post.author, post.team, post.createdAt, false)}
             {isAuthor && !isRepost && (
-              <DropdownMenu>
+              <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8 absolute top-3 right-3 hover:bg-accent/80" aria-label="Mais opções">
                     <MoreHorizontal className="h-4 w-4" />
@@ -394,10 +369,11 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
           renderPostContent(
             post.originalPost.content,
             post.originalPost.images,
-            post.originalPost.videoUrl
+            post.originalPost.videoUrl,
+            post.originalPost.author.name
           )
         ) : (
-          renderPostContent(post.content, post.images, post.videoUrl)
+          renderPostContent(post.content, post.images, post.videoUrl, post.author.name)
         )}
       </div>
 
@@ -427,7 +403,21 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
           </Button>
         </motion.div>
 
-        {/* Repost button - only show for non-reposts and not own posts */}
+        {/* Botão de comentar */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn(
+            "gap-2 transition-base",
+            showCommentInput && "text-primary hover:text-primary"
+          )}
+          onClick={() => setShowCommentInput((prev) => !prev)}
+        >
+          <MessageCircle className="h-4 w-4" />
+          <span className="stat-number">{commentsCount}</span>
+        </Button>
+
+        {/* Botão de repost — exibir apenas para não-reposts e posts de outros */}
         {!isRepost && !isTargetAuthor && (
           <Button
             variant="ghost"
@@ -449,9 +439,15 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
         )}
       </div>
 
-      <CommentSection postId={targetPost.id} initialCommentsCount={targetPost._count.comments} />
+      <CommentSection
+        postId={targetPost.id}
+        initialCommentsCount={targetPost._count.comments}
+        showInput={showCommentInput}
+        onCommentsCountChange={setCommentsCount}
+        onInputClose={() => setShowCommentInput(false)}
+      />
 
-      {/* Lightbox Modal */}
+      {/* Modal de visualização de imagem */}
       <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-0 bg-transparent" showCloseButton={false}>
           <DialogTitle className="sr-only">Visualizar imagem</DialogTitle>
@@ -463,10 +459,13 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
             <X className="h-6 w-6" />
           </button>
           {selectedImage && (
-            <img
+            <Image
               src={selectedImage}
-              alt=""
+              alt={`Imagem ampliada do post de ${targetPost.author.name}`}
+              width={1200}
+              height={800}
               className="max-w-full max-h-[90vh] object-contain rounded-lg animate-scale-in"
+              unoptimized
             />
           )}
         </DialogContent>

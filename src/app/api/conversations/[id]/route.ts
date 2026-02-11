@@ -1,18 +1,15 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
-// GET /api/conversations/[id] - Get conversation details
+// GET /api/conversations/[id] - Buscar detalhes da conversa
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id } = await params;
     const userId = session.user.id;
@@ -46,7 +43,7 @@ export async function GET(
       );
     }
 
-    // Check if user is part of the conversation
+    // Verificar se o usuário faz parte da conversa
     if (
       conversation.participant1Id !== userId &&
       conversation.participant2Id !== userId
@@ -72,24 +69,18 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("Get conversation error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao buscar conversa", error);
   }
 }
 
-// DELETE /api/conversations/[id] - Delete a conversation
+// DELETE /api/conversations/[id] - Excluir conversa
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id } = await params;
     const userId = session.user.id;
@@ -109,7 +100,7 @@ export async function DELETE(
       );
     }
 
-    // Check if user is part of the conversation
+    // Verificar se o usuário faz parte da conversa
     if (
       conversation.participant1Id !== userId &&
       conversation.participant2Id !== userId
@@ -126,10 +117,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Delete conversation error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao excluir conversa", error);
   }
 }

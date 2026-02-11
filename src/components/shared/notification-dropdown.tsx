@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Bell, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,12 +11,25 @@ import {
 } from "@/components/ui/popover";
 import { NotificationItem, type Notification } from "./notification-item";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  fadeSlideUp,
+  noMotion,
+  noMotionContainer,
+  staggerContainer,
+  stagger,
+} from "@/lib/animations";
 
 export function NotificationDropdown() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
+
+  const itemVariants = shouldReduceMotion ? noMotion : fadeSlideUp;
+  const containerVariants = shouldReduceMotion
+    ? noMotionContainer
+    : staggerContainer(stagger.fast);
 
   const fetchUnreadCount = useCallback(async () => {
     try {
@@ -25,7 +39,7 @@ export function NotificationDropdown() {
         setUnreadCount(data.count);
       }
     } catch {
-      console.error("Error fetching notification count");
+      console.error("Erro ao buscar contagem de notificações");
     }
   }, []);
 
@@ -38,20 +52,20 @@ export function NotificationDropdown() {
         setNotifications(data.notifications);
       }
     } catch {
-      console.error("Error fetching notifications");
+      console.error("Erro ao buscar notificações");
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Fetch unread count on mount and poll every 10s
+  // Buscar contagem de não lidas ao montar e atualizar a cada 10s
   useEffect(() => {
     fetchUnreadCount();
     const interval = setInterval(fetchUnreadCount, 10000);
     return () => clearInterval(interval);
   }, [fetchUnreadCount]);
 
-  // Fetch notifications when dropdown opens
+  // Buscar notificações quando o dropdown abre
   useEffect(() => {
     if (isOpen) {
       fetchNotifications();
@@ -71,7 +85,7 @@ export function NotificationDropdown() {
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch {
-      console.error("Error marking notification as read");
+      console.error("Erro ao marcar notificação como lida");
     }
   };
 
@@ -86,18 +100,18 @@ export function NotificationDropdown() {
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       setUnreadCount(0);
     } catch {
-      console.error("Error marking all notifications as read");
+      console.error("Erro ao marcar todas notificações como lidas");
     }
   };
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen} modal={false}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative hover:bg-accent/80 transition-all duration-300">
+        <Button variant="ghost" size="icon" className="relative hover:bg-accent/80 transition-all duration-300" aria-label="Notificações">
           <Bell className="h-5 w-5 transition-transform duration-200 hover:scale-110" />
           {unreadCount > 0 && (
             <>
-              {/* Double ping animation for premium effect */}
+              {/* Animação dupla de ping para efeito premium */}
               <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary animate-ping opacity-75" />
               <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary animate-pulse-ring" />
               <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-gradient-to-br from-primary to-[oklch(0.45_0.20_25)] text-primary-foreground text-xs flex items-center justify-center font-medium shadow-md">
@@ -139,16 +153,21 @@ export function NotificationDropdown() {
               <p className="text-sm">Nenhuma notificação</p>
             </div>
           ) : (
-            <div className="divide-y stagger-children">
-              {notifications.map((notification, index) => (
-                <NotificationItem
-                  key={notification.id}
-                  notification={notification}
-                  onRead={handleMarkAsRead}
-                  style={{ animationDelay: `${index * 50}ms` }}
-                />
+            <motion.div
+              className="divide-y"
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+            >
+              {notifications.map((notification) => (
+                <motion.div key={notification.id} variants={itemVariants}>
+                  <NotificationItem
+                    notification={notification}
+                    onRead={handleMarkAsRead}
+                  />
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           )}
         </ScrollArea>
       </PopoverContent>

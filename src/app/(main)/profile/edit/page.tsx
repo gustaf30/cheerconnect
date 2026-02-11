@@ -1,60 +1,21 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import {
-  Loader2,
-  ArrowLeft,
-  Camera,
-  Plus,
-  Briefcase,
-  Trophy,
-  Trash2,
-  Pencil,
-  X,
-  Share2,
-} from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
+import { Form } from "@/components/ui/form";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { CitySelector } from "@/components/ui/city-selector";
-import { getInitials } from "@/lib/utils";
+import { AvatarBannerSection } from "@/components/profile/edit/AvatarBannerSection";
+import { ProfileForm } from "@/components/profile/edit/ProfileForm";
+import { CareerSection } from "@/components/profile/edit/CareerSection";
+import { AchievementSection } from "@/components/profile/edit/AchievementSection";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -65,7 +26,7 @@ const profileSchema = z.object({
   positions: z.array(z.string()),
 });
 
-type ProfileForm = z.infer<typeof profileSchema>;
+type ProfileFormData = z.infer<typeof profileSchema>;
 
 interface CareerEntry {
   id: string;
@@ -87,40 +48,9 @@ interface Achievement {
   category: string | null;
 }
 
-const positionOptions = [
-  { value: "FLYER", label: "Flyer" },
-  { value: "BASE", label: "Base" },
-  { value: "BACKSPOT", label: "Backspot" },
-  { value: "FRONTSPOT", label: "Frontspot" },
-  { value: "TUMBLER", label: "Tumbler" },
-  { value: "COACH", label: "Técnico" },
-  { value: "CHOREOGRAPHER", label: "Coreógrafo" },
-  { value: "JUDGE", label: "Juiz" },
-  { value: "OTHER", label: "Outro" },
-];
-
-const roleOptions = [
-  { value: "ATHLETE", label: "Atleta" },
-  { value: "COACH", label: "Técnico" },
-  { value: "ASSISTANT_COACH", label: "Técnico Assistente" },
-  { value: "CHOREOGRAPHER", label: "Coreógrafo" },
-  { value: "TEAM_MANAGER", label: "Gestor de Equipe" },
-  { value: "JUDGE", label: "Juiz" },
-  { value: "OTHER", label: "Outro" },
-];
-
-const categoryOptions = [
-  { value: "COMPETITION", label: "Competição" },
-  { value: "CERTIFICATION", label: "Certificação" },
-  { value: "AWARD", label: "Prêmio" },
-  { value: "OTHER", label: "Outro" },
-];
-
 export default function EditProfilePage() {
   const router = useRouter();
   const { update } = useSession();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const bannerInputRef = useRef<HTMLInputElement>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -128,46 +58,13 @@ export default function EditProfilePage() {
   const [isDeletingAvatar, setIsDeletingAvatar] = useState(false);
   const [isUploadingBanner, setIsUploadingBanner] = useState(false);
   const [isDeletingBanner, setIsDeletingBanner] = useState(false);
-  const [newSkill, setNewSkill] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
 
-  // Career state
   const [careerHistory, setCareerHistory] = useState<CareerEntry[]>([]);
-  const [careerDialogOpen, setCareerDialogOpen] = useState(false);
-  const [editingCareer, setEditingCareer] = useState<CareerEntry | null>(null);
-  const [careerForm, setCareerForm] = useState({
-    role: "ATHLETE",
-    positions: [] as string[],
-    startDate: "",
-    endDate: "",
-    isCurrent: false,
-    teamName: "",
-    description: "",
-    location: "",
-  });
-  const [isSavingCareer, setIsSavingCareer] = useState(false);
-
-  // Achievements state
   const [achievements, setAchievements] = useState<Achievement[]>([]);
-  const [achievementDialogOpen, setAchievementDialogOpen] = useState(false);
-  const [editingAchievement, setEditingAchievement] = useState<Achievement | null>(null);
-  const [achievementForm, setAchievementForm] = useState({
-    title: "",
-    description: "",
-    date: "",
-    category: "",
-  });
-  const [isSavingAchievement, setIsSavingAchievement] = useState(false);
-  const [deleteCareerTargetId, setDeleteCareerTargetId] = useState<string | null>(null);
-  const [deleteAchievementTargetId, setDeleteAchievementTargetId] = useState<string | null>(null);
 
-  // Share achievement state
-  const [shareDialogOpen, setShareDialogOpen] = useState(false);
-  const [sharePostContent, setSharePostContent] = useState("");
-  const [isSharing, setIsSharing] = useState(false);
-
-  const form = useForm<ProfileForm>({
+  const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
       name: "",
@@ -209,7 +106,7 @@ export default function EditProfilePage() {
       const data = await response.json();
       setCareerHistory(data.careerHistory);
     } catch {
-      console.error("Error fetching career history");
+      console.error("Erro ao buscar histórico de carreira");
     }
   }, []);
 
@@ -220,7 +117,7 @@ export default function EditProfilePage() {
       const data = await response.json();
       setAchievements(data.achievements);
     } catch {
-      console.error("Error fetching achievements");
+      console.error("Erro ao buscar conquistas");
     }
   }, []);
 
@@ -230,7 +127,7 @@ export default function EditProfilePage() {
     fetchAchievements();
   }, [fetchProfile, fetchCareerHistory, fetchAchievements]);
 
-  const onSubmit = async (data: ProfileForm) => {
+  const onSubmit = async (data: ProfileFormData) => {
     setIsSaving(true);
     try {
       const response = await fetch("/api/users/me", {
@@ -363,236 +260,6 @@ export default function EditProfilePage() {
     }
   };
 
-  const togglePosition = (position: string) => {
-    const current = form.getValues("positions");
-    if (current.includes(position)) {
-      form.setValue("positions", current.filter((p) => p !== position));
-    } else {
-      form.setValue("positions", [...current, position]);
-    }
-  };
-
-  const addSkill = () => {
-    if (!newSkill.trim()) return;
-    const current = form.getValues("skills");
-    if (!current.includes(newSkill.trim())) {
-      form.setValue("skills", [...current, newSkill.trim()]);
-    }
-    setNewSkill("");
-  };
-
-  const removeSkill = (skill: string) => {
-    const current = form.getValues("skills");
-    form.setValue("skills", current.filter((s) => s !== skill));
-  };
-
-  // Career handlers
-  const openCareerDialog = (career?: CareerEntry) => {
-    if (career) {
-      setEditingCareer(career);
-      setCareerForm({
-        role: career.role,
-        positions: career.positions,
-        startDate: career.startDate.split("T")[0],
-        endDate: career.endDate?.split("T")[0] || "",
-        isCurrent: career.isCurrent,
-        teamName: career.teamName,
-        description: career.description || "",
-        location: career.location || "",
-      });
-    } else {
-      setEditingCareer(null);
-      setCareerForm({
-        role: "ATHLETE",
-        positions: [],
-        startDate: "",
-        endDate: "",
-        isCurrent: false,
-        teamName: "",
-        description: "",
-        location: "",
-      });
-    }
-    setCareerDialogOpen(true);
-  };
-
-  const saveCareer = async () => {
-    if (!careerForm.teamName || !careerForm.startDate) {
-      toast.error("Preencha os campos obrigatórios");
-      return;
-    }
-
-    setIsSavingCareer(true);
-    try {
-      const payload = {
-        ...careerForm,
-        endDate: careerForm.isCurrent ? null : careerForm.endDate || null,
-      };
-
-      const url = editingCareer ? `/api/career/${editingCareer.id}` : "/api/career";
-      const method = editingCareer ? "PATCH" : "POST";
-
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) throw new Error();
-
-      toast.success(editingCareer ? "Experiência atualizada!" : "Experiência adicionada!");
-      setCareerDialogOpen(false);
-      fetchCareerHistory();
-    } catch {
-      toast.error("Erro ao salvar experiência");
-    } finally {
-      setIsSavingCareer(false);
-    }
-  };
-
-  const deleteCareer = async () => {
-    if (!deleteCareerTargetId) return;
-    try {
-      const response = await fetch(`/api/career/${deleteCareerTargetId}`, { method: "DELETE" });
-      if (!response.ok) throw new Error();
-
-      toast.success("Experiência removida!");
-      setDeleteCareerTargetId(null);
-      fetchCareerHistory();
-    } catch {
-      toast.error("Erro ao remover experiência");
-    }
-  };
-
-  // Achievement handlers
-  const openAchievementDialog = (achievement?: Achievement) => {
-    if (achievement) {
-      setEditingAchievement(achievement);
-      setAchievementForm({
-        title: achievement.title,
-        description: achievement.description || "",
-        date: achievement.date.split("T")[0],
-        category: achievement.category || "",
-      });
-    } else {
-      setEditingAchievement(null);
-      setAchievementForm({
-        title: "",
-        description: "",
-        date: "",
-        category: "",
-      });
-    }
-    setAchievementDialogOpen(true);
-  };
-
-  const saveAchievement = async () => {
-    if (!achievementForm.title || !achievementForm.date) {
-      toast.error("Preencha os campos obrigatórios");
-      return;
-    }
-
-    setIsSavingAchievement(true);
-    try {
-      const url = editingAchievement
-        ? `/api/achievements/${editingAchievement.id}`
-        : "/api/achievements";
-      const method = editingAchievement ? "PATCH" : "POST";
-
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(achievementForm),
-      });
-
-      if (!response.ok) throw new Error();
-
-      const isNewAchievement = !editingAchievement;
-      toast.success(editingAchievement ? "Conquista atualizada!" : "Conquista adicionada!");
-      setAchievementDialogOpen(false);
-      fetchAchievements();
-
-      // Offer to share new achievements
-      if (isNewAchievement) {
-        const categoryLabel = categoryOptions.find((c) => c.value === achievementForm.category)?.label;
-        const dateFormatted = new Date(achievementForm.date).toLocaleDateString("pt-BR", {
-          month: "long",
-          year: "numeric",
-        });
-
-        let postContent = `🏆 Nova conquista desbloqueada!\n\n${achievementForm.title}`;
-        if (categoryLabel) {
-          postContent += ` (${categoryLabel})`;
-        }
-        postContent += `\n📅 ${dateFormatted}`;
-        if (achievementForm.description) {
-          postContent += `\n\n${achievementForm.description}`;
-        }
-
-        setSharePostContent(postContent);
-        setShareDialogOpen(true);
-      }
-    } catch {
-      toast.error("Erro ao salvar conquista");
-    } finally {
-      setIsSavingAchievement(false);
-    }
-  };
-
-  const handleShareAchievement = async () => {
-    if (!sharePostContent.trim()) {
-      toast.error("Escreva algo para publicar");
-      return;
-    }
-
-    setIsSharing(true);
-    try {
-      const response = await fetch("/api/posts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: sharePostContent }),
-      });
-
-      if (!response.ok) throw new Error();
-
-      toast.success("Conquista compartilhada!");
-      setShareDialogOpen(false);
-      setSharePostContent("");
-    } catch {
-      toast.error("Erro ao compartilhar conquista");
-    } finally {
-      setIsSharing(false);
-    }
-  };
-
-  const deleteAchievement = async () => {
-    if (!deleteAchievementTargetId) return;
-    try {
-      const response = await fetch(`/api/achievements/${deleteAchievementTargetId}`, { method: "DELETE" });
-      if (!response.ok) throw new Error();
-
-      toast.success("Conquista removida!");
-      setDeleteAchievementTargetId(null);
-      fetchAchievements();
-    } catch {
-      toast.error("Erro ao remover conquista");
-    }
-  };
-
-  const toggleCareerPosition = (position: string) => {
-    if (careerForm.positions.includes(position)) {
-      setCareerForm({
-        ...careerForm,
-        positions: careerForm.positions.filter((p) => p !== position),
-      });
-    } else {
-      setCareerForm({
-        ...careerForm,
-        positions: [...careerForm.positions, position],
-      });
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -624,439 +291,31 @@ export default function EditProfilePage() {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          {/* Photo Upload Card */}
-          <div className="bento-card-static">
-            <div className="p-6 pb-2">
-              <h2 className="heading-card font-display">Foto de Perfil</h2>
-            </div>
-            <div className="p-6 pt-0">
-              <div className="flex items-center gap-6">
-                <div className="relative">
-                  <Avatar className="h-24 w-24">
-                    <AvatarImage src={avatarUrl || undefined} alt={form.getValues("name")} className="object-cover" />
-                    <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
-                      {form.getValues("name") ? getInitials(form.getValues("name")) : "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleAvatarChange}
-                  />
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="secondary"
-                    className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full shadow-md"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploadingAvatar}
-                  >
-                    {isUploadingAvatar ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Camera className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-                <div className="flex-1 space-y-2">
-                  <p className="text-sm text-muted-foreground">
-                    Clique no ícone da câmera para alterar sua foto de perfil.
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Formatos aceitos: JPG, PNG. Tamanho máximo: 5MB.
-                  </p>
-                  {avatarUrl && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="text-destructive hover:text-destructive"
-                      onClick={handleDeleteAvatar}
-                      disabled={isDeletingAvatar}
-                    >
-                      {isDeletingAvatar ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="mr-2 h-4 w-4" />
-                      )}
-                      Remover foto
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+          <AvatarBannerSection
+            name={form.getValues("name")}
+            avatarUrl={avatarUrl}
+            bannerUrl={bannerUrl}
+            isUploadingAvatar={isUploadingAvatar}
+            isDeletingAvatar={isDeletingAvatar}
+            isUploadingBanner={isUploadingBanner}
+            isDeletingBanner={isDeletingBanner}
+            onAvatarChange={handleAvatarChange}
+            onDeleteAvatar={handleDeleteAvatar}
+            onBannerChange={handleBannerChange}
+            onDeleteBanner={handleDeleteBanner}
+          />
 
-          {/* Banner Upload Card */}
-          <div className="bento-card-static">
-            <div className="p-6 pb-2">
-              <h2 className="heading-card font-display">Foto de Capa</h2>
-            </div>
-            <div className="p-6 pt-0">
-              <div className="space-y-4">
-                <div className="relative w-full h-32 bg-muted rounded-lg overflow-hidden">
-                  {bannerUrl ? (
-                    <img
-                      src={bannerUrl}
-                      alt="Banner"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                      <Camera className="h-8 w-8" />
-                    </div>
-                  )}
-                  <input
-                    ref={bannerInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleBannerChange}
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => bannerInputRef.current?.click()}
-                    disabled={isUploadingBanner}
-                  >
-                    {isUploadingBanner ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Camera className="mr-2 h-4 w-4" />
-                    )}
-                    {bannerUrl ? "Alterar capa" : "Adicionar capa"}
-                  </Button>
-                  {bannerUrl && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="text-destructive hover:text-destructive"
-                      onClick={handleDeleteBanner}
-                      disabled={isDeletingBanner}
-                    >
-                      {isDeletingBanner ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="mr-2 h-4 w-4" />
-                      )}
-                      Remover capa
-                    </Button>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Recomendado: 1200x300 pixels. Formatos aceitos: JPG, PNG. Tamanho máximo: 5MB.
-                </p>
-              </div>
-            </div>
-          </div>
+          <ProfileForm form={form} />
 
-          <div className="bento-card-static">
-            <div className="p-6 pb-2">
-              <h2 className="heading-card font-display">Informações Básicas</h2>
-            </div>
-            <div className="p-6 pt-0 space-y-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nome completo</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          <CareerSection
+            careerHistory={careerHistory}
+            fetchCareerHistory={fetchCareerHistory}
+          />
 
-              <FormField
-                control={form.control}
-                name="bio"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Bio</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        {...field}
-                        placeholder="Conte um pouco sobre você..."
-                        className="resize-none"
-                        rows={4}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      {field.value?.length || 0}/500 caracteres
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="location"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Localização</FormLabel>
-                    <FormControl>
-                      <CitySelector
-                        value={field.value}
-                        onChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="experience"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Anos de experiência</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={50}
-                        {...field}
-                        value={field.value ?? ""}
-                        onChange={(e) =>
-                          field.onChange(e.target.value ? parseInt(e.target.value) : null)
-                        }
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </div>
-
-          <div className="bento-card-static">
-            <div className="p-6 pb-2">
-              <h2 className="heading-card font-display">Posições</h2>
-            </div>
-            <div className="p-6 pt-0">
-              <FormField
-                control={form.control}
-                name="positions"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormDescription className="mb-3">
-                      Selecione todas as posições que você desempenha
-                    </FormDescription>
-                    <div className="flex flex-wrap gap-2">
-                      {positionOptions.map((pos) => (
-                        <Badge
-                          key={pos.value}
-                          variant={field.value.includes(pos.value) ? "default" : "outline"}
-                          className="cursor-pointer"
-                          onClick={() => togglePosition(pos.value)}
-                        >
-                          {pos.label}
-                        </Badge>
-                      ))}
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </div>
-
-          <div className="bento-card-static">
-            <div className="p-6 pb-2">
-              <h2 className="heading-card font-display">Habilidades</h2>
-            </div>
-            <div className="p-6 pt-0">
-              <FormField
-                control={form.control}
-                name="skills"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormDescription className="mb-3">
-                      Adicione suas habilidades (tumbling, stunts, etc.)
-                    </FormDescription>
-                    <div className="flex gap-2 mb-3">
-                      <Input
-                        value={newSkill}
-                        onChange={(e) => setNewSkill(e.target.value)}
-                        placeholder="Nova habilidade..."
-                        onKeyDown={(e) =>
-                          e.key === "Enter" && (e.preventDefault(), addSkill())
-                        }
-                      />
-                      <Button type="button" onClick={addSkill}>
-                        Adicionar
-                      </Button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {field.value.map((skill) => (
-                        <Badge
-                          key={skill}
-                          variant="secondary"
-                          className="cursor-pointer"
-                          onClick={() => removeSkill(skill)}
-                        >
-                          {skill} ×
-                        </Badge>
-                      ))}
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </div>
-
-          {/* Career History Card */}
-          <div className="bento-card-static">
-            <div className="p-6 pb-2 flex flex-row items-center justify-between">
-              <h2 className="heading-card font-display flex items-center gap-2">
-                <Briefcase className="h-5 w-5" />
-                Currículo
-              </h2>
-              <Button type="button" variant="outline" size="sm" onClick={() => openCareerDialog()}>
-                <Plus className="h-4 w-4 mr-2" />
-                Adicionar
-              </Button>
-            </div>
-            <div className="p-6 pt-0">
-              {careerHistory.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Adicione seu histórico em equipes de cheerleading.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {careerHistory.map((career) => (
-                    <div key={career.id} className="flex items-start justify-between gap-4 p-3 rounded-lg bg-muted/50">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium">{career.teamName}</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {roleOptions.find((r) => r.value === career.role)?.label || career.role}
-                          </Badge>
-                          {career.isCurrent && (
-                            <Badge variant="default" className="text-xs">Atual</Badge>
-                          )}
-                        </div>
-                        {career.positions.length > 0 && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {career.positions
-                              .map((p) => positionOptions.find((opt) => opt.value === p)?.label || p)
-                              .join(", ")}
-                          </p>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {format(new Date(career.startDate), "MMM yyyy", { locale: ptBR })}
-                          {" - "}
-                          {career.isCurrent
-                            ? "Presente"
-                            : career.endDate
-                            ? format(new Date(career.endDate), "MMM yyyy", { locale: ptBR })
-                            : ""}
-                        </p>
-                      </div>
-                      <div className="flex gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => openCareerDialog(career)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => setDeleteCareerTargetId(career.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Achievements Card */}
-          <div className="bento-card-static">
-            <div className="p-6 pb-2 flex flex-row items-center justify-between">
-              <h2 className="heading-card font-display flex items-center gap-2">
-                <Trophy className="h-5 w-5" />
-                Conquistas
-              </h2>
-              <Button type="button" variant="outline" size="sm" onClick={() => openAchievementDialog()}>
-                <Plus className="h-4 w-4 mr-2" />
-                Adicionar
-              </Button>
-            </div>
-            <div className="p-6 pt-0">
-              {achievements.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Registre suas conquistas e títulos.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {achievements.map((achievement) => (
-                    <div key={achievement.id} className="flex items-start justify-between gap-4 p-3 rounded-lg bg-muted/50">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium">{achievement.title}</span>
-                          {achievement.category && (
-                            <Badge variant="secondary" className="text-xs">
-                              {categoryOptions.find((c) => c.value === achievement.category)?.label ||
-                                achievement.category}
-                            </Badge>
-                          )}
-                        </div>
-                        {achievement.description && (
-                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                            {achievement.description}
-                          </p>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {format(new Date(achievement.date), "MMMM yyyy", { locale: ptBR })}
-                        </p>
-                      </div>
-                      <div className="flex gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => openAchievementDialog(achievement)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => setDeleteAchievementTargetId(achievement.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          <AchievementSection
+            achievements={achievements}
+            fetchAchievements={fetchAchievements}
+          />
 
           <div className="flex justify-end gap-3">
             <Link href="/profile">
@@ -1071,244 +330,6 @@ export default function EditProfilePage() {
           </div>
         </form>
       </Form>
-
-      {/* Career Dialog */}
-      <Dialog open={careerDialogOpen} onOpenChange={setCareerDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {editingCareer ? "Editar Experiência" : "Adicionar Experiência"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Nome do Time *</label>
-              <Input
-                value={careerForm.teamName}
-                onChange={(e) => setCareerForm({ ...careerForm, teamName: e.target.value })}
-                placeholder="Ex: Sharks Allstars"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Função *</label>
-              <Select
-                value={careerForm.role}
-                onValueChange={(value) => setCareerForm({ ...careerForm, role: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {roleOptions.map((role) => (
-                    <SelectItem key={role.value} value={role.value}>
-                      {role.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Posições</label>
-              <div className="flex flex-wrap gap-2">
-                {positionOptions.map((pos) => (
-                  <Badge
-                    key={pos.value}
-                    variant={careerForm.positions.includes(pos.value) ? "default" : "outline"}
-                    className="cursor-pointer"
-                    onClick={() => toggleCareerPosition(pos.value)}
-                  >
-                    {pos.label}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Data de Início *</label>
-                <Input
-                  type="date"
-                  value={careerForm.startDate}
-                  onChange={(e) => setCareerForm({ ...careerForm, startDate: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Data de Término</label>
-                <Input
-                  type="date"
-                  value={careerForm.endDate}
-                  onChange={(e) => setCareerForm({ ...careerForm, endDate: e.target.value })}
-                  disabled={careerForm.isCurrent}
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="isCurrent"
-                checked={careerForm.isCurrent}
-                onChange={(e) =>
-                  setCareerForm({ ...careerForm, isCurrent: e.target.checked, endDate: "" })
-                }
-                className="h-4 w-4"
-              />
-              <label htmlFor="isCurrent" className="text-sm">
-                Atualmente neste time
-              </label>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Localização</label>
-              <CitySelector
-                value={careerForm.location}
-                onChange={(value) => setCareerForm({ ...careerForm, location: value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Descrição</label>
-              <Textarea
-                value={careerForm.description}
-                onChange={(e) => setCareerForm({ ...careerForm, description: e.target.value })}
-                placeholder="Conquistas, responsabilidades..."
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCareerDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={saveCareer} disabled={isSavingCareer}>
-              {isSavingCareer && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Salvar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Achievement Dialog */}
-      <Dialog open={achievementDialogOpen} onOpenChange={setAchievementDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {editingAchievement ? "Editar Conquista" : "Adicionar Conquista"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Título *</label>
-              <Input
-                value={achievementForm.title}
-                onChange={(e) => setAchievementForm({ ...achievementForm, title: e.target.value })}
-                placeholder="Ex: Campeão Nacional 2024"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Categoria</label>
-              <Select
-                value={achievementForm.category}
-                onValueChange={(value) => setAchievementForm({ ...achievementForm, category: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {categoryOptions.map((cat) => (
-                    <SelectItem key={cat.value} value={cat.value}>
-                      {cat.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Data *</label>
-              <Input
-                type="date"
-                value={achievementForm.date}
-                onChange={(e) => setAchievementForm({ ...achievementForm, date: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Descrição</label>
-              <Textarea
-                value={achievementForm.description}
-                onChange={(e) =>
-                  setAchievementForm({ ...achievementForm, description: e.target.value })
-                }
-                placeholder="Detalhes sobre a conquista..."
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAchievementDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={saveAchievement} disabled={isSavingAchievement}>
-              {isSavingAchievement && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Salvar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Share Achievement Dialog */}
-      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Share2 className="h-5 w-5" />
-              Compartilhar Conquista
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <p className="text-sm text-muted-foreground">
-              Deseja compartilhar essa conquista no seu feed? Você pode editar o texto antes de publicar.
-            </p>
-            <Textarea
-              value={sharePostContent}
-              onChange={(e) => setSharePostContent(e.target.value)}
-              placeholder="Escreva algo sobre sua conquista..."
-              rows={6}
-              className="resize-none"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShareDialogOpen(false)}>
-              Não compartilhar
-            </Button>
-            <Button onClick={handleShareAchievement} disabled={isSharing || !sharePostContent.trim()}>
-              {isSharing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              <Share2 className="mr-2 h-4 w-4" />
-              Publicar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <ConfirmDialog
-        open={!!deleteCareerTargetId}
-        onOpenChange={(open) => !open && setDeleteCareerTargetId(null)}
-        title="Remover esta experiência?"
-        confirmLabel="Remover"
-        onConfirm={deleteCareer}
-      />
-
-      <ConfirmDialog
-        open={!!deleteAchievementTargetId}
-        onOpenChange={(open) => !open && setDeleteAchievementTargetId(null)}
-        title="Remover esta conquista?"
-        confirmLabel="Remover"
-        onConfirm={deleteAchievement}
-      />
     </div>
   );
 }

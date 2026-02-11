@@ -1,27 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const updateCommentSchema = z.object({
-  content: z.string().min(1, "Comentário é obrigatório").max(1000),
+  content: z.string().min(1, "Comentário é obrigatório").max(2000),
 });
 
-// DELETE /api/comments/[id] - Delete a comment
+// DELETE /api/comments/[id] - Excluir um comentário
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id: commentId } = await params;
 
-    // Check if comment exists and user is the author
+    // Verificar se o comentário existe e se o usuário é o autor
     const comment = await prisma.comment.findUnique({
       where: { id: commentId },
       select: { id: true, authorId: true },
@@ -47,28 +44,22 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Delete comment error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao excluir comentário", error);
   }
 }
 
-// PATCH /api/comments/[id] - Update a comment
+// PATCH /api/comments/[id] - Atualizar um comentário
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { id: commentId } = await params;
 
-    // Check if comment exists and user is the author
+    // Verificar se o comentário existe e se o usuário é o autor
     const comment = await prisma.comment.findUnique({
       where: { id: commentId },
       select: { id: true, authorId: true },
@@ -122,17 +113,6 @@ export async function PATCH(
       },
     });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    console.error("Update comment error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return handleZodError(error) ?? internalError("Erro ao atualizar comentário", error);
   }
 }

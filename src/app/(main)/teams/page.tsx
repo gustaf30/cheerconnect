@@ -26,6 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { CitySelector } from "@/components/ui/city-selector";
 import { getInitials } from "@/lib/utils";
+import { categoryLabels } from "@/lib/constants";
 import { ErrorState } from "@/components/shared/error-state";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 
@@ -42,14 +43,6 @@ interface Team {
   };
 }
 
-const categoryLabels: Record<string, string> = {
-  ALLSTAR: "All Star",
-  SCHOOL: "Escolar",
-  COLLEGE: "Universitário",
-  RECREATIONAL: "Recreativo",
-  PROFESSIONAL: "Profissional",
-};
-
 const categories = [
   { value: "ALLSTAR", label: "All Star" },
   { value: "SCHOOL", label: "Escolar" },
@@ -64,16 +57,16 @@ export default function TeamsPage() {
   const [locationFilter, setLocationFilter] = useState("");
   const [showMyTeams, setShowMyTeams] = useState(false);
 
-  // User location for automatic filtering
+  // Localização do usuário para filtragem automática
   const [userLocation, setUserLocation] = useState<string | null>(null);
   const [filterByUserLocation, setFilterByUserLocation] = useState(true);
   const [isLoadingUserLocation, setIsLoadingUserLocation] = useState(true);
 
-  // Stable refs for filter values used in fetchFn
+  // Refs estáveis para valores de filtro usados em fetchFn
   const filtersRef = useRef({ query: "", category: "", locationFilter: "", showMyTeams: false, filterByUserLocation: true, userLocation: null as string | null });
   filtersRef.current = { query, category, locationFilter, showMyTeams, filterByUserLocation, userLocation };
 
-  // Create team dialog
+  // Dialog de criação de equipe
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [teamForm, setTeamForm] = useState({
@@ -85,7 +78,7 @@ export default function TeamsPage() {
     instagram: "",
   });
 
-  // Fetch user location on mount
+  // Buscar localização do usuário ao montar
   useEffect(() => {
     const fetchUserLocation = async () => {
       try {
@@ -97,7 +90,7 @@ export default function TeamsPage() {
           }
         }
       } catch {
-        console.error("Error fetching user location");
+        console.error("Erro ao buscar localização do usuário");
       } finally {
         setIsLoadingUserLocation(false);
       }
@@ -111,7 +104,7 @@ export default function TeamsPage() {
     if (f.query) params.set("q", f.query);
     if (f.category && f.category.trim()) params.set("category", f.category);
 
-    // Use manual location filter first, then user location as default if enabled
+    // Usar filtro de localização manual primeiro, depois localização do usuário como padrão
     if (f.locationFilter) {
       params.set("location", f.locationFilter);
     } else if (f.filterByUserLocation && f.userLocation && !f.showMyTeams) {
@@ -142,7 +135,7 @@ export default function TeamsPage() {
 
   const toggleMyTeams = () => {
     setShowMyTeams((prev) => !prev);
-    // reset will pick up the new value via filtersRef on next tick
+    // reset vai capturar o novo valor via filtersRef no próximo tick
     setTimeout(reset, 0);
   };
 
@@ -201,7 +194,7 @@ export default function TeamsPage() {
         </div>
       </div>
 
-      {/* Search */}
+      {/* Busca */}
       <div className="bento-card-static p-4 space-y-4">
           {/* Linha 1: Busca grande */}
           <div className="relative">
@@ -252,7 +245,7 @@ export default function TeamsPage() {
           </div>
       </div>
 
-      {/* Location filter indicator */}
+      {/* Indicador de filtro por localização */}
       {filterByUserLocation && userLocation && !showMyTeams && !locationFilter && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-2">
           <MapPin className="h-4 w-4" />
@@ -272,7 +265,7 @@ export default function TeamsPage() {
         </div>
       )}
 
-      {/* Teams grid */}
+      {/* Grid de equipes */}
       {error ? (
         <ErrorState message={error} onRetry={reset} />
       ) : isLoading ? (
@@ -349,7 +342,7 @@ export default function TeamsPage() {
         </>
       )}
 
-      {/* Create Team Dialog */}
+      {/* Dialog de criação de equipe */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>

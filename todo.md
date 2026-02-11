@@ -1,319 +1,348 @@
-# CheerConnect — Auditoria Completa & Tarefas de Melhoria
+# CheerConnect — Auditoria Completa (Fev 2026)
 
-> Auditoria rigorosa cobrindo segurança, bugs, UX, acessibilidade, performance, consistência e qualidade de código.
-
-## Legenda de Prioridade
-
-| Tag | Significado |
-|-----|-------------|
-| **P0** | CRÍTICO — Segurança, bugs de dados, falhas de auth |
-| **P1** | ALTO — UX quebrada, acessibilidade, navegabilidade |
-| **P2** | MÉDIO — Polish, consistência, performance |
-| **P3** | BAIXO — Nice-to-have, features futuras |
-
-## Legenda de Status
-
-- ✅ = Concluído
-- 🔧 = Em progresso
-- ⬚ = Pendente
+> 60 tarefas priorizadas. P0 = crítico para produção, P1 = alto impacto, P2 = médio, P3 = baixo/futuro.
 
 ---
 
-## P0 — CRÍTICO
+## P0 — Crítico (8 tarefas)
 
-### ✅ 1. Middleware matcher incompleto
-- **Status:** CONCLUÍDO (Sprint 0C)
-- **Arquivo:** `src/middleware.ts`
-- **Fix aplicado:** Adicionados `/messages/:path*` e `/settings/:path*` ao array `matcher`
+### Segurança
 
-### ✅ 2. Notificações ignoram preferências do usuário
-- **Status:** CONCLUÍDO (Sprint 0A schema + Sprint 1A code)
-- **Arquivos afetados (6 endpoints):** Todos os 6 endpoints agora checam preferências do usuário antes de criar notificação.
-- **Fix aplicado:**
-  - Schema: adicionados campos `notifyPostReposted` e `notifyTeamInvite` ao model User
-  - Code: cada endpoint busca a preferência do usuário-alvo e só cria notificação se habilitada
-  - Padrão: `Promise.all` para buscar info do currentUser + preferências do target em paralelo
+- [x] **1. Adicionar verificação de ownership nas rotas de career/achievements/events (IDOR)**
+  - `src/app/api/career/[id]/route.ts`, `achievements/[id]/route.ts`, `events/[id]/route.ts`
+  - Qualquer usuário autenticado pode editar/deletar registros de outros usuários
+  - Solução: comparar `session.user.id` com o `userId` do registro antes de permitir PUT/DELETE
 
-### ✅ 3. Visibilidade do perfil não enforced
-- **Status:** CONCLUÍDO (Sprint 1B)
-- **Arquivo:** `src/app/api/users/route.ts`
-- **Fix aplicado:** Busca IDs de conexões aceitas, filtra: `profileVisibility: PUBLIC` OR `id in connectedUserIds`
+- [x] **2. Corrigir escalação de privilégios na gestão de membros de equipe**
+  - `src/app/api/teams/[slug]/members/[memberId]/route.ts`
+  - Membros com `hasPermission` podem alterar membros com `isAdmin`
+  - Solução: verificar se o alvo tem `isAdmin` e bloquear se o solicitante não for admin
 
-### ✅ 4. Imagens base64 no banco de dados
-- **Status:** CONCLUÍDO (Sprint 2)
-- **Arquivos modificados:**
-  - `prisma/schema.prisma` — adicionados campos `avatarPublicId` e `bannerPublicId` ao model User
-  - `src/lib/cloudinary.ts` — adicionados helpers `extractPublicId()`, `deleteCloudinaryAsset()`, `deletePostAssets()`
-  - `src/app/api/users/me/avatar/route.ts` — reescrito: aceita FormData, upload para Cloudinary (`cheerconnect/avatars`), salva URL + publicId, deleta asset antigo
-  - `src/app/api/users/me/banner/route.ts` — reescrito: mesmo padrão, folder `cheerconnect/banners`
-  - `src/app/(main)/profile/edit/page.tsx` — `handleAvatarChange` e `handleBannerChange` agora usam FormData em vez de FileReader/base64
-- **Migration:** `20260207141358_avatar_banner_cloudinary`
+- [x] **3. Adicionar constraint unique para reposts no schema**
+  - `prisma/schema.prisma`
+  - A regra "um repost por usuário por post" é verificada apenas em código, não no banco
+  - Solução: `@@unique([authorId, originalPostId])` no modelo Post
 
-### ✅ 5. Assets do Cloudinary nunca deletados
-- **Status:** CONCLUÍDO (Sprint 2)
-- **Arquivos modificados:**
-  - `src/lib/cloudinary.ts` — helper `deletePostAssets()` itera images[] + videoUrl, extrai publicIds, deleta em batch via `Promise.allSettled`
-  - `src/app/api/posts/[id]/route.ts` — DELETE handler agora busca `images` e `videoUrl`, chama `deletePostAssets()` (fire-and-forget com try/catch) antes de deletar o post
-  - Avatar/banner routes (task #4) — deletam asset antigo ao substituir ou remover
+- [x] **4. Adicionar rate limiting nos endpoints críticos**
+  - Endpoints: `/api/auth/register`, `/api/posts`, `/api/conversations/[id]/messages`, `/api/upload`
+  - Sem rate limiting, vulnerável a spam e abuso
+  - Solução: middleware com rate limiting por IP (ex: `upstash/ratelimit` ou implementação com Map em memória)
 
-### ✅ 6. Missing database indexes
-- **Status:** CONCLUÍDO (Sprint 0A)
-- **Arquivo:** `prisma/schema.prisma`
-- **Fix aplicado:** Adicionados `@@index` em Post (authorId, teamId, createdAt), Connection (senderId+status, receiverId+status), Like (postId), TeamMember (userId), Event (startDate, type), CareerHistory (userId), Achievement (userId)
-- **Migration:** `20260207134210_indexes_notif_prefs`
+### Infraestrutura
 
-### ✅ 7. Race condition: último admin de time
-- **Status:** CONCLUÍDO (Sprint 1C PATCH + Sprint 2 DELETE)
-- **Arquivo:** `src/app/api/teams/[slug]/members/[memberId]/route.ts`
-- **Fix aplicado (PATCH):** Admin count check + update envolvidos em `prisma.$transaction()`. Erro "LAST_ADMIN" capturado no catch.
-- **Fix aplicado (DELETE):** Mesmo padrão — admin count + soft delete dentro de `prisma.$transaction()`. Erro "LAST_ADMIN" capturado no catch com retorno 400.
+- [x] **5. Adicionar error.tsx nas route groups**
+  - Faltam em: `src/app/(main)/error.tsx`, `src/app/(auth)/error.tsx`, `src/app/error.tsx`
+  - Erros não tratados mostram tela branca ou erro genérico do Next.js
+  - Solução: criar componentes error.tsx com UI amigável e botão de retry
 
----
+- [x] **6. Adicionar not-found.tsx customizado na raiz**
+  - `src/app/not-found.tsx`
+  - Página 404 usa o padrão do Next.js
+  - Solução: criar página 404 estilizada com navegação de volta
 
-## P1 — ALTO (Navegabilidade & UX)
+- [x] **7. Adicionar loading.tsx nas route groups**
+  - Faltam em: `src/app/(main)/loading.tsx`, `src/app/(auth)/loading.tsx`
+  - Navegação entre páginas não mostra feedback visual
+  - Solução: criar componentes loading.tsx com skeleton/spinner usando classes existentes (`.animate-shimmer-premium`)
 
-### ✅ 8. Mensagens e Configurações NÃO estão na sidebar
-- **Status:** CONCLUÍDO (Sprint 0C)
-- **Arquivo:** `src/components/shared/sidebar.tsx`
-- **Fix aplicado:** Adicionados itens "Mensagens" (/messages, MessageCircle) e "Configurações" (/settings, Settings) ao array `mainNavItems`. Grid 2x3 mantido.
+### Performance
 
-### ✅ 9. Sem paginação/infinite scroll no feed
-- **Status:** CONCLUÍDO (Sprint 2)
-- **Arquivo:** `src/components/feed/post-list.tsx`
-- **Fix aplicado:** Adicionados estados `nextCursor`, `isLoadingMore`, `hasMore`. Função `loadMore()` busca próxima página via `?cursor=&limit=20` e faz append. `IntersectionObserver` no div sentinela (200px rootMargin) dispara `loadMore()`. Spinner de loading no final da lista.
-
-### ⬚ 10. Sem paginação em endpoints críticos
-- **Status:** PENDENTE (Sprint 4A)
-- **Fix planejado:** Adicionar cursor pagination em connections, achievements, conversations, users/me/teams, teams/invites.
-
-### ✅ 11. `confirm()` do browser em vez de Dialog customizado
-- **Status:** CONCLUÍDO (Sprint 3)
-- **8 ocorrências em 6 arquivos** — Substituídas por `ConfirmDialog` (wrapper sobre AlertDialog).
-- **Componente criado:** `src/components/shared/confirm-dialog.tsx`
-- **Padrão:** Estado `targetId` (ou boolean) controla abertura; onConfirm executa ação; loading state no botão.
-- **Arquivos modificados:** post-card.tsx, comment-item.tsx, connections/page.tsx, events/page.tsx, teams/[slug]/edit/page.tsx (2x), profile/edit/page.tsx (2x)
-
-### ✅ 12. Empty states fracos e não-acionáveis
-- **Status:** JÁ RESOLVIDO (pré-existente)
-- **Nota:** Empty states já implementados adequadamente nas páginas.
-
-### ✅ 13. Funções duplicadas em 20+ componentes
-- **Status:** CONCLUÍDO (Sprint 0B)
-- **Fix aplicado:**
-  - `getInitials()` extraído para `src/lib/utils.ts` — 20 definições locais removidas, substituídas por import
-  - `positionLabels` extraído para `src/lib/constants.ts` — 6 definições locais removidas
-  - `careerRoleLabels` extraído para `src/lib/constants.ts` — 1 definição local removida (profile-tabs)
-- **Verificação:** `npx next build` passou sem erros após todas as substituições.
-
-### ✅ 14. Sem tratamento de erro visual em muitas páginas
-- **Status:** CONCLUÍDO (Sprint 3)
-- **Componente criado:** `src/components/shared/error-state.tsx` — bento-card-static + accent-bar + AlertCircle + botão "Tentar novamente"
-- **Arquivos modificados:** post-list.tsx, connections/page.tsx, events/page.tsx, teams/page.tsx, search/page.tsx
-- **Padrão:** `error` state, `setError()` no catch do fetch, render `<ErrorState onRetry={refetch} />`
-
-### ✅ 15. Filter/tab state não persiste na URL
-- **Status:** CONCLUÍDO (Sprint 2 feed + Sprint 3 connections)
-- **Fix aplicado (feed):** `src/app/(main)/feed/page.tsx` — trocado `useState` por `useSearchParams()` + `router.replace()`. Filtro persiste na URL como `?filter=following|all`. Componente envolto em `<Suspense>` para SSG.
-- **Fix aplicado (connections):** `src/app/(main)/connections/page.tsx` — tab via `useSearchParams().get("tab")`, `router.replace(/connections?tab=${v})`, envolto em `<Suspense>`.
-
-### ⬚ 16. Sem "Esqueci minha senha"
-- **Status:** DIFERIDO — Requer infraestrutura de email (Resend/SendGrid)
-
-### ⬚ 17. Sem verificação de email
-- **Status:** DIFERIDO — Mesma dependência de email
-
-### ⬚ 18. Sem soft delete para usuários
-- **Status:** DIFERIDO — Feature complexa, baixo impacto para TCC
+- [x] **8. Adicionar índices compostos no Prisma schema**
+  - `prisma/schema.prisma`
+  - Queries frequentes fazem full table scan sem índices adequados
+  - Índices necessários:
+    - `Post`: `@@index([authorId, createdAt])`, `@@index([teamId, createdAt])`
+    - `Message`: `@@index([conversationId, createdAt])`
+    - `TeamMember`: `@@index([teamId, userId])`
+    - `Notification`: `@@index([userId, read, createdAt])`
+    - `Connection`: `@@index([senderId, status])`, `@@index([receiverId, status])`
 
 ---
 
-## P2 — MÉDIO (Consistência, Performance, Polish)
+## P1 — Alto (12 tarefas)
 
-### ⬚ 19. Polling agressivo sem WebSocket
-- **Status:** DIFERIDO — Mudança arquitetural grande
+### Infraestrutura
 
-### ✅ 20. useCallback/useEffect com dependências incorretas
-- **Status:** CONCLUÍDO (Sprint 3)
-- **Fix aplicado:** Funções de fetch envoltas em `useCallback` com deps corretas.
-- **Arquivos:** connections/page.tsx (fetchConnections), profile/edit/page.tsx (fetchProfile, fetchCareerHistory, fetchAchievements), teams/[slug]/edit/page.tsx (fetchTeam, fetchMembers, fetchAchievements, fetchInvites com dep [slug])
+- [x] **9. Adicionar healthcheck endpoint (GET /api/health)**
+  - Não existe endpoint para verificar se a aplicação está saudável
+  - Solução: criar `/api/health/route.ts` que verifica conexão com DB e retorna status
 
-### ✅ 21. Respostas de erro da API inconsistentes
-- **Status:** JÁ RESOLVIDO (pré-existente)
-- **Nota:** Padrão `{ error: string }` já consistente nos endpoints.
+- [x] **10. Adicionar healthcheck no container Docker do app**
+  - `docker-compose.yml`
+  - Container pode parecer "up" mesmo com app travado
+  - Solução: adicionar `healthcheck` apontando para `/api/health` (depende da tarefa 9)
 
-### ✅ 22. Notification type é String, não enum
-- **Status:** CONCLUÍDO (Sprint 0A)
-- **Arquivo:** `prisma/schema.prisma`
-- **Fix aplicado:** Criado `enum NotificationType` com 8 valores (POST_LIKED, POST_COMMENTED, COMMENT_REPLIED, CONNECTION_REQUEST, CONNECTION_ACCEPTED, MESSAGE_RECEIVED, POST_REPOSTED, TEAM_INVITE). Campo `type` migrado de `String` para `NotificationType`.
-- **Migration:** `20260207134232_notification_type_enum`
-- **Também:** Adicionados ícones para COMMENT_REPLIED e POST_REPOSTED no `notification-item.tsx`.
+- [x] **11. Configurar remotePatterns do Cloudinary no next.config**
+  - `next.config.ts`
+  - Imagens do Cloudinary são servidas com `<img>` em vez de `<Image />` por falta de configuração
+  - Solução: adicionar `images.remotePatterns` para `res.cloudinary.com`
 
-### ✅ 23. Cards inconsistentes: Card shadcn vs bento-card divs
-- **Status:** CONCLUÍDO (Sprint 3)
-- **Fix aplicado:** Todos os Card/CardHeader/CardTitle/CardContent substituídos por `div.bento-card-static` + `div.accent-bar` + headings semânticos.
-- **Arquivos:** profile/edit/page.tsx (~8 Cards), teams/[slug]/edit/page.tsx (~6 Cards), profile-tabs.tsx (~4 Cards), messages/[conversationId]/page.tsx (~1 Card), teams/invites/page.tsx (~2 Cards)
-- **Import de Card removido** de todos os arquivos migrados.
+- [x] **12. Adicionar headers de segurança no next.config**
+  - Headers faltantes: `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`
+  - Solução: configurar `headers()` no `next.config.ts`
 
-### ✅ 24. Acessibilidade: botões sem aria-label
-- **Status:** CONCLUÍDO (Sprint 3)
-- **Fix aplicado:** aria-label adicionado em 10+ icon buttons.
-- **Arquivos:** header.tsx ("Abrir menu"), create-post-card.tsx ("Remover mídia"), post-card.tsx ("Mais opções" x2, "Fechar imagem"), comment-item.tsx ("Opções do comentário"), comment-section.tsx ("Enviar comentário" x2, "Cancelar resposta"), events/page.tsx ("Opções do evento")
+- [x] **13. Adicionar validação de variáveis de ambiente na inicialização**
+  - Variáveis críticas (`DATABASE_URL`, `NEXTAUTH_SECRET`, etc.) não são validadas
+  - App pode iniciar com vars faltantes e falhar silenciosamente
+  - Solução: criar `src/lib/env.ts` com validação via Zod no startup
 
-### ✅ 25. Acessibilidade: heading hierarchy
-- **Status:** CONCLUÍDO (Sprint 3)
-- **Fix aplicado:** h1 sr-only adicionado em feed/page.tsx e messages/page.tsx. Headings em profile/edit e teams/[slug]/edit normalizados para `heading-section font-display`.
+### Performance
 
-### ✅ 26. Acessibilidade: `<time>` semântico
-- **Status:** CONCLUÍDO (Sprint 3)
-- **Fix aplicado:** Datas envoltas em `<time dateTime={ISO}>` sem mudança visual.
-- **Arquivos:** post-card.tsx (2x), comment-item.tsx, notification-item.tsx, events/page.tsx (2x)
+- [x] **14. Corrigir N+1 query no feed endpoint**
+  - `src/app/api/posts/route.ts`
+  - Feed carrega posts e depois faz queries individuais para likes/comments
+  - Solução: usar `include` do Prisma com `_count` para agregar em uma query
 
-### ⬚ 27. Conversas duplicadas: constraint insuficiente
-- **Status:** DIFERIDO — Baixo impacto
+### Segurança
 
-### ✅ 28. Metadata SEO por página
-- **Status:** CONCLUÍDO (Sprint 3)
-- **14 layout.tsx criados** com `export const metadata: Metadata = { title: "..." }` para rotas estáticas.
-- **2 rotas dinâmicas** com `generateMetadata()`: profile/[username]/page.tsx, teams/[slug]/page.tsx
-- **Rotas cobertas:** login, register, feed, connections, teams, events, messages, search, settings, profile, profile/edit, teams/invites, teams/[slug]/edit, messages/[conversationId]
+- [x] **15. Limitar tamanho de arrays nos inputs da API**
+  - Campos como `skills[]`, `images[]`, `positions[]` não têm limite máximo
+  - Possível enviar arrays enormes causando DoS
+  - Solução: validar `.max(10)` (ou limite adequado) em todos os arrays de input
 
-### ⬚ 29. Espaçamento inconsistente em bento-cards
-- **Status:** DIFERIDO — Cosmético
+### SEO / Metadata
 
-### ✅ 30. Self-update de role em times
-- **Status:** JÁ RESOLVIDO (pré-existente)
-- **Nota:** PATCH handler já bloqueia alteração de próprias permissões.
+- [x] **16. Adicionar metadata OG/Twitter no layout raiz**
+  - `src/app/layout.tsx`
+  - Compartilhar links do app não mostra preview rico
+  - Solução: adicionar `openGraph` e `twitter` no objeto `metadata`
 
-### ⬚ 31. Upload: validação de tipo de arquivo fraca
-- **Status:** DIFERIDO — Hardening secundário
+### UX / Acessibilidade
 
-### ✅ 32. .env.example incompleto
-- **Status:** CONCLUÍDO (Sprint 0C)
-- **Arquivo:** `.env.example`
-- **Fix aplicado:** Adicionadas variáveis `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
+- [x] **17. Remover h1 duplicados**
+  - `src/app/(main)/connections/page.tsx`, `src/app/(main)/search/page.tsx`
+  - Múltiplos `<h1>` na mesma página prejudica acessibilidade e SEO
+  - Solução: manter apenas um `<h1>` por página, converter extras para `<h2>`
 
----
+- [x] **18. Adicionar alt text descritivo nas imagens**
+  - `src/components/feed/post-card.tsx`, `src/components/profile/profile-header.tsx`
+  - Imagens com `alt=""` ou sem alt text
+  - Solução: usar `alt={post.author.name + "'s post image"}` ou similar contextual
 
-## P3 — BAIXO (Nice-to-have)
+- [x] **19. Adicionar aria-label nos botões de ícone**
+  - `src/components/shared/message-button.tsx` e outros botões só com ícone
+  - Screen readers não conseguem identificar a função do botão
+  - Solução: adicionar `aria-label="Mensagens"` etc.
 
-### ⬚ 33. Sem dark mode toggle (usa system preference apenas)
-### ⬚ 34. Sem busca dentro de conexões/mensagens
-### ⬚ 35. Sem menções (@usuario) em posts/comentários
-### ⬚ 36. Sem hashtags
-### ⬚ 37. Sem salvar/favoritar posts
-### ⬚ 38. Sem editar post (só delete)
-### ⬚ 39. Sem indicador de digitação nas mensagens
-### ⬚ 40. Sem emoji picker
-### ⬚ 41. Sem anexar arquivos nas mensagens
-### ⬚ 42. Sem página dedicada de notificações (só dropdown)
-### ⬚ 43. Sem bloquear usuários
-### ⬚ 44. Sem sistema de report/denúncia
-### ⬚ 45. Sem exportar dados (LGPD compliance)
-### ⬚ 46. Sem vista de calendário para eventos
-### ⬚ 47. Sem adicionar ao calendário (Google/Apple)
-### ⬚ 48. Sem RSVP/confirmação de presença em eventos
-### ⬚ 49. Sem suporte offline/PWA
-### ⬚ 50. Sem atalhos de teclado
-### ⬚ 51. Sem i18n (texto hardcoded em português)
-### ⬚ 52. Sem virtual scrolling para listas longas
-### ⬚ 53. Sem 2FA (autenticação de dois fatores)
+### Qualidade de Código
+
+- [x] **20. Padronizar formato de respostas da API (envelope consistente)**
+  - Algumas rotas retornam `{ data }`, outras retornam o objeto direto, outras `{ error }`
+  - Solução: definir envelope padrão `{ data, error, meta }` e aplicar gradualmente
 
 ---
 
-## Progresso por Sprint
+## P2 — Médio (18 tarefas)
 
-| Sprint | Status | Tarefas |
-|--------|--------|---------|
-| **0 — Fundação** | ✅ Concluído | #1, #6, #8, #13, #22, #32 |
-| **1 — Segurança** | ✅ Concluído | ✅ #2, ✅ #3, ✅ #7 |
-| **2 — Mídia + Feed** | ✅ Concluído | ✅ #4, ✅ #5, ✅ #7-DELETE, ✅ #9, ✅ #15-feed |
-| **3 — UX + A11y** | ✅ Concluído | ✅ #11, ✅ #14, ✅ #15-conn, ✅ #20, ✅ #23, ✅ #24, ✅ #25, ✅ #26, ✅ #28 |
-| **4 — API + Consistência** | ⬚ Pendente | #10 |
+### Funcionalidades
 
-### Última verificação de build
-- `npx next build` — ✅ PASSOU (após Sprint 3 completo)
-- Próxima verificação: após Sprint 4 completo
+- [x] **21. Implementar edição de posts (PUT /api/posts/[id])**
+  - Usuários não podem editar posts após publicação
+  - Solução: adicionar rota PUT com verificação de ownership, campo `updatedAt` visível na UI
+
+- [x] **22. Implementar endpoint de denúncia (POST /api/reports)**
+  - Não existe mecanismo para denunciar conteúdo impróprio
+  - Solução: criar modelo `Report` no Prisma + endpoint + botão na UI do post-card
+
+- [x] **23. Implementar bloqueio de usuários (POST /api/users/[id]/block)**
+  - Não existe mecanismo para bloquear outros usuários
+  - Solução: criar modelo `Block` no Prisma + endpoint + filtrar conteúdo de usuários bloqueados
+
+- [ ] **24. Substituir polling por SSE/WebSocket nas mensagens**
+  - `src/components/messages/message-list.tsx`
+  - Mensagens usam polling com intervalo fixo (desperdício de recursos)
+  - Solução: implementar SSE (Server-Sent Events) para atualizações em tempo real
+
+- [ ] **25. Substituir polling por SSE nas notificações**
+  - `src/components/shared/notification-dropdown.tsx`
+  - Notificações usam polling similar às mensagens
+  - Solução: SSE endpoint para push de notificações
+
+- [x] **26. Adicionar endpoint de edição de comentários (PATCH /api/comments/[id])**
+  - Comentários não podem ser editados após publicação
+  - Solução: rota PATCH com verificação de ownership
+
+### Qualidade de Código
+
+- [x] **27. Dividir teams/[slug]/edit/page.tsx em sub-componentes**
+  - `src/app/(main)/teams/[slug]/edit/page.tsx` — ~1700 linhas
+  - Arquivo muito grande, difícil de manter
+  - Solução: extrair seções (info geral, membros, conquistas, convites) em componentes separados
+
+- [x] **28. Dividir profile/edit/page.tsx em sub-componentes**
+  - `src/app/(main)/profile/edit/page.tsx` — ~1300 linhas
+  - Solução: extrair seções (dados pessoais, carreira, conquistas, avatar/banner) em componentes
+
+- [x] **29. Converter `<img>` para `<Image />` do Next.js**
+  - Arquivos: `post-card.tsx`, `profile-header.tsx`, `create-post-card.tsx`
+  - `<img>` não otimiza imagens (lazy loading, formatos modernos, resize)
+  - Solução: substituir por `<Image />` com `width`/`height` ou `fill` (depende da tarefa 11)
+
+- [x] **30. Padronizar padrão de paginação em todos os endpoints**
+  - Alguns endpoints usam cursor, outros offset, alguns não paginam
+  - Solução: definir padrão (cursor-based) e aplicar uniformemente
+
+- [x] **31. Melhorar sort "popular" de comentários**
+  - `src/components/feed/comment-section.tsx`
+  - Ordenação "popular" é feita em memória no client após buscar todos os comentários
+  - Solução: mover ordenação para o banco com `orderBy` no endpoint
+
+### Performance
+
+- [x] **32. Adicionar full-text search com tsvector do PostgreSQL**
+  - Busca atual usa `contains` (LIKE %term%) — lento e sem relevância
+  - Solução: adicionar coluna tsvector + índice GIN para busca eficiente
+
+### Infraestrutura
+
+- [x] **33. Adicionar tratamento de race condition na geração de slug de equipe**
+  - `src/app/api/teams/route.ts`
+  - Duas equipes criadas simultaneamente com mesmo nome podem gerar conflito
+  - Solução: usar `try/catch` com retry no `P2002` (unique violation) do Prisma
+
+- [x] **34. Tratar expiração de convites de equipe**
+  - Modelo `TeamInvite` tem campo `expiresAt` mas não é verificado em nenhum lugar
+  - Solução: filtrar convites expirados nos endpoints de listagem e aceitação
+
+- [x] **35. Adicionar NODE_ENV=production no docker-compose**
+  - `docker-compose.yml` — app roda sem NODE_ENV definido
+  - Solução: adicionar `environment: - NODE_ENV=production`
+
+- [x] **36. Adicionar restart policy no container do app**
+  - `docker-compose.yml` — container não reinicia após crash
+  - Solução: adicionar `restart: unless-stopped`
+
+### DX
+
+- [x] **37. Adicionar .editorconfig para consistência de formatação**
+  - Não existe `.editorconfig` no projeto
+  - Solução: criar com indent_style=space, indent_size=2, end_of_line=lf
+
+### SEO
+
+- [x] **38. Adicionar sitemap.ts e robots.ts**
+  - Não existem `src/app/sitemap.ts` e `src/app/robots.ts`
+  - Solução: criar usando a API de metadata do Next.js
 
 ---
 
-## Estatísticas da Auditoria
+## P3 — Baixo / Futuro (22 tarefas)
 
-| Prioridade | Total | Concluído | Em progresso | Pendente | Diferido |
-|------------|-------|-----------|--------------|----------|----------|
-| **P0** | 7 | 7 | 0 | 0 | 0 |
-| **P1** | 11 | 7 | 0 | 1 | 3 |
-| **P2** | 14 | 10 | 0 | 0 | 4 |
-| **P3** | 21 | 0 | 0 | 21 | 0 |
-| **Total** | **53** | **24** | **0** | **22** | **7** |
+### Testes
 
-## Arquivos Criados/Modificados
+- [ ] **39. Adicionar infraestrutura de testes (Vitest + Testing Library)**
+  - Projeto não tem nenhum teste automatizado
+  - Solução: configurar Vitest + React Testing Library + mocks do Prisma
 
-### Sprint 0 — Fundação
-#### Novos arquivos
-- `src/lib/constants.ts` — positionLabels, careerRoleLabels
-- `prisma/migrations/20260207134210_indexes_notif_prefs/migration.sql`
-- `prisma/migrations/20260207134232_notification_type_enum/migration.sql`
+- [ ] **40. Adicionar testes unitários para api-utils e lib/**
+  - `src/lib/api-utils.ts`, `src/lib/constants.ts`, `src/lib/prisma.ts`
+  - Funções utilitárias sem cobertura de testes
+  - Solução: testes unitários para funções puras
 
-#### Arquivos modificados
-- `prisma/schema.prisma` — indexes, notifyPostReposted, notifyTeamInvite, NotificationType enum
-- `src/lib/utils.ts` — adicionada função `getInitials()`
-- `src/middleware.ts` — matcher expandido
-- `.env.example` — variáveis Cloudinary
-- `src/components/shared/sidebar.tsx` — nav items Mensagens/Configurações, getInitials importado
-- `src/components/shared/notification-item.tsx` — ícones COMMENT_REPLIED/POST_REPOSTED, getInitials importado
-- 20 arquivos — getInitials local removido, import de `@/lib/utils` adicionado
-- 6 arquivos — positionLabels local removido, import de `@/lib/constants` adicionado
+- [ ] **41. Adicionar testes de integração para API routes críticas**
+  - Rotas de auth, posts, connections, teams sem testes
+  - Solução: testes de integração com DB de teste
 
-### Sprint 1 — Segurança
-- `src/app/api/posts/[id]/like/route.ts` — preference check notifyPostLiked
-- `src/app/api/posts/[id]/comments/route.ts` — preference check notifyPostCommented/notifyCommentReplied
-- `src/app/api/connections/route.ts` — preference check notifyConnectionRequest
-- `src/app/api/connections/[id]/accept/route.ts` — preference check notifyConnectionAccepted
-- `src/app/api/posts/[id]/repost/route.ts` — preference check notifyPostReposted
-- `src/app/api/teams/[slug]/invites/route.ts` — preference check notifyTeamInvite
-- `src/app/api/users/route.ts` — profile visibility filter
-- `src/app/api/teams/[slug]/members/[memberId]/route.ts` — PATCH race condition fix (transaction)
+### Funcionalidades
 
-### Sprint 2 — Mídia + Feed
-#### Novos arquivos
-- `prisma/migrations/20260207141358_avatar_banner_cloudinary/migration.sql`
+- [ ] **42. Implementar sistema de hashtags (#tag em posts)**
+  - Posts não suportam hashtags
+  - Solução: parser de hashtags + modelo `Tag` + link para busca por tag
 
-#### Arquivos modificados
-- `prisma/schema.prisma` — adicionados `avatarPublicId`, `bannerPublicId` ao model User
-- `prisma/seed.ts` — corrigido tipo de notificações: string → `NotificationType` enum
-- `src/lib/cloudinary.ts` — adicionados helpers `extractPublicId()`, `deleteCloudinaryAsset()`, `deletePostAssets()`
-- `src/app/api/users/me/avatar/route.ts` — reescrito para Cloudinary (FormData upload, cleanup de assets antigos)
-- `src/app/api/users/me/banner/route.ts` — reescrito para Cloudinary (FormData upload, cleanup de assets antigos)
-- `src/app/(main)/profile/edit/page.tsx` — handleAvatarChange/handleBannerChange: base64 → FormData
-- `src/app/api/posts/[id]/route.ts` — DELETE handler: cleanup de assets Cloudinary antes de deletar post
-- `src/app/api/teams/[slug]/members/[memberId]/route.ts` — DELETE handler: race condition fix (transaction)
-- `src/components/feed/post-list.tsx` — infinite scroll com IntersectionObserver + cursor pagination
-- `src/app/(main)/feed/page.tsx` — filtro via useSearchParams + Suspense boundary
+- [ ] **43. Implementar menções (@username em posts)**
+  - Posts não suportam menções
+  - Solução: parser de menções + notificação ao mencionado + link para perfil
 
-### Sprint 3 — UX + Acessibilidade
-#### Novos arquivos
-- `src/components/shared/confirm-dialog.tsx` — ConfirmDialog wrapper sobre AlertDialog (#11)
-- `src/components/shared/error-state.tsx` — ErrorState com retry (#14)
-- 14x `layout.tsx` com metadata SEO: login, register, feed, connections, teams, events, messages, search, settings, profile, profile/edit, teams/invites, teams/[slug]/edit, messages/[conversationId] (#28)
+- [ ] **44. Implementar sistema de moderação de conteúdo**
+  - Não existe painel de moderação
+  - Solução: role de moderador + painel admin + ações de moderação (depende da tarefa 22)
 
-#### Arquivos modificados
-- `src/components/shared/header.tsx` — aria-label "Abrir menu" (#24)
-- `src/components/feed/create-post-card.tsx` — aria-label "Remover mídia" (#24)
-- `src/components/feed/post-card.tsx` — aria-labels (#24), `<time>` semântico (#26), ConfirmDialog delete (#11)
-- `src/components/feed/comment-item.tsx` — aria-label (#24), `<time>` (#26), ConfirmDialog delete (#11)
-- `src/components/feed/comment-section.tsx` — aria-labels (#24)
-- `src/components/feed/post-list.tsx` — ErrorState com retry (#14)
-- `src/components/shared/notification-item.tsx` — `<time>` semântico (#26)
-- `src/components/profile/profile-tabs.tsx` — Card→bento-card (#23)
-- `src/app/(main)/feed/page.tsx` — h1 sr-only (#25)
-- `src/app/(main)/messages/page.tsx` — h1 sr-only (#25)
-- `src/app/(main)/connections/page.tsx` — ConfirmDialog (#11), ErrorState (#14), URL tabs (#15), useCallback (#20)
-- `src/app/(main)/events/page.tsx` — aria-label (#24), `<time>` (#26), ConfirmDialog (#11), ErrorState (#14)
-- `src/app/(main)/teams/page.tsx` — ErrorState (#14)
-- `src/app/(main)/search/page.tsx` — ErrorState (#14)
-- `src/app/(main)/teams/[slug]/edit/page.tsx` — ConfirmDialog 2x (#11), useCallback (#20), Card→bento (#23), heading (#25)
-- `src/app/(main)/teams/invites/page.tsx` — Card→bento (#23)
-- `src/app/(main)/profile/edit/page.tsx` — ConfirmDialog 2x (#11), useCallback (#20), Card→bento (#23), heading (#25)
-- `src/app/(main)/profile/[username]/page.tsx` — generateMetadata SEO (#28)
-- `src/app/(main)/teams/[slug]/page.tsx` — generateMetadata SEO (#28)
-- `src/app/(main)/messages/[conversationId]/page.tsx` — Card→bento (#23)
+- [ ] **45. Adicionar histórico de edição de posts (modelo PostEdit)**
+  - Se edição for implementada (tarefa 21), não há registro do conteúdo original
+  - Solução: modelo `PostEdit` que salva versões anteriores
+
+- [ ] **46. Implementar notificações por email**
+  - Todas as notificações são apenas in-app
+  - Solução: integrar serviço de email (Resend/SendGrid) para notificações críticas
+
+- [ ] **47. Adicionar endpoint GET /api/posts/[id] para post individual**
+  - Não existe rota para buscar um post específico por ID
+  - Solução: criar rota GET com includes necessários
+
+- [ ] **48. Adicionar opção de privacidade PRIVATE no perfil**
+  - Todos os perfis são públicos
+  - Solução: campo `visibility` no User + filtros nos endpoints
+
+- [ ] **49. Implementar silenciar usuários/equipes (mute)**
+  - Não existe mecanismo para silenciar conteúdo sem bloquear
+  - Solução: modelo `Mute` + filtro no feed
+
+### Infraestrutura / Observabilidade
+
+- [ ] **50. Configurar Sentry ou similar para monitoramento de erros**
+  - Erros em produção não são rastreados
+  - Solução: integrar `@sentry/nextjs` com source maps
+
+- [ ] **51. Adicionar logging estruturado (pino/winston)**
+  - Logs são `console.log` sem estrutura
+  - Solução: configurar pino com níveis e formatação JSON
+
+- [ ] **52. Adicionar signal handling no Dockerfile (graceful shutdown)**
+  - `Dockerfile` — container pode não encerrar graciosamente
+  - Solução: usar `tini` como init process ou trap signals no entrypoint
+
+### DX / Qualidade
+
+- [ ] **53. Remover `skipLibCheck: true` do tsconfig.json**
+  - `tsconfig.json` — esconde erros de tipo em dependências
+  - Solução: remover e corrigir erros que surgirem
+
+- [ ] **54. Adicionar noUnusedLocals e noUnusedParameters no tsconfig**
+  - Variáveis e parâmetros não usados não geram erro
+  - Solução: habilitar flags + limpar código existente
+
+- [ ] **55. Limpar dependências não utilizadas**
+  - Possíveis deps não usadas: `cmdk`, `dotenv`
+  - Solução: verificar uso e remover do `package.json`
+
+- [ ] **56. Adicionar documentação de API (OpenAPI/Swagger)**
+  - API não tem documentação formal
+  - Solução: gerar spec OpenAPI a partir das rotas
+
+- [ ] **57. Adicionar guia de contribuição no README**
+  - README não tem instruções para contribuidores
+  - Solução: seção de contributing com setup, convenções, PR guidelines
+
+### i18n
+
+- [ ] **58. Adicionar i18n framework (next-intl)**
+  - App só suporta português
+  - Solução: configurar next-intl para internacionalização futura
+
+### SEO
+
+- [ ] **59. Adicionar metadata dinâmica por página**
+  - Páginas de perfil, posts e equipes não têm metadata específica
+  - Solução: `generateMetadata()` em cada page.tsx com dados dinâmicos
+
+### Auditoria
+
+- [ ] **60. Adicionar audit log (modelo ActivityLog)**
+  - Ações administrativas não são registradas
+  - Solução: modelo `ActivityLog` + hooks nos endpoints de admin/moderação
+
+---
+
+## Resumo
+
+| Prioridade | Quantidade | Foco Principal |
+|------------|------------|----------------|
+| P0 | 8 | Segurança (IDOR, rate limit), infraestrutura básica (error/loading/404), performance (índices) |
+| P1 | 12 | Healthcheck, headers de segurança, N+1, SEO, acessibilidade |
+| P2 | 18 | Funcionalidades (edição, denúncia, bloqueio), real-time, refatoração, DX |
+| P3 | 22 | Testes, funcionalidades futuras, observabilidade, i18n |
+| **Total** | **60** | |
+
+---
+
+*Gerado pela auditoria completa de Fev 2026. Atualizar conforme tarefas forem concluídas.*

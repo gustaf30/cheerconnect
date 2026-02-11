@@ -41,6 +41,18 @@ export const metadata: Metadata = {
     "equipes",
     "competições",
   ],
+  openGraph: {
+    title: "CheerConnect - Rede Social para Cheerleading",
+    description: "Conecte-se com atletas, técnicos e equipes de cheerleading.",
+    type: "website",
+    locale: "pt_BR",
+    siteName: "CheerConnect",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "CheerConnect - Rede Social para Cheerleading",
+    description: "Conecte-se com atletas, técnicos e equipes de cheerleading.",
+  },
 };
 
 export default function RootLayout({

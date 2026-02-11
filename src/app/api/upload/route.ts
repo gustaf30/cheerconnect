@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, internalError } from "@/lib/api-utils";
 import { cloudinary } from "@/lib/cloudinary";
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { error } = await requireAuth();
+    if (error) return error;
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
@@ -17,7 +14,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Arquivo não enviado" }, { status: 400 });
     }
 
-    // Validate file type
+    // Validar tipo do arquivo
     const isImage = file.type.startsWith("image/");
     const isVideo = file.type.startsWith("video/");
 
@@ -28,7 +25,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file size (10MB for images, 100MB for videos)
+    // Validar tamanho do arquivo (10MB para imagens, 100MB para vídeos)
     const maxSize = isVideo ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
     if (file.size > maxSize) {
       return NextResponse.json(
@@ -37,12 +34,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Convert file to base64 for Cloudinary upload
+    // Converter arquivo para base64 para upload no Cloudinary
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const base64 = `data:${file.type};base64,${buffer.toString("base64")}`;
 
-    // Upload to Cloudinary
+    // Fazer upload no Cloudinary
     const result = await cloudinary.uploader.upload(base64, {
       folder: "cheerconnect/posts",
       resource_type: isVideo ? "video" : "image",
@@ -54,10 +51,6 @@ export async function POST(request: NextRequest) {
       publicId: result.public_id,
     });
   } catch (error) {
-    console.error("Upload error:", error);
-    return NextResponse.json(
-      { error: "Erro ao fazer upload do arquivo" },
-      { status: 500 }
-    );
+    return internalError("Erro ao fazer upload", error);
   }
 }

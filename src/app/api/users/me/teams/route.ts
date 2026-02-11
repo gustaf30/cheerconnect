@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
-// GET /api/users/me/teams - Get teams the current user is a member of
+// GET /api/users/me/teams - Buscar equipes do usuário atual
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q") || "";
@@ -64,10 +61,6 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ teams, nextCursor });
   } catch (error) {
-    console.error("Get user teams error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao buscar equipes do usuário", error);
   }
 }

@@ -2,9 +2,17 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Loader2, MessageSquare } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
 import { MessageBubble, Message } from "./message-bubble";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import {
+  staggerContainer,
+  slideFromLeft,
+  slideFromRight,
+  noMotion,
+  noMotionContainer,
+} from "@/lib/animations";
 
 interface MessageListProps {
   conversationId: string;
@@ -20,6 +28,8 @@ export function MessageList({ conversationId, currentUserId, onNewMessage }: Mes
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastMessageCountRef = useRef(0);
+  const isInitialLoadRef = useRef(true);
+  const shouldReduceMotion = useReducedMotion();
 
   const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
     messagesEndRef.current?.scrollIntoView({ behavior });
@@ -41,11 +51,15 @@ export function MessageList({ conversationId, currentUserId, onNewMessage }: Mes
       const data = await response.json();
 
       if (cursor) {
-        // Prepend older messages
+        // Adicionar mensagens antigas no início
         setMessages((prev) => [...data.messages, ...prev]);
       } else {
         setMessages(data.messages);
         lastMessageCountRef.current = data.messages.length;
+        // Mark initial load complete after first successful fetch
+        setTimeout(() => {
+          isInitialLoadRef.current = false;
+        }, 0);
       }
 
       setNextCursor(data.nextCursor);
@@ -57,14 +71,14 @@ export function MessageList({ conversationId, currentUserId, onNewMessage }: Mes
     }
   }, [conversationId]);
 
-  // Mark messages as read
+  // Marcar mensagens como lidas
   const markAsRead = useCallback(async () => {
     try {
       await fetch(`/api/conversations/${conversationId}/messages/read`, {
         method: "POST",
       });
     } catch {
-      // Silently fail
+      // Falhar silenciosamente
     }
   }, [conversationId]);
 
@@ -73,7 +87,7 @@ export function MessageList({ conversationId, currentUserId, onNewMessage }: Mes
     markAsRead();
   }, [fetchMessages, markAsRead]);
 
-  // Auto-scroll when new messages arrive
+  // Auto-scroll quando novas mensagens chegam
   useEffect(() => {
     if (messages.length > lastMessageCountRef.current) {
       scrollToBottom();
@@ -81,14 +95,14 @@ export function MessageList({ conversationId, currentUserId, onNewMessage }: Mes
     }
   }, [messages.length]);
 
-  // Initial scroll to bottom
+  // Scroll inicial para o final
   useEffect(() => {
     if (!isLoading && messages.length > 0) {
       scrollToBottom("instant");
     }
   }, [isLoading]);
 
-  // Poll for new messages
+  // Polling para novas mensagens
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -102,14 +116,14 @@ export function MessageList({ conversationId, currentUserId, onNewMessage }: Mes
           onNewMessage?.();
         }
       } catch {
-        // Silently fail
+        // Falhar silenciosamente
       }
     }, 5000);
 
     return () => clearInterval(interval);
   }, [conversationId, messages.length, markAsRead, onNewMessage]);
 
-  // Load more on scroll to top
+  // Carregar mais ao rolar para o topo
   const handleScroll = useCallback(() => {
     if (!containerRef.current || isLoadingMore || !nextCursor) return;
 
@@ -150,6 +164,10 @@ export function MessageList({ conversationId, currentUserId, onNewMessage }: Mes
     );
   }
 
+  const containerVariants = shouldReduceMotion
+    ? noMotionContainer
+    : staggerContainer(0.04);
+
   return (
     <div
       ref={containerRef}
@@ -162,20 +180,34 @@ export function MessageList({ conversationId, currentUserId, onNewMessage }: Mes
         </div>
       )}
 
-      {messages.map((message, index) => {
-        const isOwn = message.senderId === currentUserId;
-        const prevMessage = messages[index - 1];
-        const showAvatar = !prevMessage || prevMessage.senderId !== message.senderId;
+      <motion.div
+        className="flex flex-col gap-2"
+        variants={containerVariants}
+        initial={isInitialLoadRef.current ? "hidden" : false}
+        animate="visible"
+      >
+        {messages.map((message, index) => {
+          const isOwn = message.senderId === currentUserId;
+          const prevMessage = messages[index - 1];
+          const showAvatar = !prevMessage || prevMessage.senderId !== message.senderId;
 
-        return (
-          <MessageBubble
-            key={message.id}
-            message={message}
-            isOwn={isOwn}
-            showAvatar={showAvatar}
-          />
-        );
-      })}
+          const itemVariants = shouldReduceMotion
+            ? noMotion
+            : isOwn
+              ? slideFromRight
+              : slideFromLeft;
+
+          return (
+            <motion.div key={message.id} variants={itemVariants}>
+              <MessageBubble
+                message={message}
+                isOwn={isOwn}
+                showAvatar={showAvatar}
+              />
+            </motion.div>
+          );
+        })}
+      </motion.div>
 
       <div ref={messagesEndRef} />
     </div>

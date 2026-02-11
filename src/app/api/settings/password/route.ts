@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const changePasswordSchema = z
@@ -16,18 +15,16 @@ const changePasswordSchema = z
     path: ["confirmPassword"],
   });
 
-// POST /api/settings/password - Change password
+// POST /api/settings/password - Alterar senha
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const body = await request.json();
     const data = changePasswordSchema.parse(body);
 
-    // Get user with password
+    // Buscar usuário com senha
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { id: true, password: true },
@@ -40,7 +37,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if user has a password (not OAuth-only)
+    // Verificar se o usuário tem senha (não é apenas OAuth)
     if (!user.password) {
       return NextResponse.json(
         { error: "Você não pode alterar a senha pois entrou com Google. Defina uma senha primeiro." },
@@ -48,7 +45,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verify current password
+    // Verificar senha atual
     const isValidPassword = await bcrypt.compare(data.currentPassword, user.password);
     if (!isValidPassword) {
       return NextResponse.json(
@@ -57,10 +54,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // Hash new password
+    // Hash da nova senha
     const hashedPassword = await bcrypt.hash(data.newPassword, 12);
 
-    // Update password
+    // Atualizar senha
     await prisma.user.update({
       where: { id: session.user.id },
       data: { password: hashedPassword },
@@ -68,17 +65,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    console.error("Change password error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return handleZodError(error) ?? internalError("Erro ao alterar senha", error);
   }
 }

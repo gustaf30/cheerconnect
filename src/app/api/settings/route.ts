@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const updateSettingsSchema = z.object({
@@ -30,13 +29,11 @@ const updateSettingsSchema = z.object({
     .optional(),
 });
 
-// GET /api/settings - Get current user's settings
+// GET /api/settings - Buscar configurações do usuário atual
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -63,7 +60,7 @@ export async function GET() {
       );
     }
 
-    // Calculate username change availability
+    // Calcular disponibilidade de alteração do username
     const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
     const canChangeUsername = !user.usernameChangedAt ||
       (Date.now() - user.usernameChangedAt.getTime()) >= THIRTY_DAYS_MS;
@@ -71,7 +68,7 @@ export async function GET() {
       ? new Date(user.usernameChangedAt.getTime() + THIRTY_DAYS_MS)
       : null;
 
-    // Calculate days until username can be changed
+    // Calcular dias até poder alterar o username
     const daysUntilUsernameChange = !canChangeUsername && nextUsernameChangeDate
       ? Math.ceil((nextUsernameChangeDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
       : 0;
@@ -99,39 +96,33 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error("Get settings error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return internalError("Erro ao buscar configurações", error);
   }
 }
 
-// PATCH /api/settings - Update current user's settings
+// PATCH /api/settings - Atualizar configurações do usuário atual
 export async function PATCH(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const { session, error } = await requireAuth();
+    if (error) return error;
 
     const body = await request.json();
     const data = updateSettingsSchema.parse(body);
 
-    // Build update data
+    // Montar dados de atualização
     const updateData: Record<string, unknown> = {};
 
-    // Handle username change
+    // Tratar alteração de username
     if (data.username !== undefined) {
-      // Get current user data including usernameChangedAt
+      // Buscar dados atuais do usuário incluindo usernameChangedAt
       const currentUser = await prisma.user.findUnique({
         where: { id: session.user.id },
         select: { username: true, usernameChangedAt: true },
       });
 
-      // Only apply restrictions if username is actually changing
+      // Aplicar restrições apenas se o username está realmente mudando
       if (currentUser && data.username !== currentUser.username) {
-        // Check 30-day restriction
+        // Verificar restrição de 30 dias
         if (currentUser.usernameChangedAt) {
           const daysSinceChange = Math.floor(
             (Date.now() - currentUser.usernameChangedAt.getTime()) / (1000 * 60 * 60 * 24)
@@ -145,7 +136,7 @@ export async function PATCH(request: Request) {
           }
         }
 
-        // Check if username is already taken
+        // Verificar se o username já está em uso
         const existingUser = await prisma.user.findUnique({
           where: { username: data.username },
           select: { id: true },
@@ -163,7 +154,7 @@ export async function PATCH(request: Request) {
       }
     }
 
-    // Handle notification preferences
+    // Tratar preferências de notificação
     if (data.notifications) {
       if (data.notifications.postLiked !== undefined) {
         updateData.notifyPostLiked = data.notifications.postLiked;
@@ -185,7 +176,7 @@ export async function PATCH(request: Request) {
       }
     }
 
-    // Handle privacy settings
+    // Tratar configurações de privacidade
     if (data.privacy) {
       if (data.privacy.profileVisibility !== undefined) {
         updateData.profileVisibility = data.privacy.profileVisibility;
@@ -195,7 +186,7 @@ export async function PATCH(request: Request) {
       }
     }
 
-    // Update user
+    // Atualizar usuário
     const user = await prisma.user.update({
       where: { id: session.user.id },
       data: updateData,
@@ -234,17 +225,6 @@ export async function PATCH(request: Request) {
       },
     });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    console.error("Update settings error:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    return handleZodError(error) ?? internalError("Erro ao atualizar configurações", error);
   }
 }
