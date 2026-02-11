@@ -14,6 +14,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q") || "";
     const categoryFilter = searchParams.get("category") || "";
+    const cursor = searchParams.get("cursor");
+    const limit = parseInt(searchParams.get("limit") || "20");
 
     const teams = await prisma.team.findMany({
       where: {
@@ -54,9 +56,13 @@ export async function GET(request: Request) {
           },
         },
       },
+      take: limit,
+      ...(cursor && { skip: 1, cursor: { id: cursor } }),
     });
 
-    return NextResponse.json({ teams });
+    const nextCursor = teams.length === limit ? teams[teams.length - 1]?.id : null;
+
+    return NextResponse.json({ teams, nextCursor });
   } catch (error) {
     console.error("Get user teams error:", error);
     return NextResponse.json(

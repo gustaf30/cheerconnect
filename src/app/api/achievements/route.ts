@@ -12,19 +12,28 @@ const achievementSchema = z.object({
 });
 
 // GET /api/achievements - Get user's achievements
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get("userId") || session.user.id;
+    const cursor = searchParams.get("cursor");
+    const limit = parseInt(searchParams.get("limit") || "10");
+
     const achievements = await prisma.achievement.findMany({
-      where: { userId: session.user.id },
+      where: { userId },
       orderBy: { date: "desc" },
+      take: limit,
+      ...(cursor && { skip: 1, cursor: { id: cursor } }),
     });
 
-    return NextResponse.json({ achievements });
+    const nextCursor = achievements.length === limit ? achievements[achievements.length - 1]?.id : null;
+
+    return NextResponse.json({ achievements, nextCursor });
   } catch (error) {
     console.error("Get achievements error:", error);
     return NextResponse.json(

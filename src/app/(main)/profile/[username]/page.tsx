@@ -28,6 +28,7 @@ export default async function UserProfilePage({ params }: ProfilePageProps) {
     include: {
       achievements: {
         orderBy: { date: "desc" },
+        take: 10,
       },
       careerHistory: {
         orderBy: { startDate: "desc" },

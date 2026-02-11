@@ -9,7 +9,7 @@ const createConversationSchema = z.object({
 });
 
 // GET /api/conversations - List user's conversations
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -17,6 +17,9 @@ export async function GET() {
     }
 
     const userId = session.user.id;
+    const { searchParams } = new URL(request.url);
+    const cursor = searchParams.get("cursor");
+    const limit = parseInt(searchParams.get("limit") || "20");
 
     const conversations = await prisma.conversation.findMany({
       where: {
@@ -53,6 +56,8 @@ export async function GET() {
       orderBy: {
         lastMessageAt: { sort: "desc", nulls: "last" },
       },
+      take: limit,
+      ...(cursor && { skip: 1, cursor: { id: cursor } }),
     });
 
     // Transform to include the "other" participant and unread count
@@ -70,7 +75,9 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({ conversations: transformedConversations });
+    const nextCursor = conversations.length === limit ? conversations[conversations.length - 1]?.id : null;
+
+    return NextResponse.json({ conversations: transformedConversations, nextCursor });
   } catch (error) {
     console.error("Get conversations error:", error);
     return NextResponse.json(
