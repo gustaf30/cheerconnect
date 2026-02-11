@@ -1,42 +1,41 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useCallback } from "react";
 import { MessageSquare, Loader2 } from "lucide-react";
 import { ConversationItem, Conversation } from "./conversation-item";
 import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner";
+import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 
 interface ConversationListProps {
   activeConversationId?: string;
 }
 
 export function ConversationList({ activeConversationId }: ConversationListProps) {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const fetchConversations = useCallback(async () => {
-    try {
-      const response = await fetch("/api/conversations");
-      if (!response.ok) throw new Error();
-
-      const data = await response.json();
-      setConversations(data.conversations);
-    } catch {
-      toast.error("Erro ao carregar conversas");
-    } finally {
-      setIsLoading(false);
-    }
+  const fetchConversations = useCallback(async (cursor: string | null) => {
+    const url = cursor
+      ? `/api/conversations?cursor=${cursor}`
+      : "/api/conversations";
+    const res = await fetch(url);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    return { items: data.conversations as Conversation[], nextCursor: data.nextCursor as string | null };
   }, []);
 
-  useEffect(() => {
-    fetchConversations();
-  }, [fetchConversations]);
+  const {
+    items: conversations,
+    isLoading,
+    isLoadingMore,
+    sentinelRef,
+    reset,
+  } = useInfiniteScroll({ fetchFn: fetchConversations });
 
-  // Refresh conversations periodically
+  // Refresh conversations periodically (re-fetches first page)
   useEffect(() => {
-    const interval = setInterval(fetchConversations, 30000);
+    const interval = setInterval(() => {
+      reset();
+    }, 30000);
     return () => clearInterval(interval);
-  }, [fetchConversations]);
+  }, [reset]);
 
   if (isLoading) {
     return (
@@ -77,6 +76,12 @@ export function ConversationList({ activeConversationId }: ConversationListProps
           isActive={conversation.id === activeConversationId}
         />
       ))}
+      <div ref={sentinelRef} />
+      {isLoadingMore && (
+        <div className="flex justify-center py-3">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      )}
     </div>
   );
 }

@@ -18,6 +18,8 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status") || "ACCEPTED";
+    const cursor = searchParams.get("cursor");
+    const limit = parseInt(searchParams.get("limit") || "20");
 
     const connections = await prisma.connection.findMany({
       where: {
@@ -50,6 +52,8 @@ export async function GET(request: Request) {
         },
       },
       orderBy: { updatedAt: "desc" },
+      take: limit,
+      ...(cursor && { skip: 1, cursor: { id: cursor } }),
     });
 
     // Format connections to show the other user
@@ -64,7 +68,9 @@ export async function GET(request: Request) {
       isSender: connection.senderId === session.user.id,
     }));
 
-    return NextResponse.json({ connections: formattedConnections });
+    const nextCursor = connections.length === limit ? connections[connections.length - 1]?.id : null;
+
+    return NextResponse.json({ connections: formattedConnections, nextCursor });
   } catch (error) {
     console.error("Get connections error:", error);
     return NextResponse.json(

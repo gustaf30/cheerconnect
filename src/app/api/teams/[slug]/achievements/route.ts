@@ -34,12 +34,20 @@ export async function GET(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "Equipe não encontrada" }, { status: 404 });
     }
 
+    const { searchParams } = new URL(request.url);
+    const cursor = searchParams.get("cursor");
+    const limit = parseInt(searchParams.get("limit") || "10");
+
     const achievements = await prisma.teamAchievement.findMany({
       where: { teamId: team.id },
       orderBy: { date: "desc" },
+      take: limit,
+      ...(cursor && { skip: 1, cursor: { id: cursor } }),
     });
 
-    return NextResponse.json({ achievements });
+    const nextCursor = achievements.length === limit ? achievements[achievements.length - 1]?.id : null;
+
+    return NextResponse.json({ achievements, nextCursor });
   } catch (error) {
     console.error("Get team achievements error:", error);
     return NextResponse.json(

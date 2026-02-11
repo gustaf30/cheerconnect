@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { MapPin, Check, X, UserMinus } from "lucide-react";
+import { Check, X, UserMinus, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import { getInitials } from "@/lib/utils";
 import { positionLabels } from "@/lib/constants";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ErrorState } from "@/components/shared/error-state";
+import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 
 interface ConnectionUser {
   id: string;
@@ -37,44 +38,53 @@ function ConnectionsContent() {
   const searchParams = useSearchParams();
   const tab = searchParams.get("tab") || "all";
 
-  const [connections, setConnections] = useState<Connection[]>([]);
   const [pendingReceived, setPendingReceived] = useState<Connection[]>([]);
   const [pendingSent, setPendingSent] = useState<Connection[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isPendingLoading, setIsPendingLoading] = useState(true);
+  const [pendingError, setPendingError] = useState<string | null>(null);
   const [removeTargetId, setRemoveTargetId] = useState<string | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
 
-  const fetchConnections = useCallback(async () => {
-    setError(null);
+  // Infinite scroll for accepted connections
+  const fetchAccepted = useCallback(async (cursor: string | null) => {
+    const url = cursor
+      ? `/api/connections?status=ACCEPTED&cursor=${cursor}`
+      : "/api/connections?status=ACCEPTED";
+    const res = await fetch(url);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    return { items: data.connections as Connection[], nextCursor: data.nextCursor as string | null };
+  }, []);
+
+  const {
+    items: connections,
+    setItems: setConnections,
+    isLoading: isAcceptedLoading,
+    isLoadingMore,
+    error: acceptedError,
+    sentinelRef,
+    reset: resetConnections,
+  } = useInfiniteScroll({ fetchFn: fetchAccepted });
+
+  // Single fetch for pending connections (typically small set)
+  const fetchPending = useCallback(async () => {
+    setPendingError(null);
     try {
-      const [acceptedRes, pendingRes] = await Promise.all([
-        fetch("/api/connections?status=ACCEPTED"),
-        fetch("/api/connections?status=PENDING"),
-      ]);
-
-      if (!acceptedRes.ok || !pendingRes.ok) throw new Error();
-
-      const acceptedData = await acceptedRes.json();
-      const pendingData = await pendingRes.json();
-
-      setConnections(acceptedData.connections);
-      setPendingReceived(
-        pendingData.connections.filter((c: Connection) => !c.isSender)
-      );
-      setPendingSent(
-        pendingData.connections.filter((c: Connection) => c.isSender)
-      );
+      const res = await fetch("/api/connections?status=PENDING");
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setPendingReceived(data.connections.filter((c: Connection) => !c.isSender));
+      setPendingSent(data.connections.filter((c: Connection) => c.isSender));
     } catch {
-      setError("Erro ao carregar conexões");
+      setPendingError("Erro ao carregar solicitações");
     } finally {
-      setIsLoading(false);
+      setIsPendingLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchConnections();
-  }, [fetchConnections]);
+    fetchPending();
+  }, [fetchPending]);
 
   const handleAccept = async (userId: string) => {
     try {
@@ -229,6 +239,8 @@ function ConnectionsContent() {
     </div>
   );
 
+  const isLoading = isAcceptedLoading || isPendingLoading;
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -248,11 +260,11 @@ function ConnectionsContent() {
     );
   }
 
-  if (error) {
+  if (acceptedError && pendingError) {
     return (
       <div className="space-y-6">
         <h1 className="heading-section font-display">Conexões</h1>
-        <ErrorState message={error} onRetry={() => { setError(null); fetchConnections(); }} />
+        <ErrorState message="Erro ao carregar conexões" onRetry={() => { resetConnections(); fetchPending(); }} />
       </div>
     );
   }
@@ -310,6 +322,12 @@ function ConnectionsContent() {
                       type="connected"
                     />
                   ))}
+                </div>
+              )}
+              <div ref={sentinelRef} />
+              {isLoadingMore && (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
               )}
           </div>

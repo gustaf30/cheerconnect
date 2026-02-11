@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { Search, MapPin, Users, Plus, Loader2, User, X, Mail } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { CitySelector } from "@/components/ui/city-selector";
 import { getInitials } from "@/lib/utils";
 import { ErrorState } from "@/components/shared/error-state";
+import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 
 interface Team {
   id: string;
@@ -58,9 +59,6 @@ const categories = [
 ];
 
 export default function TeamsPage() {
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("");
   const [locationFilter, setLocationFilter] = useState("");
@@ -70,6 +68,10 @@ export default function TeamsPage() {
   const [userLocation, setUserLocation] = useState<string | null>(null);
   const [filterByUserLocation, setFilterByUserLocation] = useState(true);
   const [isLoadingUserLocation, setIsLoadingUserLocation] = useState(true);
+
+  // Stable refs for filter values used in fetchFn
+  const filtersRef = useRef({ query: "", category: "", locationFilter: "", showMyTeams: false, filterByUserLocation: true, userLocation: null as string | null });
+  filtersRef.current = { query, category, locationFilter, showMyTeams, filterByUserLocation, userLocation };
 
   // Create team dialog
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -103,57 +105,45 @@ export default function TeamsPage() {
     fetchUserLocation();
   }, []);
 
-  const fetchTeams = useCallback(async (
-    searchQuery?: string,
-    searchCategory?: string,
-    myTeamsOnly?: boolean,
-    useUserLocationFilter?: boolean
-  ) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams();
-      if (searchQuery || query) params.set("q", searchQuery || query);
-      if (searchCategory || category)
-        params.set("category", searchCategory || category);
+  const fetchTeams = useCallback(async (cursor: string | null) => {
+    const f = filtersRef.current;
+    const params = new URLSearchParams();
+    if (f.query) params.set("q", f.query);
+    if (f.category && f.category.trim()) params.set("category", f.category);
 
-      // Use manual location filter first, then user location as default if enabled
-      const shouldUseUserLocation = useUserLocationFilter ?? filterByUserLocation;
-      const useMyTeams = myTeamsOnly !== undefined ? myTeamsOnly : showMyTeams;
-      if (locationFilter) {
-        params.set("location", locationFilter);
-      } else if (shouldUseUserLocation && userLocation && !useMyTeams) {
-        params.set("location", userLocation);
-      }
-
-      const endpoint = useMyTeams ? "/api/users/me/teams" : "/api/teams";
-      const response = await fetch(`${endpoint}?${params.toString()}`);
-      if (!response.ok) throw new Error();
-
-      const data = await response.json();
-      setTeams(data.teams);
-    } catch {
-      setError("Erro ao carregar equipes");
-    } finally {
-      setIsLoading(false);
+    // Use manual location filter first, then user location as default if enabled
+    if (f.locationFilter) {
+      params.set("location", f.locationFilter);
+    } else if (f.filterByUserLocation && f.userLocation && !f.showMyTeams) {
+      params.set("location", f.userLocation);
     }
-  }, [query, category, locationFilter, showMyTeams, filterByUserLocation, userLocation]);
 
-  // Fetch teams once user location is loaded
-  useEffect(() => {
-    if (!isLoadingUserLocation) {
-      fetchTeams();
-    }
-  }, [isLoadingUserLocation, fetchTeams]);
+    if (cursor) params.set("cursor", cursor);
+
+    const endpoint = f.showMyTeams ? "/api/users/me/teams" : "/api/teams";
+    const res = await fetch(`${endpoint}?${params.toString()}`);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    return { items: data.teams as Team[], nextCursor: data.nextCursor as string | null };
+  }, []);
+
+  const {
+    items: teams,
+    isLoading,
+    isLoadingMore,
+    error,
+    sentinelRef,
+    reset,
+  } = useInfiniteScroll({ fetchFn: fetchTeams, enabled: !isLoadingUserLocation });
 
   const handleSearch = () => {
-    fetchTeams(query, category);
+    reset();
   };
 
   const toggleMyTeams = () => {
-    const newValue = !showMyTeams;
-    setShowMyTeams(newValue);
-    fetchTeams(query, category, newValue);
+    setShowMyTeams((prev) => !prev);
+    // reset will pick up the new value via filtersRef on next tick
+    setTimeout(reset, 0);
   };
 
   const handleCreateTeam = async () => {
@@ -185,7 +175,7 @@ export default function TeamsPage() {
         level: "",
         instagram: "",
       });
-      fetchTeams();
+      reset();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao criar equipe");
     } finally {
@@ -273,7 +263,7 @@ export default function TeamsPage() {
             className="ml-auto h-auto py-1 px-2"
             onClick={() => {
               setFilterByUserLocation(false);
-              fetchTeams(undefined, undefined, undefined, false);
+              setTimeout(reset, 0);
             }}
           >
             <X className="h-3 w-3 mr-1" />
@@ -284,7 +274,7 @@ export default function TeamsPage() {
 
       {/* Teams grid */}
       {error ? (
-        <ErrorState message={error} onRetry={() => { setError(null); fetchTeams(); }} />
+        <ErrorState message={error} onRetry={reset} />
       ) : isLoading ? (
         <div className="grid md:grid-cols-2 gap-4">
           {[1, 2, 3, 4].map((i) => (
@@ -305,50 +295,58 @@ export default function TeamsPage() {
           Nenhuma equipe encontrada. Tente outros filtros ou crie uma nova equipe.
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 gap-4 stagger-children">
-          {teams.map((team, index) => (
-            <Link key={team.id} href={`/teams/${team.slug}`}>
-              <div className="bento-card h-full" style={{ animationDelay: `${index * 50}ms` }}>
-                <div className="accent-bar" />
-                <div className="p-4">
-                  <div className="flex items-start gap-4">
-                    <Avatar className="h-16 w-16 rounded-lg shrink-0 avatar-glow">
-                      <AvatarImage src={team.logo || undefined} alt={team.name} />
-                      <AvatarFallback className="rounded-lg bg-primary text-primary-foreground text-lg font-display font-bold">
-                        {getInitials(team.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-display font-semibold truncate">{team.name}</h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="gradient" className="text-xs">
-                          {categoryLabels[team.category] || team.category}
-                        </Badge>
-                        {team.level && (
-                          <Badge variant="subtle" className="text-xs">
-                            {team.level}
+        <>
+          <div className="grid md:grid-cols-2 gap-4 stagger-children">
+            {teams.map((team, index) => (
+              <Link key={team.id} href={`/teams/${team.slug}`}>
+                <div className="bento-card h-full" style={{ animationDelay: `${index * 50}ms` }}>
+                  <div className="accent-bar" />
+                  <div className="p-4">
+                    <div className="flex items-start gap-4">
+                      <Avatar className="h-16 w-16 rounded-lg shrink-0 avatar-glow">
+                        <AvatarImage src={team.logo || undefined} alt={team.name} />
+                        <AvatarFallback className="rounded-lg bg-primary text-primary-foreground text-lg font-display font-bold">
+                          {getInitials(team.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-display font-semibold truncate">{team.name}</h3>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="gradient" className="text-xs">
+                            {categoryLabels[team.category] || team.category}
                           </Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                        {team.location && (
+                          {team.level && (
+                            <Badge variant="subtle" className="text-xs">
+                              {team.level}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                          {team.location && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {team.location}
+                            </span>
+                          )}
                           <span className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />
-                            {team.location}
+                            <Users className="h-3 w-3" />
+                            <span className="stat-number">{team._count.members}</span> membros
                           </span>
-                        )}
-                        <span className="flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          <span className="stat-number">{team._count.members}</span> membros
-                        </span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </Link>
-          ))}
-        </div>
+              </Link>
+            ))}
+          </div>
+          <div ref={sentinelRef} />
+          {isLoadingMore && (
+            <div className="flex justify-center py-4">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          )}
+        </>
       )}
 
       {/* Create Team Dialog */}

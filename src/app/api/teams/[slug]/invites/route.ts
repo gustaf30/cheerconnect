@@ -210,6 +210,10 @@ export async function GET(
       );
     }
 
+    const { searchParams } = new URL(request.url);
+    const cursor = searchParams.get("cursor");
+    const limit = parseInt(searchParams.get("limit") || "20");
+
     const invites = await prisma.teamInvite.findMany({
       where: {
         teamId: team.id,
@@ -226,9 +230,13 @@ export async function GET(
         },
       },
       orderBy: { createdAt: "desc" },
+      take: limit,
+      ...(cursor && { skip: 1, cursor: { id: cursor } }),
     });
 
-    return NextResponse.json({ invites });
+    const nextCursor = invites.length === limit ? invites[invites.length - 1]?.id : null;
+
+    return NextResponse.json({ invites, nextCursor });
   } catch (error) {
     console.error("List invites error:", error);
     return NextResponse.json(

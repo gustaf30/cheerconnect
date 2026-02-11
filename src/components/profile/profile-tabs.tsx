@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { PostCard } from "@/components/feed/post-card";
 import { positionLabels, careerRoleLabels } from "@/lib/constants";
+import { AchievementList } from "./achievement-list";
 
 interface Achievement {
   id: string;
@@ -91,9 +92,10 @@ interface ProfileTabsProps {
   };
   posts: Post[];
   isOwnProfile: boolean;
+  achievementLimit?: number;
 }
 
-export function ProfileTabs({ user, posts, isOwnProfile }: ProfileTabsProps) {
+export function ProfileTabs({ user, posts, isOwnProfile, achievementLimit = 10 }: ProfileTabsProps) {
   return (
     <Tabs defaultValue="posts" className="w-full">
       <TabsList className="w-full justify-start bg-card border rounded-lg p-1 h-auto flex-wrap">
@@ -253,49 +255,16 @@ export function ProfileTabs({ user, posts, isOwnProfile }: ProfileTabsProps) {
             </h2>
           </div>
           <div className="p-6 pt-0">
-            {user.achievements.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">
-                {isOwnProfile
+            <AchievementList
+              initialAchievements={user.achievements}
+              initialLimit={achievementLimit}
+              userId={user.id}
+              emptyMessage={
+                isOwnProfile
                   ? "Adicione suas conquistas e certificações."
-                  : "Nenhuma conquista cadastrada."}
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {user.achievements.map((achievement) => (
-                  <div
-                    key={achievement.id}
-                    className="flex gap-4 p-4 rounded-lg bg-muted/50"
-                  >
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <Trophy className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold">{achievement.title}</h4>
-                      {achievement.description && (
-                        <p className="text-sm text-muted-foreground">
-                          {achievement.description}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                        <span>
-                          {format(new Date(achievement.date), "MMMM yyyy", {
-                            locale: ptBR,
-                          })}
-                        </span>
-                        {achievement.category && (
-                          <>
-                            <span>•</span>
-                            <Badge variant="outline" className="text-xs">
-                              {achievement.category}
-                            </Badge>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  : "Nenhuma conquista cadastrada."
+              }
+            />
           </div>
         </div>
       </TabsContent>

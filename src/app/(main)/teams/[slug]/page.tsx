@@ -4,7 +4,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { MapPin, Globe, Instagram, Calendar, Users, Settings, Trophy, UserPlus } from "lucide-react";
+import { MapPin, Globe, Instagram, Calendar, Users, Settings, UserPlus } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PostCard } from "@/components/feed/post-card";
 import { FollowButton } from "@/components/teams/follow-button";
+import { AchievementList } from "@/components/profile/achievement-list";
 import { getInitials } from "@/lib/utils";
 import { positionLabels } from "@/lib/constants";
 
@@ -307,44 +308,12 @@ export default async function TeamPage({ params }: TeamPageProps) {
         <TabsContent value="achievements" className="mt-4">
           <div className="bento-card-static">
             <div className="p-4">
-              {team.achievements.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  Nenhuma conquista registrada.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {team.achievements.map((achievement) => (
-                    <div
-                      key={achievement.id}
-                      className="flex items-start gap-4 p-4 rounded-lg bg-muted/50"
-                    >
-                      <div className="shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Trophy className="h-5 w-5 text-primary" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-semibold">{achievement.title}</h4>
-                          {achievement.category && (
-                            <Badge variant="secondary" className="text-xs">
-                              {achievement.category}
-                            </Badge>
-                          )}
-                        </div>
-                        {achievement.description && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {achievement.description}
-                          </p>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-2">
-                          {format(new Date(achievement.date), "dd 'de' MMMM 'de' yyyy", {
-                            locale: ptBR,
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <AchievementList
+                initialAchievements={team.achievements}
+                initialLimit={10}
+                teamSlug={slug}
+                emptyMessage="Nenhuma conquista registrada."
+              />
             </div>
           </div>
         </TabsContent>
