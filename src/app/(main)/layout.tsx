@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Sidebar } from "@/components/shared/sidebar";
 import { PageTransitionProvider } from "@/components/providers/page-transition-provider";
+import { RealtimeProvider } from "@/hooks/use-realtime";
 
 export default function MainLayout({
   children,
@@ -16,6 +17,7 @@ export default function MainLayout({
   const [open, setOpen] = useState(false);
 
   return (
+    <RealtimeProvider>
     <div className="min-h-screen flex flex-col">
       {/* Mobile top bar — visible only below lg */}
       <div className="sticky top-0 z-50 flex items-center h-14 px-4 glass lg:hidden">
@@ -61,5 +63,6 @@ export default function MainLayout({
         </main>
       </div>
     </div>
+    </RealtimeProvider>
   );
 }

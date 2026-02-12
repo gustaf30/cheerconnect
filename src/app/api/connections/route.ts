@@ -18,7 +18,14 @@ export async function GET(request: Request) {
     const cursor = searchParams.get("cursor");
     const limit = parseInt(searchParams.get("limit") || "20");
 
-    const connections = await prisma.connection.findMany({
+    // Fetch blocked user IDs (bidirectional)
+    const [blockedByMe, blockedMe] = await Promise.all([
+      prisma.block.findMany({ where: { userId: session.user.id }, select: { blockedUserId: true } }),
+      prisma.block.findMany({ where: { blockedUserId: session.user.id }, select: { userId: true } }),
+    ]);
+    const blockedIds = [...blockedByMe.map(b => b.blockedUserId), ...blockedMe.map(b => b.userId)];
+
+    let connections = await prisma.connection.findMany({
       where: {
         status: status as "PENDING" | "ACCEPTED" | "REJECTED",
         OR: [
@@ -52,6 +59,15 @@ export async function GET(request: Request) {
       take: limit,
       ...(cursor && { skip: 1, cursor: { id: cursor } }),
     });
+
+    // Filter out connections with blocked users
+    if (blockedIds.length > 0) {
+      const blockedSet = new Set(blockedIds);
+      connections = connections.filter(c => {
+        const otherId = c.senderId === session.user.id ? c.receiverId : c.senderId;
+        return !blockedSet.has(otherId);
+      });
+    }
 
     // Formatar conexões para mostrar o outro usuário
     const formattedConnections = connections.map((connection) => ({

@@ -13,7 +13,9 @@ export async function GET(request: Request) {
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
-        let heartbeatCounter = 0;
+        let prevNotificationCount = -1;
+        let prevMessageCount = -1;
+        let prevLastMessageAt = "";
 
         const poll = async () => {
           try {
@@ -22,43 +24,62 @@ export async function GET(request: Request) {
               return;
             }
 
-            heartbeatCounter++;
-
-            // Every 3rd tick (15s), send heartbeat
-            if (heartbeatCounter % 3 === 0) {
-              controller.enqueue(encoder.encode(": heartbeat\n\n"));
-            }
-
-            const [count, notifications] = await Promise.all([
-              prisma.notification.count({
-                where: {
-                  userId,
-                  isRead: false,
-                  type: { not: "MESSAGE_RECEIVED" },
-                },
-              }),
-              prisma.notification.findMany({
-                where: {
-                  userId,
-                  type: { not: "MESSAGE_RECEIVED" },
-                },
-                include: {
-                  actor: {
-                    select: {
-                      id: true,
-                      name: true,
-                      username: true,
-                      avatar: true,
+            const [notificationCount, messageCount, lastConversation] =
+              await Promise.all([
+                prisma.notification.count({
+                  where: {
+                    userId,
+                    isRead: false,
+                    type: { not: "MESSAGE_RECEIVED" },
+                  },
+                }),
+                prisma.message.count({
+                  where: {
+                    isRead: false,
+                    senderId: { not: userId },
+                    conversation: {
+                      OR: [
+                        { participant1Id: userId },
+                        { participant2Id: userId },
+                      ],
                     },
                   },
-                },
-                orderBy: { createdAt: "desc" },
-                take: 5,
-              }),
-            ]);
+                }),
+                prisma.conversation.findFirst({
+                  where: {
+                    OR: [
+                      { participant1Id: userId },
+                      { participant2Id: userId },
+                    ],
+                  },
+                  orderBy: { lastMessageAt: "desc" },
+                  select: { lastMessageAt: true },
+                }),
+              ]);
 
-            const data = JSON.stringify({ count, notifications });
-            controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+            const lastMessageAt =
+              lastConversation?.lastMessageAt?.toISOString() ?? null;
+            const lastMessageAtStr = lastMessageAt ?? "";
+
+            // Only emit data when values change
+            if (
+              notificationCount !== prevNotificationCount ||
+              messageCount !== prevMessageCount ||
+              lastMessageAtStr !== prevLastMessageAt
+            ) {
+              prevNotificationCount = notificationCount;
+              prevMessageCount = messageCount;
+              prevLastMessageAt = lastMessageAtStr;
+
+              const data = JSON.stringify({
+                notificationCount,
+                messageCount,
+                lastMessageAt,
+              });
+              controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+            } else {
+              controller.enqueue(encoder.encode(`: heartbeat\n\n`));
+            }
           } catch {
             // Silently handle errors
           }

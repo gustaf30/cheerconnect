@@ -1,0 +1,2904 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "CheerConnect API",
+    "description": "REST API for CheerConnect — a social network for the cheerleading community. Built with Next.js 16 App Router, PostgreSQL via Prisma ORM, and NextAuth.js for authentication.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "CheerConnect"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local development server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "next-auth.session-token",
+        "description": "NextAuth.js JWT session cookie. Obtain by logging in via POST /api/auth/callback/credentials or OAuth flow."
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Human-readable error message"
+          }
+        },
+        "required": ["error"]
+      },
+      "Success": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "PaginationCursor": {
+        "type": "object",
+        "properties": {
+          "nextCursor": {
+            "type": "string",
+            "nullable": true,
+            "description": "Cursor for the next page of results. Null if no more results."
+          }
+        }
+      },
+      "UserSummary": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "username": { "type": "string" },
+          "avatar": { "type": "string", "nullable": true }
+        }
+      },
+      "UserProfile": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "username": { "type": "string" },
+          "avatar": { "type": "string", "nullable": true },
+          "bio": { "type": "string", "nullable": true },
+          "location": { "type": "string", "nullable": true },
+          "positions": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Position" }
+          },
+          "experience": { "type": "integer", "nullable": true }
+        }
+      },
+      "UserMe": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "email": { "type": "string" },
+          "username": { "type": "string" },
+          "avatar": { "type": "string", "nullable": true },
+          "banner": { "type": "string", "nullable": true },
+          "bio": { "type": "string", "nullable": true },
+          "location": { "type": "string", "nullable": true },
+          "birthDate": { "type": "string", "format": "date-time", "nullable": true },
+          "positions": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Position" }
+          },
+          "experience": { "type": "integer", "nullable": true },
+          "skills": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "Position": {
+        "type": "string",
+        "enum": ["FLYER", "BASE", "BACKSPOT", "FRONTSPOT", "TUMBLER", "COACH", "CHOREOGRAPHER", "JUDGE", "OTHER"]
+      },
+      "CareerRole": {
+        "type": "string",
+        "enum": ["ATHLETE", "COACH", "ASSISTANT_COACH", "CHOREOGRAPHER", "TEAM_MANAGER", "JUDGE", "OTHER"]
+      },
+      "TeamCategory": {
+        "type": "string",
+        "enum": ["ALLSTAR", "SCHOOL", "COLLEGE", "RECREATIONAL", "PROFESSIONAL"]
+      },
+      "EventType": {
+        "type": "string",
+        "enum": ["COMPETITION", "TRYOUT", "CAMP", "WORKSHOP", "SHOWCASE", "OTHER"]
+      },
+      "ConnectionStatus": {
+        "type": "string",
+        "enum": ["PENDING", "ACCEPTED", "REJECTED"]
+      },
+      "ProfileVisibility": {
+        "type": "string",
+        "enum": ["PUBLIC", "CONNECTIONS_ONLY"]
+      },
+      "NotificationType": {
+        "type": "string",
+        "enum": ["POST_LIKED", "POST_COMMENTED", "POST_REPOSTED", "COMMENT_REPLIED", "CONNECTION_REQUEST", "CONNECTION_ACCEPTED", "TEAM_INVITE", "MESSAGE_RECEIVED", "MENTION"]
+      },
+      "TeamSummary": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "slug": { "type": "string" },
+          "logo": { "type": "string", "nullable": true }
+        }
+      },
+      "TeamListItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "slug": { "type": "string" },
+          "logo": { "type": "string", "nullable": true },
+          "location": { "type": "string", "nullable": true },
+          "category": { "$ref": "#/components/schemas/TeamCategory" },
+          "level": { "type": "string", "nullable": true },
+          "_count": {
+            "type": "object",
+            "properties": {
+              "members": { "type": "integer" }
+            }
+          }
+        }
+      },
+      "PostAuthor": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "username": { "type": "string" },
+          "avatar": { "type": "string", "nullable": true },
+          "positions": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Position" }
+          }
+        }
+      },
+      "Post": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "content": { "type": "string" },
+          "images": {
+            "type": "array",
+            "items": { "type": "string", "format": "uri" }
+          },
+          "videoUrl": { "type": "string", "format": "uri", "nullable": true },
+          "isEdited": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "author": { "$ref": "#/components/schemas/PostAuthor" },
+          "team": { "$ref": "#/components/schemas/TeamSummary" },
+          "originalPost": {
+            "nullable": true,
+            "description": "Present when this post is a repost",
+            "allOf": [{ "$ref": "#/components/schemas/Post" }]
+          },
+          "isLiked": { "type": "boolean" },
+          "_count": {
+            "type": "object",
+            "properties": {
+              "likes": { "type": "integer" },
+              "comments": { "type": "integer" },
+              "reposts": { "type": "integer" }
+            }
+          }
+        }
+      },
+      "Comment": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "content": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "author": { "$ref": "#/components/schemas/UserSummary" },
+          "likesCount": { "type": "integer" },
+          "repliesCount": { "type": "integer" },
+          "isLiked": { "type": "boolean" },
+          "parentId": { "type": "string", "nullable": true },
+          "replies": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CommentReply" }
+          }
+        }
+      },
+      "CommentReply": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "content": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "author": { "$ref": "#/components/schemas/UserSummary" },
+          "likesCount": { "type": "integer" },
+          "isLiked": { "type": "boolean" },
+          "parentId": { "type": "string" }
+        }
+      },
+      "Connection": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "$ref": "#/components/schemas/ConnectionStatus" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "user": { "$ref": "#/components/schemas/UserProfile" },
+          "isSender": { "type": "boolean" }
+        }
+      },
+      "Conversation": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "otherParticipant": { "$ref": "#/components/schemas/UserSummary" },
+          "lastMessageAt": { "type": "string", "format": "date-time", "nullable": true },
+          "lastMessagePreview": { "type": "string", "nullable": true },
+          "unreadCount": { "type": "integer" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Message": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "content": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "isRead": { "type": "boolean" },
+          "readAt": { "type": "string", "format": "date-time", "nullable": true },
+          "sender": { "$ref": "#/components/schemas/UserSummary" }
+        }
+      },
+      "Notification": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "$ref": "#/components/schemas/NotificationType" },
+          "message": { "type": "string" },
+          "isRead": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "actorId": { "type": "string", "nullable": true },
+          "relatedId": { "type": "string", "nullable": true },
+          "relatedType": { "type": "string", "nullable": true },
+          "actor": { "$ref": "#/components/schemas/UserSummary" }
+        }
+      },
+      "Event": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": "string", "nullable": true },
+          "location": { "type": "string" },
+          "startDate": { "type": "string", "format": "date-time" },
+          "endDate": { "type": "string", "format": "date-time", "nullable": true },
+          "type": { "$ref": "#/components/schemas/EventType" },
+          "creatorId": { "type": "string" },
+          "creator": { "$ref": "#/components/schemas/UserSummary" },
+          "team": { "$ref": "#/components/schemas/TeamSummary" }
+        }
+      },
+      "Achievement": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "description": { "type": "string", "nullable": true },
+          "date": { "type": "string", "format": "date-time" },
+          "category": { "type": "string", "nullable": true },
+          "userId": { "type": "string" }
+        }
+      },
+      "TeamAchievement": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "description": { "type": "string", "nullable": true },
+          "date": { "type": "string", "format": "date-time" },
+          "category": { "type": "string", "nullable": true },
+          "teamId": { "type": "string" }
+        }
+      },
+      "CareerHistory": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "role": { "$ref": "#/components/schemas/CareerRole" },
+          "positions": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Position" }
+          },
+          "startDate": { "type": "string", "format": "date-time" },
+          "endDate": { "type": "string", "format": "date-time", "nullable": true },
+          "isCurrent": { "type": "boolean" },
+          "teamName": { "type": "string" },
+          "teamId": { "type": "string", "nullable": true },
+          "description": { "type": "string", "nullable": true },
+          "location": { "type": "string", "nullable": true },
+          "team": { "$ref": "#/components/schemas/TeamSummary" }
+        }
+      },
+      "TeamMember": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "role": { "type": "string" },
+          "hasPermission": { "type": "boolean" },
+          "isAdmin": { "type": "boolean" },
+          "isActive": { "type": "boolean" },
+          "joinedAt": { "type": "string", "format": "date-time" },
+          "user": { "$ref": "#/components/schemas/PostAuthor" }
+        }
+      },
+      "TeamInvite": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "role": { "type": "string" },
+          "hasPermission": { "type": "boolean" },
+          "isAdmin": { "type": "boolean" },
+          "status": { "type": "string", "enum": ["PENDING", "ACCEPTED", "REJECTED", "EXPIRED"] },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "expiresAt": { "type": "string", "format": "date-time", "nullable": true },
+          "user": { "$ref": "#/components/schemas/UserSummary" },
+          "team": { "$ref": "#/components/schemas/TeamSummary" }
+        }
+      },
+      "PostEdit": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "content": { "type": "string" },
+          "editedAt": { "type": "string", "format": "date-time" },
+          "postId": { "type": "string" }
+        }
+      },
+      "Report": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "reason": { "type": "string" },
+          "description": { "type": "string", "nullable": true },
+          "contentType": { "type": "string", "enum": ["post", "comment", "user"] },
+          "contentId": { "type": "string" },
+          "reporterId": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Settings": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string" },
+          "username": { "type": "string" },
+          "hasPassword": { "type": "boolean" },
+          "notifications": {
+            "type": "object",
+            "properties": {
+              "postLiked": { "type": "boolean" },
+              "postCommented": { "type": "boolean" },
+              "connectionRequest": { "type": "boolean" },
+              "connectionAccepted": { "type": "boolean" },
+              "commentReplied": { "type": "boolean" },
+              "messageReceived": { "type": "boolean" },
+              "mention": { "type": "boolean" }
+            }
+          },
+          "privacy": {
+            "type": "object",
+            "properties": {
+              "profileVisibility": { "$ref": "#/components/schemas/ProfileVisibility" },
+              "showEmail": { "type": "boolean" }
+            }
+          },
+          "canChangeUsername": { "type": "boolean" },
+          "nextUsernameChangeDate": { "type": "string", "format": "date-time", "nullable": true },
+          "daysUntilUsernameChange": { "type": "integer" }
+        }
+      }
+    },
+    "parameters": {
+      "cursor": {
+        "name": "cursor",
+        "in": "query",
+        "schema": { "type": "string" },
+        "description": "Cursor for pagination. Pass the nextCursor from a previous response."
+      },
+      "limit": {
+        "name": "limit",
+        "in": "query",
+        "schema": { "type": "integer", "default": 20 },
+        "description": "Maximum number of items to return."
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Authentication required",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "error": "Não autorizado" }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Insufficient permissions",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource not found",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Invalid request data",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Internal server error",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    { "sessionCookie": [] }
+  ],
+  "tags": [
+    { "name": "Health", "description": "Service health check" },
+    { "name": "Auth", "description": "Authentication and registration" },
+    { "name": "Users", "description": "User search, profile, and account management" },
+    { "name": "Posts", "description": "Feed posts, likes, reposts, and edit history" },
+    { "name": "Comments", "description": "Post comments, replies, and comment likes" },
+    { "name": "Connections", "description": "User-to-user connection requests and management" },
+    { "name": "Teams", "description": "Team CRUD, members, permissions, invites, follows, and achievements" },
+    { "name": "Conversations", "description": "Private messaging conversations and messages" },
+    { "name": "Notifications", "description": "User notifications and real-time streams" },
+    { "name": "Events", "description": "Community events" },
+    { "name": "Career", "description": "User career history" },
+    { "name": "Achievements", "description": "Personal achievements" },
+    { "name": "Tags", "description": "Hashtag-based post discovery" },
+    { "name": "Settings", "description": "User settings, password, and username management" },
+    { "name": "Upload", "description": "Media file uploads to Cloudinary" },
+    { "name": "Reports", "description": "Content and user reporting" }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Health check",
+        "description": "Returns service status and timestamp. Verifies database connectivity.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "ok" },
+                    "timestamp": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service unavailable (database unreachable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "error" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register a new user",
+        "description": "Create a new user account with email, username, and password.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "email", "username", "password"],
+                "properties": {
+                  "name": { "type": "string", "minLength": 2 },
+                  "email": { "type": "string", "format": "email" },
+                  "username": { "type": "string", "minLength": 3, "pattern": "^[a-zA-Z0-9_]+$" },
+                  "password": { "type": "string", "minLength": 6 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "name": { "type": "string" },
+                        "email": { "type": "string" },
+                        "username": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/users": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Search users",
+        "description": "Search users by name, username, position, and location. Supports `mode=suggestions` for personalized suggestions (2nd-degree connections, same position, same region).",
+        "parameters": [
+          { "name": "mode", "in": "query", "schema": { "type": "string", "enum": ["suggestions"] }, "description": "Set to 'suggestions' for personalized user suggestions." },
+          { "name": "q", "in": "query", "schema": { "type": "string" }, "description": "Search query (name or username)." },
+          { "name": "position", "in": "query", "schema": { "$ref": "#/components/schemas/Position" } },
+          { "name": "location", "in": "query", "schema": { "type": "string" } },
+          { "$ref": "#/components/parameters/cursor" },
+          { "$ref": "#/components/parameters/limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "users": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/UserProfile" }
+                    },
+                    "nextCursor": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/users/me": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get current user profile",
+        "responses": {
+          "200": {
+            "description": "Current user profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": { "$ref": "#/components/schemas/UserMe" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "patch": {
+        "tags": ["Users"],
+        "summary": "Update current user profile",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "minLength": 2 },
+                  "bio": { "type": "string", "maxLength": 500, "nullable": true },
+                  "location": { "type": "string", "maxLength": 100, "nullable": true },
+                  "experience": { "type": "integer", "minimum": 0, "maximum": 50, "nullable": true },
+                  "skills": { "type": "array", "items": { "type": "string" }, "maxItems": 20 },
+                  "positions": { "type": "array", "items": { "type": "string" }, "maxItems": 10 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated user profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": { "$ref": "#/components/schemas/UserProfile" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "delete": {
+        "tags": ["Users"],
+        "summary": "Delete current user account",
+        "description": "Permanently deletes the user account and all associated data.",
+        "responses": {
+          "200": {
+            "description": "Account deleted",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Success" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/users/me/avatar": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Upload avatar",
+        "description": "Upload a new avatar image (max 5MB). Replaces existing avatar.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": { "type": "string", "format": "binary", "description": "Image file (max 5MB)" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Avatar updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "avatar": { "type": "string", "format": "uri" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "delete": {
+        "tags": ["Users"],
+        "summary": "Remove avatar",
+        "responses": {
+          "200": {
+            "description": "Avatar removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "avatar": { "type": "string", "nullable": true }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/users/me/banner": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Upload banner",
+        "description": "Upload a new banner image (max 5MB). Replaces existing banner.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": { "type": "string", "format": "binary", "description": "Image file (max 5MB)" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Banner updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "banner": { "type": "string", "format": "uri" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "delete": {
+        "tags": ["Users"],
+        "summary": "Remove banner",
+        "responses": {
+          "200": {
+            "description": "Banner removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "banner": { "type": "string", "nullable": true }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/users/me/teams": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "List current user's teams",
+        "parameters": [
+          { "name": "q", "in": "query", "schema": { "type": "string" }, "description": "Search by team name or location." },
+          { "name": "category", "in": "query", "schema": { "$ref": "#/components/schemas/TeamCategory" } },
+          { "$ref": "#/components/parameters/cursor" },
+          { "$ref": "#/components/parameters/limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of user's teams",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "teams": { "type": "array", "items": { "$ref": "#/components/schemas/TeamListItem" } },
+                    "nextCursor": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/users/{id}/block": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Block a user",
+        "description": "Block a user and remove any existing connections between you.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "User ID to block" }
+        ],
+        "responses": {
+          "200": { "description": "User blocked", "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "description": "User already blocked" }
+        }
+      },
+      "delete": {
+        "tags": ["Users"],
+        "summary": "Unblock a user",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "User ID to unblock" }
+        ],
+        "responses": {
+          "200": { "description": "User unblocked", "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" } } } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/posts": {
+      "get": {
+        "tags": ["Posts"],
+        "summary": "Get feed posts",
+        "description": "Retrieve paginated feed posts. Filter by 'following' (connections + followed teams) or 'all'. Supports text search with `q` parameter.",
+        "parameters": [
+          { "name": "filter", "in": "query", "schema": { "type": "string", "enum": ["following", "all"], "default": "following" } },
+          { "name": "q", "in": "query", "schema": { "type": "string" }, "description": "Text search in post content." },
+          { "$ref": "#/components/parameters/cursor" },
+          { "$ref": "#/components/parameters/limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of posts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "posts": { "type": "array", "items": { "$ref": "#/components/schemas/Post" } },
+                    "nextCursor": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["Posts"],
+        "summary": "Create a new post",
+        "description": "Create a post with text content and optional media. Supports #hashtags and @mentions in content.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["content"],
+                "properties": {
+                  "content": { "type": "string", "minLength": 1, "maxLength": 5000 },
+                  "images": { "type": "array", "items": { "type": "string", "format": "uri" }, "maxItems": 4 },
+                  "videoUrl": { "type": "string", "format": "uri" },
+                  "teamId": { "type": "string", "description": "Optional team ID to post on behalf of a team." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Post created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "post": { "$ref": "#/components/schemas/Post" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/posts/{id}": {
+      "get": {
+        "tags": ["Posts"],
+        "summary": "Get a specific post",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Post details with comments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "post": { "$ref": "#/components/schemas/Post" }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "put": {
+        "tags": ["Posts"],
+        "summary": "Edit a post",
+        "description": "Edit post content. Saves previous content to edit history. Cannot edit reposts.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["content"],
+                "properties": {
+                  "content": { "type": "string", "minLength": 1, "maxLength": 5000 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Post updated (or unchanged if content identical)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "post": { "$ref": "#/components/schemas/Post" },
+                    "unchanged": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Posts"],
+        "summary": "Delete a post",
+        "description": "Delete a post and its Cloudinary assets. Only the author can delete.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Post deleted", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Success" } } } },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/posts/{id}/like": {
+      "post": {
+        "tags": ["Posts"],
+        "summary": "Like a post",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Post liked", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Success" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Posts"],
+        "summary": "Unlike a post",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Post unliked", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Success" } } } }
+        }
+      }
+    },
+    "/api/posts/{id}/comments": {
+      "get": {
+        "tags": ["Comments"],
+        "summary": "List comments for a post",
+        "description": "Get paginated top-level comments with up to 3 replies each. Supports sorting by 'popular' or 'recent'.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Post ID" },
+          { "name": "sort", "in": "query", "schema": { "type": "string", "enum": ["popular", "recent"], "default": "popular" } },
+          { "$ref": "#/components/parameters/cursor" },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10, "maximum": 50 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated comments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "comments": { "type": "array", "items": { "$ref": "#/components/schemas/Comment" } },
+                    "nextCursor": { "type": "string", "nullable": true },
+                    "hasMore": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "post": {
+        "tags": ["Comments"],
+        "summary": "Create a comment",
+        "description": "Add a comment to a post. Optionally reply to an existing comment (one level of nesting only).",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Post ID" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["content"],
+                "properties": {
+                  "content": { "type": "string", "minLength": 1, "maxLength": 1000 },
+                  "parentId": { "type": "string", "description": "Parent comment ID for replies." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Comment created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "comment": { "$ref": "#/components/schemas/CommentReply" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/posts/{id}/repost": {
+      "post": {
+        "tags": ["Posts"],
+        "summary": "Repost a post",
+        "description": "Create a repost. Cannot repost own posts, reposts, or posts already reposted.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": { "type": "string", "maxLength": 5000, "description": "Optional comment on the repost." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Repost created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "post": { "$ref": "#/components/schemas/Post" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Posts"],
+        "summary": "Remove a repost",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Original post ID" }
+        ],
+        "responses": {
+          "200": { "description": "Repost removed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Success" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/posts/{id}/edits": {
+      "get": {
+        "tags": ["Posts"],
+        "summary": "Get post edit history",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Edit history (most recent first)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "edits": { "type": "array", "items": { "$ref": "#/components/schemas/PostEdit" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/comments/{id}": {
+      "patch": {
+        "tags": ["Comments"],
+        "summary": "Update a comment",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["content"],
+                "properties": {
+                  "content": { "type": "string", "minLength": 1, "maxLength": 2000 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Comment updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "comment": { "$ref": "#/components/schemas/CommentReply" }
+                  }
+                }
+              }
+            }
+          },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Comments"],
+        "summary": "Delete a comment",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Comment deleted", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Success" } } } },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/comments/{id}/like": {
+      "post": {
+        "tags": ["Comments"],
+        "summary": "Toggle comment like",
+        "description": "Like or unlike a comment (toggle behavior).",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Like toggled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "liked": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/comments/{id}/replies": {
+      "get": {
+        "tags": ["Comments"],
+        "summary": "Get replies for a comment",
+        "description": "Get paginated replies for a top-level comment (offset-based).",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10, "maximum": 50 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of replies",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "replies": { "type": "array", "items": { "$ref": "#/components/schemas/CommentReply" } }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/connections": {
+      "get": {
+        "tags": ["Connections"],
+        "summary": "List connections",
+        "description": "Get the current user's connections filtered by status.",
+        "parameters": [
+          { "name": "status", "in": "query", "schema": { "$ref": "#/components/schemas/ConnectionStatus" }, "description": "Filter by connection status (default: ACCEPTED)." },
+          { "$ref": "#/components/parameters/cursor" },
+          { "$ref": "#/components/parameters/limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated connections",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "connections": { "type": "array", "items": { "$ref": "#/components/schemas/Connection" } },
+                    "nextCursor": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["Connections"],
+        "summary": "Send connection request",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["receiverId"],
+                "properties": {
+                  "receiverId": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Connection request sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "connection": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "senderId": { "type": "string" },
+                        "receiverId": { "type": "string" },
+                        "status": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/connections/{id}": {
+      "delete": {
+        "tags": ["Connections"],
+        "summary": "Remove connection or cancel request",
+        "description": "The path parameter is the other user's ID (not the connection ID).",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Other user's ID" }
+        ],
+        "responses": {
+          "200": { "description": "Connection removed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Success" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/connections/{id}/accept": {
+      "post": {
+        "tags": ["Connections"],
+        "summary": "Accept connection request",
+        "description": "The path parameter is the sender's user ID.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Sender's user ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Connection accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "connection": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "status": { "type": "string", "example": "ACCEPTED" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/teams": {
+      "get": {
+        "tags": ["Teams"],
+        "summary": "Search teams",
+        "description": "Search teams by name, category, and location. Supports `mode=suggestions` for personalized team suggestions.",
+        "parameters": [
+          { "name": "mode", "in": "query", "schema": { "type": "string", "enum": ["suggestions"] } },
+          { "name": "q", "in": "query", "schema": { "type": "string" } },
+          { "name": "category", "in": "query", "schema": { "$ref": "#/components/schemas/TeamCategory" } },
+          { "name": "location", "in": "query", "schema": { "type": "string" } },
+          { "$ref": "#/components/parameters/cursor" },
+          { "$ref": "#/components/parameters/limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of teams",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "teams": { "type": "array", "items": { "$ref": "#/components/schemas/TeamListItem" } },
+                    "nextCursor": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["Teams"],
+        "summary": "Create a new team",
+        "description": "Creates a team and makes the current user admin with full permissions.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "minLength": 2 },
+                  "description": { "type": "string", "nullable": true },
+                  "location": { "type": "string", "nullable": true },
+                  "category": { "$ref": "#/components/schemas/TeamCategory" },
+                  "level": { "type": "string", "nullable": true },
+                  "website": { "type": "string", "format": "uri", "nullable": true },
+                  "instagram": { "type": "string", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Team created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "team": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "name": { "type": "string" },
+                        "slug": { "type": "string" },
+                        "description": { "type": "string", "nullable": true },
+                        "location": { "type": "string", "nullable": true },
+                        "category": { "$ref": "#/components/schemas/TeamCategory" },
+                        "level": { "type": "string", "nullable": true }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/teams/{slug}": {
+      "get": {
+        "tags": ["Teams"],
+        "summary": "Get team details",
+        "description": "Returns full team details including members, recent posts, and upcoming events.",
+        "parameters": [
+          { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Team details" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "patch": {
+        "tags": ["Teams"],
+        "summary": "Update team info",
+        "description": "Requires `hasPermission` on the team.",
+        "parameters": [
+          { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "minLength": 2 },
+                  "description": { "type": "string", "nullable": true },
+                  "location": { "type": "string", "nullable": true },
+                  "category": { "$ref": "#/components/schemas/TeamCategory" },
+                  "level": { "type": "string", "nullable": true },
+                  "website": { "type": "string", "format": "uri", "nullable": true },
+                  "instagram": { "type": "string", "nullable": true },
+                  "logo": { "type": "string", "nullable": true },
+                  "banner": { "type": "string", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Team updated" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Teams"],
+        "summary": "Delete team",
+        "description": "Requires `isAdmin` on the team.",
+        "parameters": [
+          { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Team deleted", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Success" } } } },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/teams/{slug}/members": {
+      "get": {
+        "tags": ["Teams"],
+        "summary": "List team members",
+        "parameters": [
+          { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of active team members",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "members": { "type": "array", "items": { "$ref": "#/components/schemas/TeamMember" } },
+                    "isAdmin": { "type": "boolean" },
+                    "hasPermission": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/teams/{slug}/members/{memberId}": {
+      "patch": {
+        "tags": ["Teams"],
+        "summary": "Update member role/permissions",
+        "description": "Requires `hasPermission`. Granting admin/permission requires `isAdmin`.",
+        "parameters": [
+          { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "memberId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "role": { "type": "string" },
+                  "hasPermission": { "type": "boolean" },
+                  "isAdmin": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Member updated", "content": { "application/json": { "schema": { "type": "object", "properties": { "member": { "$ref": "#/components/schemas/TeamMember" } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Teams"],
+        "summary": "Remove team member",
+        "description": "Soft-deletes the member (marks as inactive). Cannot remove self or last admin.",
+        "parameters": [
+          { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "memberId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Member removed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Success" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/teams/{slug}/posts": {
+      "post": {
+        "tags": ["Teams"],
+        "summary": "Create a team post",
+        "description": "Post on behalf of a team. Requires `hasPermission`.",
+        "parameters": [
+          { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["content"],
+                "properties": {
+                  "content": { "type": "string", "minLength": 1 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Team post created", "content": { "application/json": { "schema": { "type": "object", "properties": { "post": { "$ref": "#/components/schemas/Post" } } } } } },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/teams/{slug}/follow": {
+      "get": {
+        "tags": ["Teams"],
+        "summary": "Check if following team",
+        "parameters": [
+          { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Follow status", "content": { "application/json": { "schema": { "type": "object", "properties": { "isFollowing": { "type": "boolean" } } } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "post": {
+        "tags": ["Teams"],
+        "summary": "Follow a team",
+        "parameters": [
+          { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Now following", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean" }, "isFollowing": { "type": "boolean" } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Teams"],
+        "summary": "Unfollow a team",
+        "parameters": [
+          { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Unfollowed", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean" }, "isFollowing": { "type": "boolean" } } } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/teams/{slug}/invites": {
+      "get": {
+        "tags": ["Teams"],
+        "summary": "List pending team invites",
+        "description": "List pending invites for a team. Requires `hasPermission`.",
+        "parameters": [
+          { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "$ref": "#/components/parameters/cursor" },
+          { "$ref": "#/components/parameters/limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pending invites",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "invites": { "type": "array", "items": { "$ref": "#/components/schemas/TeamInvite" } },
+                    "nextCursor": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "post": {
+        "tags": ["Teams"],
+        "summary": "Send team invite",
+        "description": "Invite a user to the team. Requires `hasPermission`. Granting admin/permission requires `isAdmin`.",
+        "parameters": [
+          { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["userId"],
+                "properties": {
+                  "userId": { "type": "string" },
+                  "role": { "type": "string", "default": "Atleta" },
+                  "hasPermission": { "type": "boolean", "default": false },
+                  "isAdmin": { "type": "boolean", "default": false }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Invite sent", "content": { "application/json": { "schema": { "type": "object", "properties": { "invite": { "$ref": "#/components/schemas/TeamInvite" } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/teams/{slug}/invites/{id}": {
+      "delete": {
+        "tags": ["Teams"],
+        "summary": "Cancel a team invite",
+        "parameters": [
+          { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Invite ID" }
+        ],
+        "responses": {
+          "200": { "description": "Invite cancelled", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Success" } } } },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/teams/{slug}/achievements": {
+      "get": {
+        "tags": ["Teams"],
+        "summary": "List team achievements",
+        "parameters": [
+          { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "$ref": "#/components/parameters/cursor" },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Team achievements",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "achievements": { "type": "array", "items": { "$ref": "#/components/schemas/TeamAchievement" } },
+                    "nextCursor": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "post": {
+        "tags": ["Teams"],
+        "summary": "Add team achievement",
+        "description": "Add an achievement to a team. Requires OWNER or ADMIN role.",
+        "parameters": [
+          { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title", "date"],
+                "properties": {
+                  "title": { "type": "string", "minLength": 1 },
+                  "description": { "type": "string", "nullable": true },
+                  "date": { "type": "string", "format": "date", "description": "ISO date string" },
+                  "category": { "type": "string", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Achievement created", "content": { "application/json": { "schema": { "type": "object", "properties": { "achievement": { "$ref": "#/components/schemas/TeamAchievement" } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/teams/{slug}/achievements/{id}": {
+      "delete": {
+        "tags": ["Teams"],
+        "summary": "Delete team achievement",
+        "description": "Requires `hasPermission` or `isAdmin`.",
+        "parameters": [
+          { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Achievement deleted", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Success" } } } },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/teams/invites": {
+      "get": {
+        "tags": ["Teams"],
+        "summary": "List user's pending team invites",
+        "description": "Get all pending team invites for the current user.",
+        "responses": {
+          "200": {
+            "description": "User's pending invites",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "invites": { "type": "array", "items": { "$ref": "#/components/schemas/TeamInvite" } }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/teams/invites/{id}/accept": {
+      "post": {
+        "tags": ["Teams"],
+        "summary": "Accept team invite",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Invite ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invite accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "team": { "$ref": "#/components/schemas/TeamSummary" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/teams/invites/{id}/reject": {
+      "post": {
+        "tags": ["Teams"],
+        "summary": "Reject team invite",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Invite ID" }
+        ],
+        "responses": {
+          "200": { "description": "Invite rejected", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Success" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/conversations": {
+      "get": {
+        "tags": ["Conversations"],
+        "summary": "List conversations",
+        "description": "Get all conversations for the current user, ordered by last message.",
+        "parameters": [
+          { "$ref": "#/components/parameters/cursor" },
+          { "$ref": "#/components/parameters/limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated conversations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "conversations": { "type": "array", "items": { "$ref": "#/components/schemas/Conversation" } },
+                    "nextCursor": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["Conversations"],
+        "summary": "Start a conversation",
+        "description": "Create a new conversation or return existing one. Requires an accepted connection with the other user.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["participantId"],
+                "properties": {
+                  "participantId": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "New conversation created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "conversation": { "$ref": "#/components/schemas/Conversation" },
+                    "isNew": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          },
+          "200": { "description": "Existing conversation returned" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "description": "Not connected with this user" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/conversations/{id}": {
+      "get": {
+        "tags": ["Conversations"],
+        "summary": "Get conversation details",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Conversation details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "conversation": { "$ref": "#/components/schemas/Conversation" }
+                  }
+                }
+              }
+            }
+          },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Conversations"],
+        "summary": "Delete conversation",
+        "description": "Delete a conversation and all its messages.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Conversation deleted", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Success" } } } },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/conversations/{id}/messages": {
+      "get": {
+        "tags": ["Conversations"],
+        "summary": "List messages",
+        "description": "Get paginated messages in chronological order (oldest first). Uses cursor-based pagination loading older messages.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "$ref": "#/components/parameters/cursor" },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated messages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "messages": { "type": "array", "items": { "$ref": "#/components/schemas/Message" } },
+                    "nextCursor": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "post": {
+        "tags": ["Conversations"],
+        "summary": "Send a message",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["content"],
+                "properties": {
+                  "content": { "type": "string", "minLength": 1, "maxLength": 2000 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Message sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "$ref": "#/components/schemas/Message" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/conversations/{id}/messages/read": {
+      "post": {
+        "tags": ["Conversations"],
+        "summary": "Mark messages as read",
+        "description": "Marks all unread messages from the other participant as read.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Messages marked as read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "markedAsRead": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/conversations/{id}/messages/stream": {
+      "get": {
+        "tags": ["Conversations"],
+        "summary": "Real-time message stream (SSE)",
+        "description": "Server-Sent Events stream that polls for new messages every 3 seconds. Sends heartbeat every 15 seconds.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE stream of new messages",
+            "content": {
+              "text/event-stream": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/messages/count": {
+      "get": {
+        "tags": ["Conversations"],
+        "summary": "Get unread message count",
+        "responses": {
+          "200": {
+            "description": "Unread message count",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "List notifications",
+        "description": "Get paginated notifications (excludes MESSAGE_RECEIVED type).",
+        "parameters": [
+          { "name": "unreadOnly", "in": "query", "schema": { "type": "boolean" } },
+          { "$ref": "#/components/parameters/cursor" },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20, "maximum": 50 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated notifications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "notifications": { "type": "array", "items": { "$ref": "#/components/schemas/Notification" } },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/Notification" } },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "nextCursor": { "type": "string", "nullable": true }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "patch": {
+        "tags": ["Notifications"],
+        "summary": "Mark notifications as read",
+        "description": "Mark specific notifications or all unread notifications as read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": { "type": "array", "items": { "type": "string" }, "maxItems": 100, "description": "Specific notification IDs to mark as read." },
+                  "all": { "type": "boolean", "description": "Set to true to mark all notifications as read." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Notifications marked as read", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Success" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/notifications/count": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "Get unread notification count",
+        "description": "Count of unread notifications (excludes MESSAGE_RECEIVED type).",
+        "responses": {
+          "200": {
+            "description": "Unread notification count",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/notifications/stream": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "Real-time notification stream (SSE)",
+        "description": "Server-Sent Events stream that polls every 5 seconds for notification count, unread message count, and last message timestamp. Only emits when values change; sends heartbeat otherwise.",
+        "responses": {
+          "200": {
+            "description": "SSE stream with notification and message counts",
+            "content": {
+              "text/event-stream": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/events": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "Search events",
+        "description": "Search upcoming events by type, text, and location. Supports `mode=suggestions` for personalized event suggestions.",
+        "parameters": [
+          { "name": "mode", "in": "query", "schema": { "type": "string", "enum": ["suggestions"] } },
+          { "name": "type", "in": "query", "schema": { "$ref": "#/components/schemas/EventType" } },
+          { "name": "q", "in": "query", "schema": { "type": "string" } },
+          { "name": "location", "in": "query", "schema": { "type": "string" } },
+          { "$ref": "#/components/parameters/cursor" },
+          { "$ref": "#/components/parameters/limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "events": { "type": "array", "items": { "$ref": "#/components/schemas/Event" } },
+                    "nextCursor": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["Events"],
+        "summary": "Create an event",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "location", "startDate", "type"],
+                "properties": {
+                  "name": { "type": "string", "minLength": 2 },
+                  "description": { "type": "string", "nullable": true },
+                  "location": { "type": "string", "minLength": 1 },
+                  "startDate": { "type": "string", "format": "date-time" },
+                  "endDate": { "type": "string", "format": "date-time", "nullable": true },
+                  "type": { "$ref": "#/components/schemas/EventType" },
+                  "teamId": { "type": "string", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Event created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "event": { "$ref": "#/components/schemas/Event" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/events/{id}": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "Get event details",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Event details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "event": { "$ref": "#/components/schemas/Event" },
+                    "isCreator": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "patch": {
+        "tags": ["Events"],
+        "summary": "Update an event",
+        "description": "Update event details. Requires being the creator or team member with permission.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "minLength": 2 },
+                  "description": { "type": "string", "nullable": true },
+                  "location": { "type": "string", "minLength": 1 },
+                  "startDate": { "type": "string", "format": "date-time" },
+                  "endDate": { "type": "string", "format": "date-time", "nullable": true },
+                  "type": { "$ref": "#/components/schemas/EventType" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Event updated", "content": { "application/json": { "schema": { "type": "object", "properties": { "event": { "$ref": "#/components/schemas/Event" } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Events"],
+        "summary": "Delete an event",
+        "description": "Requires being the creator or team member with permission.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Event deleted", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Success" } } } },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/career": {
+      "get": {
+        "tags": ["Career"],
+        "summary": "List career history",
+        "description": "Get the current user's career history entries.",
+        "responses": {
+          "200": {
+            "description": "Career history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "careerHistory": { "type": "array", "items": { "$ref": "#/components/schemas/CareerHistory" } }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["Career"],
+        "summary": "Add career entry",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["role", "startDate", "teamName"],
+                "properties": {
+                  "role": { "$ref": "#/components/schemas/CareerRole" },
+                  "positions": { "type": "array", "items": { "$ref": "#/components/schemas/Position" }, "maxItems": 10 },
+                  "startDate": { "type": "string", "format": "date" },
+                  "endDate": { "type": "string", "format": "date", "nullable": true },
+                  "isCurrent": { "type": "boolean", "default": false },
+                  "teamName": { "type": "string", "minLength": 1 },
+                  "teamId": { "type": "string", "nullable": true },
+                  "description": { "type": "string", "nullable": true },
+                  "location": { "type": "string", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Career entry created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "career": { "$ref": "#/components/schemas/CareerHistory" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/career/{id}": {
+      "get": {
+        "tags": ["Career"],
+        "summary": "Get career entry",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Career entry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "career": { "$ref": "#/components/schemas/CareerHistory" }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "patch": {
+        "tags": ["Career"],
+        "summary": "Update career entry",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "role": { "$ref": "#/components/schemas/CareerRole" },
+                  "positions": { "type": "array", "items": { "$ref": "#/components/schemas/Position" }, "maxItems": 10 },
+                  "startDate": { "type": "string", "format": "date" },
+                  "endDate": { "type": "string", "format": "date", "nullable": true },
+                  "isCurrent": { "type": "boolean" },
+                  "teamName": { "type": "string", "minLength": 1 },
+                  "teamId": { "type": "string", "nullable": true },
+                  "description": { "type": "string", "nullable": true },
+                  "location": { "type": "string", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Career entry updated", "content": { "application/json": { "schema": { "type": "object", "properties": { "career": { "$ref": "#/components/schemas/CareerHistory" } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Career"],
+        "summary": "Delete career entry",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Career entry deleted", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Success" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/achievements": {
+      "get": {
+        "tags": ["Achievements"],
+        "summary": "List achievements",
+        "description": "Get achievements for the current user or a specific user.",
+        "parameters": [
+          { "name": "userId", "in": "query", "schema": { "type": "string" }, "description": "Optional user ID (defaults to current user)." },
+          { "$ref": "#/components/parameters/cursor" },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Achievements list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "achievements": { "type": "array", "items": { "$ref": "#/components/schemas/Achievement" } },
+                    "nextCursor": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["Achievements"],
+        "summary": "Add achievement",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title", "date"],
+                "properties": {
+                  "title": { "type": "string", "minLength": 1 },
+                  "description": { "type": "string", "nullable": true },
+                  "date": { "type": "string", "format": "date" },
+                  "category": { "type": "string", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Achievement created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "achievement": { "$ref": "#/components/schemas/Achievement" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/achievements/{id}": {
+      "patch": {
+        "tags": ["Achievements"],
+        "summary": "Update achievement",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string", "minLength": 1 },
+                  "description": { "type": "string", "nullable": true },
+                  "date": { "type": "string", "format": "date" },
+                  "category": { "type": "string", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Achievement updated", "content": { "application/json": { "schema": { "type": "object", "properties": { "achievement": { "$ref": "#/components/schemas/Achievement" } } } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Achievements"],
+        "summary": "Delete achievement",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Achievement deleted", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Success" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/tags/{name}": {
+      "get": {
+        "tags": ["Tags"],
+        "summary": "Get posts by hashtag",
+        "description": "Fetch paginated posts tagged with a specific hashtag.",
+        "parameters": [
+          { "name": "name", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Tag name (without #)" },
+          { "$ref": "#/components/parameters/cursor" },
+          { "$ref": "#/components/parameters/limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Posts with this tag",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "posts": { "type": "array", "items": { "$ref": "#/components/schemas/Post" } },
+                    "nextCursor": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/settings": {
+      "get": {
+        "tags": ["Settings"],
+        "summary": "Get user settings",
+        "description": "Get notification preferences, privacy settings, and username change availability.",
+        "responses": {
+          "200": {
+            "description": "User settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "settings": { "$ref": "#/components/schemas/Settings" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "patch": {
+        "tags": ["Settings"],
+        "summary": "Update user settings",
+        "description": "Update username (30-day cooldown), notification preferences, and privacy settings.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": { "type": "string", "minLength": 3, "pattern": "^[a-zA-Z0-9_]+$" },
+                  "notifications": {
+                    "type": "object",
+                    "properties": {
+                      "postLiked": { "type": "boolean" },
+                      "postCommented": { "type": "boolean" },
+                      "connectionRequest": { "type": "boolean" },
+                      "connectionAccepted": { "type": "boolean" },
+                      "commentReplied": { "type": "boolean" },
+                      "messageReceived": { "type": "boolean" },
+                      "mention": { "type": "boolean" }
+                    }
+                  },
+                  "privacy": {
+                    "type": "object",
+                    "properties": {
+                      "profileVisibility": { "$ref": "#/components/schemas/ProfileVisibility" },
+                      "showEmail": { "type": "boolean" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Settings updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "settings": { "$ref": "#/components/schemas/Settings" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/settings/password": {
+      "post": {
+        "tags": ["Settings"],
+        "summary": "Change password",
+        "description": "Change the user's password. Requires current password. Not available for OAuth-only accounts.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["currentPassword", "newPassword", "confirmPassword"],
+                "properties": {
+                  "currentPassword": { "type": "string" },
+                  "newPassword": { "type": "string", "minLength": 6 },
+                  "confirmPassword": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Password changed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Success" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/settings/username": {
+      "get": {
+        "tags": ["Settings"],
+        "summary": "Check username availability",
+        "parameters": [
+          { "name": "username", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Username availability",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "available": { "type": "boolean" },
+                    "error": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/upload": {
+      "post": {
+        "tags": ["Upload"],
+        "summary": "Upload media file",
+        "description": "Upload an image (max 10MB) or video (max 100MB) to Cloudinary.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "File uploaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "url": { "type": "string", "format": "uri" },
+                    "type": { "type": "string", "enum": ["image", "video"] },
+                    "publicId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/reports": {
+      "post": {
+        "tags": ["Reports"],
+        "summary": "Submit a report",
+        "description": "Report a post, comment, or user. One report per user per content item.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["reason", "contentType", "contentId"],
+                "properties": {
+                  "reason": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "description": { "type": "string", "maxLength": 1000 },
+                  "contentType": { "type": "string", "enum": ["post", "comment", "user"] },
+                  "contentId": { "type": "string", "minLength": 1 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Report submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "report": { "$ref": "#/components/schemas/Report" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    }
+  }
+}

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 // DELETE /api/teams/[slug]/invites/[id] - Cancelar convite
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ slug: string; id: string }> }
 ) {
   try {

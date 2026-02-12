@@ -7,7 +7,7 @@ interface RouteParams {
 }
 
 // GET /api/teams/[slug]/follow - Verificar se o usuário segue esta equipe
-export async function GET(request: Request, { params }: RouteParams) {
+export async function GET(_request: Request, { params }: RouteParams) {
   try {
     const { session, error } = await requireAuth();
     if (error) return error;
@@ -39,7 +39,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 }
 
 // POST /api/teams/[slug]/follow - Seguir uma equipe
-export async function POST(request: Request, { params }: RouteParams) {
+export async function POST(_request: Request, { params }: RouteParams) {
   try {
     const { session, error } = await requireAuth();
     if (error) return error;
@@ -83,7 +83,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 }
 
 // DELETE /api/teams/[slug]/follow - Deixar de seguir uma equipe
-export async function DELETE(request: Request, { params }: RouteParams) {
+export async function DELETE(_request: Request, { params }: RouteParams) {
   try {
     const { session, error } = await requireAuth();
     if (error) return error;

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 // POST /api/conversations/[id]/messages/read - Marcar mensagens como lidas
 export async function POST(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { MessageSquare, Loader2 } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { ConversationItem, Conversation } from "./conversation-item";
@@ -12,6 +12,7 @@ import {
   noMotion,
   noMotionContainer,
 } from "@/lib/animations";
+import { useRealtime } from "@/hooks/use-realtime";
 
 interface ConversationListProps {
   activeConversationId?: string;
@@ -38,13 +39,18 @@ export function ConversationList({ activeConversationId }: ConversationListProps
     reset,
   } = useInfiniteScroll({ fetchFn: fetchConversations });
 
-  // Atualizar conversas periodicamente (rebusca a primeira página)
+  // Refresh conversation list when a new message arrives (SSE-driven)
+  const { lastMessageAt } = useRealtime();
+  const prevLastMessageAtRef = useRef(lastMessageAt);
+
   useEffect(() => {
-    const interval = setInterval(() => {
+    // Skip initial mount
+    if (prevLastMessageAtRef.current === null && lastMessageAt === null) return;
+    if (lastMessageAt !== prevLastMessageAtRef.current) {
+      prevLastMessageAtRef.current = lastMessageAt;
       reset();
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [reset]);
+    }
+  }, [lastMessageAt, reset]);
 
   if (isLoading) {
     return (

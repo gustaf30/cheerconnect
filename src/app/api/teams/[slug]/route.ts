@@ -4,6 +4,7 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { logActivity } from "@/lib/audit";
 
 const updateTeamSchema = z.object({
   name: z.string().min(2).optional(),
@@ -19,7 +20,7 @@ const updateTeamSchema = z.object({
 
 // GET /api/teams/[slug] - Buscar detalhes da equipe
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
@@ -164,6 +165,17 @@ export async function PATCH(
       },
     });
 
+    logActivity({
+      action: "TEAM_EDITED",
+      entityType: "team",
+      entityId: team.id,
+      actorId: session.user.id,
+      metadata: {
+        teamSlug: slug,
+        changes: data,
+      },
+    });
+
     return NextResponse.json({ team: updatedTeam });
   } catch (error) {
     return handleZodError(error) ?? internalError("Erro ao atualizar equipe", error);
@@ -172,7 +184,7 @@ export async function PATCH(
 
 // DELETE /api/teams/[slug] - Excluir equipe (apenas admin)
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
@@ -208,6 +220,17 @@ export async function DELETE(
 
     await prisma.team.delete({
       where: { id: team.id },
+    });
+
+    logActivity({
+      action: "TEAM_DELETED",
+      entityType: "team",
+      entityId: team.id,
+      actorId: session.user.id,
+      metadata: {
+        teamSlug: slug,
+        teamName: team.name,
+      },
     });
 
     return NextResponse.json({ success: true });

@@ -52,7 +52,7 @@ export async function PATCH(
 
 // DELETE /api/achievements/[id] - Excluir conquista
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

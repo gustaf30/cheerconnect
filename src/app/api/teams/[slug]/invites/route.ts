@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { logActivity } from "@/lib/audit";
 
 const createInviteSchema = z.object({
   userId: z.string(),
@@ -151,6 +152,22 @@ export async function POST(
         },
       });
     }
+
+    logActivity({
+      action: "INVITE_SENT",
+      entityType: "team_invite",
+      entityId: invite.id,
+      actorId: session.user.id,
+      metadata: {
+        teamSlug: slug,
+        teamId: team.id,
+        invitedUserId: userId,
+        invitedUserName: targetUser.name,
+        role,
+        hasPermission,
+        isAdmin,
+      },
+    });
 
     return NextResponse.json({ invite }, { status: 201 });
   } catch (error) {

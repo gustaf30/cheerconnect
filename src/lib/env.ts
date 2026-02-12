@@ -1,4 +1,5 @@
 import { z } from "zod";
+import logger from "@/lib/logger";
 
 const envSchema = z.object({
   DATABASE_URL: z.string().url("DATABASE_URL must be a valid URL"),
@@ -16,10 +17,10 @@ export type Env = z.infer<typeof envSchema>;
 export function validateEnv() {
   const result = envSchema.safeParse(process.env);
   if (!result.success) {
-    console.error("Invalid environment variables:");
-    for (const issue of result.error.issues) {
-      console.error(`  ${issue.path.join(".")}: ${issue.message}`);
-    }
+    logger.error(
+      { issues: result.error.issues.map((i) => ({ path: i.path.join("."), message: i.message })) },
+      "Invalid environment variables"
+    );
     throw new Error("Invalid environment variables");
   }
   return result.data;

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 // POST /api/teams/invites/[id]/reject - Rejeitar convite
 export async function POST(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

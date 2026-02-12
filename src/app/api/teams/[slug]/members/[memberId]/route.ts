@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { logActivity } from "@/lib/audit";
 
 const updateMemberSchema = z.object({
   role: z.string().optional(),
@@ -136,6 +137,20 @@ export async function PATCH(
       });
     });
 
+    logActivity({
+      action: "MEMBER_UPDATED",
+      entityType: "team_member",
+      entityId: memberId,
+      actorId: session.user.id,
+      metadata: {
+        teamSlug: slug,
+        teamId: team.id,
+        memberUserId: updatedMember.user.id,
+        memberName: updatedMember.user.name,
+        changes: data,
+      },
+    });
+
     return NextResponse.json({ member: updatedMember });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -158,7 +173,7 @@ export async function PATCH(
 
 // DELETE /api/teams/[slug]/members/[memberId] - Remover membro da equipe
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ slug: string; memberId: string }> }
 ) {
   try {
@@ -259,6 +274,19 @@ export async function DELETE(
           leftAt: new Date(),
         },
       });
+    });
+
+    logActivity({
+      action: "MEMBER_REMOVED",
+      entityType: "team_member",
+      entityId: memberId,
+      actorId: session.user.id,
+      metadata: {
+        teamSlug: slug,
+        teamId: team.id,
+        memberUserId: memberToRemove.user.id,
+        memberName: memberToRemove.user.name,
+      },
     });
 
     return NextResponse.json({ success: true });

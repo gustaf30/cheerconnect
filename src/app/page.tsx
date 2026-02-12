@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { Users, Trophy, Calendar, Search, ArrowRight, Sparkles } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { LandingHero, LandingStats, LandingFeatures, LandingCTA } from "./landing-sections";
 

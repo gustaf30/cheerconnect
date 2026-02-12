@@ -31,6 +31,7 @@ export interface PostData {
     reposts?: number;
   };
   isLiked: boolean;
+  isEdited?: boolean;
 }
 
 export interface ConnectionUser {

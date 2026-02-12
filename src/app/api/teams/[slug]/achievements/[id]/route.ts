@@ -7,7 +7,7 @@ interface RouteParams {
 }
 
 // DELETE /api/teams/[slug]/achievements/[id] - Excluir conquista da equipe
-export async function DELETE(request: Request, { params }: RouteParams) {
+export async function DELETE(_request: Request, { params }: RouteParams) {
   try {
     const { session, error } = await requireAuth();
     if (error) return error;

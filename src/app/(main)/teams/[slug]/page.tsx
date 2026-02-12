@@ -25,9 +25,15 @@ export async function generateMetadata({ params }: TeamPageProps): Promise<Metad
   const { slug } = await params;
   const team = await prisma.team.findUnique({
     where: { slug },
-    select: { name: true },
+    select: { name: true, description: true },
   });
-  return { title: team ? `${team.name} - CheerConnect` : "Equipe - CheerConnect" };
+  if (!team) return { title: "Equipe | CheerConnect" };
+  return {
+    title: `${team.name} | CheerConnect`,
+    description: team.description
+      ? team.description.length > 160 ? team.description.slice(0, 160) + "..." : team.description
+      : `Equipe de cheerleading ${team.name} no CheerConnect.`,
+  };
 }
 
 export default async function TeamPage({ params }: TeamPageProps) {

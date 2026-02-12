@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 // POST /api/comments/[id]/like - Alternar curtida em um comentário
 export async function POST(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

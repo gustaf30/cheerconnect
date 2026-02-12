@@ -31,6 +31,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
+RUN apk add --no-cache tini
+
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 
@@ -49,4 +51,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
+ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["node", "server.js"]

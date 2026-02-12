@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { cloudinary, deleteCloudinaryAsset } from "@/lib/cloudinary";
+import logger from "@/lib/logger";
 
 // POST /api/users/me/avatar - Upload de avatar para o Cloudinary
 export async function POST(request: Request) {
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
     // Excluir asset antigo do Cloudinary (fire-and-forget)
     if (currentUser?.avatarPublicId) {
       deleteCloudinaryAsset(currentUser.avatarPublicId).catch((err) =>
-        console.error("Falha ao excluir avatar antigo do Cloudinary:", err)
+        logger.error({ err }, "Falha ao excluir avatar antigo do Cloudinary")
       );
     }
 
@@ -99,7 +100,7 @@ export async function DELETE() {
     // Excluir do Cloudinary (fire-and-forget)
     if (currentUser?.avatarPublicId) {
       deleteCloudinaryAsset(currentUser.avatarPublicId).catch((err) =>
-        console.error("Falha ao excluir avatar do Cloudinary:", err)
+        logger.error({ err }, "Falha ao excluir avatar do Cloudinary")
       );
     }
 
