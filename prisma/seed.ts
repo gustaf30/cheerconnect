@@ -1014,6 +1014,9 @@ async function main() {
     // Notificações para Pedro
     { userId: pedro.id, type: NotificationType.POST_COMMENTED, message: "Maria Santos comentou no seu post", actorId: maria.id, relatedId: posts[14].id, relatedType: "post", isRead: true, createdAt: daysAgo(8) },
     { userId: pedro.id, type: NotificationType.COMMENT_REPLIED, message: "Lucas Ferreira respondeu seu comentário", actorId: lucas.id, relatedId: posts[14].id, relatedType: "post", isRead: false, createdAt: daysAgo(8) },
+    // Notificações de repost
+    { userId: gustavo.id, type: NotificationType.POST_REPOSTED, message: "Lucas Ferreira repostou sua publicação", actorId: lucas.id, relatedId: posts[0].id, relatedType: "post", isRead: false, createdAt: daysAgo(1) },
+    { userId: maria.id, type: NotificationType.POST_REPOSTED, message: "Ana Costa repostou sua publicação", actorId: ana.id, relatedId: posts[3].id, relatedType: "post", isRead: false, createdAt: daysAgo(2) },
     // Notificações variadas
     { userId: joao.id, type: NotificationType.CONNECTION_ACCEPTED, message: "Gustavo Silva aceitou sua conexão", actorId: gustavo.id, isRead: true, createdAt: daysAgo(20) },
     { userId: julia.id, type: NotificationType.CONNECTION_REQUEST, message: "Carla Mendes quer se conectar com você", actorId: carla.id, isRead: false, createdAt: daysAgo(1) },

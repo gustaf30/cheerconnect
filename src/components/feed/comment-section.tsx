@@ -68,12 +68,13 @@ export function CommentSection({ postId, initialCommentsCount, showInput = false
   const [previewLoaded, setPreviewLoaded] = useState(false);
 
   const setCommentsCount = (updater: number | ((prev: number) => number)) => {
-    setCommentsCountRaw((prev) => {
-      const next = typeof updater === "function" ? updater(prev) : updater;
-      onCommentsCountChange?.(next);
-      return next;
-    });
+    setCommentsCountRaw(updater);
   };
+
+  useEffect(() => {
+    onCommentsCountChange?.(commentsCount);
+  }, [commentsCount, onCommentsCountChange]);
+
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyingToAuthor, setReplyingToAuthor] = useState<string | null>(null);
   const [loadingReplies, setLoadingReplies] = useState<Set<string>>(new Set());

@@ -14,13 +14,36 @@ const createTeamSchema = z.object({
   instagram: z.string().optional().nullable(),
 });
 
+const teamSelect = {
+  id: true,
+  name: true,
+  slug: true,
+  logo: true,
+  location: true,
+  category: true,
+  level: true,
+  _count: {
+    select: {
+      members: {
+        where: { isActive: true },
+      },
+    },
+  },
+} as const;
+
 // GET /api/teams - Buscar lista de equipes
 export async function GET(request: Request) {
   try {
-    const { error } = await requireAuth();
+    const { session, error } = await requireAuth();
     if (error) return error;
 
     const { searchParams } = new URL(request.url);
+    const mode = searchParams.get("mode");
+
+    if (mode === "suggestions") {
+      return handleTeamSuggestions(session.user.id);
+    }
+
     const query = searchParams.get("q") || "";
     const category = searchParams.get("category");
     const location = searchParams.get("location");
@@ -62,22 +85,7 @@ export async function GET(request: Request) {
         cursor: { id: cursor },
       }),
       orderBy: { name: "asc" },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        logo: true,
-        location: true,
-        category: true,
-        level: true,
-        _count: {
-          select: {
-            members: {
-              where: { isActive: true },
-            },
-          },
-        },
-      },
+      select: teamSelect,
     });
 
     return NextResponse.json({
@@ -87,6 +95,101 @@ export async function GET(request: Request) {
   } catch (error) {
     return internalError("Erro ao buscar equipes", error);
   }
+}
+
+async function handleTeamSuggestions(userId: string) {
+  const MAX = 12;
+
+  // Get user info, connections, and user's own teams in parallel
+  const [currentUser, acceptedConnections, myMemberships] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { location: true },
+    }),
+    prisma.connection.findMany({
+      where: {
+        status: "ACCEPTED",
+        OR: [{ senderId: userId }, { receiverId: userId }],
+      },
+      select: { senderId: true, receiverId: true },
+    }),
+    prisma.teamMember.findMany({
+      where: { userId, isActive: true },
+      select: { teamId: true },
+    }),
+  ]);
+
+  const connectedIds = acceptedConnections.map((c) =>
+    c.senderId === userId ? c.receiverId : c.senderId
+  );
+  const myTeamIds = myMemberships.map((m) => m.teamId);
+  const seen = new Set<string>();
+  const results: Array<Record<string, unknown>> = [];
+
+  const add = (teams: Array<Record<string, unknown>>) => {
+    for (const t of teams) {
+      const id = t.id as string;
+      if (!seen.has(id) && results.length < MAX) {
+        seen.add(id);
+        results.push(t);
+      }
+    }
+  };
+
+  // Teams where connections are active members (user is NOT a member)
+  const connectionTeamsPromise = connectedIds.length > 0
+    ? prisma.team.findMany({
+        where: {
+          id: { notIn: myTeamIds },
+          members: {
+            some: {
+              userId: { in: connectedIds },
+              isActive: true,
+            },
+          },
+        },
+        take: 5,
+        select: teamSelect,
+      })
+    : Promise.resolve([]);
+
+  // Same region teams
+  const locationParts = currentUser?.location
+    ?.split(",")
+    .map((p) => p.trim())
+    .filter(Boolean) || [];
+  const statePart = locationParts[locationParts.length - 1];
+
+  const regionTeamsPromise = statePart
+    ? prisma.team.findMany({
+        where: {
+          id: { notIn: myTeamIds },
+          location: { contains: statePart, mode: "insensitive" },
+        },
+        take: 8,
+        select: teamSelect,
+      })
+    : Promise.resolve([]);
+
+  // Popular teams (by member count)
+  const popularTeamsPromise = prisma.team.findMany({
+    where: { id: { notIn: myTeamIds } },
+    take: MAX,
+    orderBy: { members: { _count: "desc" } },
+    select: teamSelect,
+  });
+
+  const [connectionTeams, regionTeams, popularTeams] = await Promise.all([
+    connectionTeamsPromise,
+    regionTeamsPromise,
+    popularTeamsPromise,
+  ]);
+
+  add(connectionTeams);
+  add(regionTeams);
+  add(popularTeams);
+
+  return NextResponse.json({ teams: results, nextCursor: null });
 }
 
 // POST /api/teams - Criar uma nova equipe

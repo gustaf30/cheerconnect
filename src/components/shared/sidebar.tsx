@@ -3,20 +3,22 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import {
   LayoutGrid,
   Users,
   Calendar,
   Castle,
-  UserPlus,
+  UserSearch,
   MessageCircle,
   Settings,
+  LogOut,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { UserProfile } from "@/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { NotificationDropdown } from "./notification-dropdown";
 import { useAnimatedNumber } from "@/hooks/use-animated-number";
 
 const mainNavItems = [
@@ -46,9 +48,9 @@ const mainNavItems = [
     icon: MessageCircle,
   },
   {
-    title: "Configurações",
-    href: "/settings",
-    icon: Settings,
+    title: "Pessoas",
+    href: "/search",
+    icon: UserSearch,
   },
 ];
 
@@ -62,6 +64,7 @@ export function Sidebar() {
   const { data: session } = useSession();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [stats, setStats] = useState<Stats>({ connections: 0, achievements: 0 });
+  const [unreadMessages, setUnreadMessages] = useState(0);
 
   const fetchUserProfile = useCallback(async () => {
     try {
@@ -104,28 +107,45 @@ export function Sidebar() {
     }
   }, []);
 
+  const fetchUnreadMessages = useCallback(async () => {
+    try {
+      const response = await fetch("/api/messages/count");
+      if (response.ok) {
+        const data = await response.json();
+        setUnreadMessages(data.count);
+      }
+    } catch {
+      // Fail silently
+    }
+  }, []);
+
   useEffect(() => {
     if (session?.user) {
       fetchUserProfile();
       fetchStats();
+      fetchUnreadMessages();
+
+      const interval = setInterval(fetchUnreadMessages, 30000);
+      return () => clearInterval(interval);
     }
-  }, [session, fetchUserProfile, fetchStats]);
+  }, [session, fetchUserProfile, fetchStats, fetchUnreadMessages]);
 
   const displayName = userProfile?.name || session?.user?.name || "";
   const displayUsername = userProfile?.username || "";
   const displayAvatar = userProfile?.avatar || session?.user?.image || undefined;
+  const profileUrl = displayUsername ? `/profile/${displayUsername}` : "/profile";
 
   const animatedConnections = useAnimatedNumber(stats.connections);
   const animatedAchievements = useAnimatedNumber(stats.achievements);
 
   return (
     <ScrollArea className="flex-1">
-      <div className="flex flex-col gap-4 stagger-children">
-        {/* Logo para mobile */}
-        <div className="flex h-14 items-center px-4 lg:hidden border-b">
+      <div className="flex flex-col gap-6 stagger-children py-2">
+        {/* Logo */}
+        <div className="flex h-14 items-center px-6">
           <Link
             href="/feed"
-            className="flex items-center gap-0.5 font-display font-extrabold text-xl group"
+            className="flex items-center gap-0.5 font-display font-extrabold text-2xl tracking-tight group"
           >
             <span className="text-primary transition-base group-hover:opacity-90">
               Cheer
@@ -136,96 +156,125 @@ export function Sidebar() {
           </Link>
         </div>
 
-        {/* Card Bento unificado de Perfil e Estatísticas */}
+        {/* Profile Card */}
         {session?.user && (
           <div className="bento-card-static">
             <div className="accent-bar" />
-            <div className="p-5 flex flex-col items-center text-center">
-              <div className="relative">
-                <Avatar className="h-20 w-20 rounded-2xl border-2 border-white shadow-sm mb-3">
+            <div className="p-6">
+              <Link href={profileUrl} className="flex items-center gap-4 group">
+                <Avatar className="h-14 w-14 rounded-2xl border-2 border-white shadow-depth-1 avatar-glow shrink-0">
                   <AvatarImage
                     src={displayAvatar}
                     alt={displayName}
                     className="object-cover"
                   />
-                  <AvatarFallback className="bg-primary text-primary-foreground font-display font-semibold text-xl rounded-2xl">
+                  <AvatarFallback className="bg-primary text-primary-foreground font-display font-semibold text-lg rounded-2xl">
                     {displayName ? getInitials(displayName) : "U"}
                   </AvatarFallback>
                 </Avatar>
-              </div>
-              <h2 className="font-display font-bold text-lg">{displayName}</h2>
-              {displayUsername && (
-                <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest font-bold mb-5">
-                  @{displayUsername}
-                </p>
-              )}
+                <div className="flex flex-col min-w-0">
+                  <span className="font-display font-bold text-base truncate group-hover:text-primary transition-fast">
+                    {displayName}
+                  </span>
+                  {displayUsername && (
+                    <span className="font-mono text-xs text-muted-foreground truncate">
+                      @{displayUsername}
+                    </span>
+                  )}
+                </div>
+              </Link>
 
-              <div className="grid grid-cols-2 w-full gap-4 border-t border-border/50 pt-5">
+              {/* Stats */}
+              <div className="flex items-center gap-6 mt-5 pt-5 border-t border-border/50">
                 <div className="flex flex-col">
-                  <span className="font-mono text-xl font-bold text-primary">
+                  <span className="stat-number text-lg text-primary">
                     {animatedConnections}
                   </span>
-                  <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
+                  <span className="text-xs font-medium text-muted-foreground">
                     Conexões
                   </span>
                 </div>
-                <div className="flex flex-col border-l border-border/50">
-                  <span className="font-mono text-xl font-bold text-primary">
+                <div className="h-8 w-px bg-border/50" />
+                <div className="flex flex-col">
+                  <span className="stat-number text-lg text-primary">
                     {animatedAchievements}
                   </span>
-                  <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
+                  <span className="text-xs font-medium text-muted-foreground">
                     Conquistas
                   </span>
                 </div>
               </div>
+
+              {/* Profile link */}
+              <Link
+                href={profileUrl}
+                className="inline-flex mt-4 text-sm font-semibold text-primary hover:text-primary/80 transition-fast animated-underline"
+              >
+                Ver meu perfil
+              </Link>
             </div>
-            <Link
-              href={displayUsername ? `/profile/${displayUsername}` : "/profile"}
-              className="block w-full text-center py-3 bg-foreground/5 text-xs font-bold hover:bg-primary hover:text-white hover:scale-[1.05] active:scale-[0.98] transition-all duration-300"
-            >
-              VER MEU PERFIL
-            </Link>
           </div>
         )}
 
-        {/* Cards de navegação em grid */}
-        <nav className="grid grid-cols-2 gap-3">
+        {/* Navigation */}
+        <nav className="flex flex-col gap-1 px-2">
           {mainNavItems.map((item) => {
             const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
+            const isMessages = item.href === "/messages";
             return (
-              <div key={item.href}>
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "nav-card flex flex-col items-center justify-center p-4 rounded-2xl bento-card-static border-none shadow-sm",
-                    isActive && "active",
-                    !isActive && "text-muted-foreground"
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "nav-indicator flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-base",
+                  isActive
+                    ? "active text-primary bg-primary/5 font-semibold"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                )}
+              >
+                <div className="relative">
+                  <item.icon className="h-5 w-5" />
+                  {isMessages && unreadMessages > 0 && (
+                    <span className="absolute -top-2 -right-3 h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shadow-sm">
+                      {unreadMessages > 99 ? "99+" : unreadMessages}
+                    </span>
                   )}
-                >
-                  <item.icon className="h-6 w-6 mb-1" />
-                  <span className="text-xs font-bold">{item.title}</span>
-                </Link>
-              </div>
+                </div>
+                <span>{item.title}</span>
+              </Link>
             );
           })}
+
+          {/* Notifications */}
+          {session?.user && <NotificationDropdown variant="sidebar" />}
+
+          {/* Configurações */}
+          <Link
+            href="/settings"
+            className={cn(
+              "nav-indicator flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-base",
+              pathname === "/settings" || pathname?.startsWith("/settings/")
+                ? "active text-primary bg-primary/5 font-semibold"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+            )}
+          >
+            <Settings className="h-5 w-5" />
+            <span>Configurações</span>
+          </Link>
         </nav>
 
-        {/* Mini card de sugestões */}
-        <div className="bento-card-static p-4 bg-primary/5 border-primary/20">
-          <p className="text-xs font-bold text-primary mb-3 uppercase tracking-wider">
-            Encontrar Atletas
-          </p>
-          <p className="text-[11px] text-muted-foreground mb-3">
-            Descubra atletas e técnicos na sua região.
-          </p>
-          <Link
-            href="/search"
-            className="flex items-center justify-center w-full py-1.5 text-[10px] font-bold border border-primary/30 rounded-lg text-primary hover:bg-primary hover:text-white hover:scale-[1.05] active:scale-[0.98] transition-all duration-300 gap-1"
-          >
-            <UserPlus className="h-3 w-3" />
-            BUSCAR PESSOAS
-          </Link>
-        </div>
+        {/* Logout */}
+        {session?.user && (
+          <div className="pt-2 border-t border-border/50 px-2">
+            <button
+              onClick={() => signOut({ callbackUrl: "/" })}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-destructive hover:bg-destructive/10 transition-base cursor-pointer"
+            >
+              <LogOut className="h-5 w-5" />
+              <span>Sair</span>
+            </button>
+          </div>
+        )}
       </div>
     </ScrollArea>
   );

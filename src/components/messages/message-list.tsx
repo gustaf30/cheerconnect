@@ -102,26 +102,56 @@ export function MessageList({ conversationId, currentUserId, onNewMessage }: Mes
     }
   }, [isLoading]);
 
-  // Polling para novas mensagens
+  // Real-time via SSE
   useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const response = await fetch(`/api/conversations/${conversationId}/messages`);
-        if (!response.ok) return;
+    let eventSource: EventSource | null = null;
+    let retryDelay = 1000;
+    let retryTimeout: ReturnType<typeof setTimeout>;
 
-        const data = await response.json();
-        if (data.messages.length > messages.length) {
-          setMessages(data.messages);
-          markAsRead();
-          onNewMessage?.();
+    const connect = () => {
+      eventSource = new EventSource(
+        `/api/conversations/${conversationId}/messages/stream`
+      );
+
+      eventSource.onopen = () => {
+        retryDelay = 1000; // Reset backoff on successful connection
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "new_messages" && data.messages?.length > 0) {
+            setMessages((prev) => {
+              const existingIds = new Set(prev.map((m) => m.id));
+              const newMsgs = data.messages.filter(
+                (m: Message) => !existingIds.has(m.id)
+              );
+              return newMsgs.length > 0 ? [...prev, ...newMsgs] : prev;
+            });
+            markAsRead();
+            onNewMessage?.();
+          }
+        } catch {
+          // Ignore parse errors
         }
-      } catch {
-        // Falhar silenciosamente
-      }
-    }, 5000);
+      };
 
-    return () => clearInterval(interval);
-  }, [conversationId, messages.length, markAsRead, onNewMessage]);
+      eventSource.onerror = () => {
+        eventSource?.close();
+        retryTimeout = setTimeout(() => {
+          retryDelay = Math.min(retryDelay * 2, 30000);
+          connect();
+        }, retryDelay);
+      };
+    };
+
+    connect();
+
+    return () => {
+      eventSource?.close();
+      clearTimeout(retryTimeout);
+    };
+  }, [conversationId, markAsRead, onNewMessage]);
 
   // Carregar mais ao rolar para o topo
   const handleScroll = useCallback(() => {

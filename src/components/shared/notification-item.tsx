@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Heart, MessageCircle, UserPlus, UserCheck, Mail, Users, Repeat2, Reply } from "lucide-react";
+import { Heart, MessageCircle, UserPlus, UserCheck, Mail, Users, Repeat2, Reply, CircleCheck } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn, getInitials } from "@/lib/utils";
-import type { CSSProperties } from "react";
+import type { CSSProperties, MouseEvent } from "react";
 
 interface NotificationActor {
   id: string;
@@ -28,6 +28,7 @@ export interface Notification {
 interface NotificationItemProps {
   notification: Notification;
   onRead: (id: string) => void;
+  showMarkAsRead?: boolean;
   style?: CSSProperties;
 }
 
@@ -56,7 +57,7 @@ const getNotificationIcon = (type: string) => {
 
 const getNotificationLink = (notification: Notification): string => {
   if (notification.relatedType === "post" && notification.relatedId) {
-    return `/feed?post=${notification.relatedId}`;
+    return `/post/${notification.relatedId}`;
   }
   if (notification.relatedType === "connection") {
     if (notification.type === "CONNECTION_REQUEST") {
@@ -87,11 +88,17 @@ const formatTimeAgo = (dateString: string): string => {
   return date.toLocaleDateString("pt-BR", { day: "numeric", month: "short" });
 };
 
-export function NotificationItem({ notification, onRead, style }: NotificationItemProps) {
+export function NotificationItem({ notification, onRead, showMarkAsRead, style }: NotificationItemProps) {
   const handleClick = () => {
     if (!notification.isRead) {
       onRead(notification.id);
     }
+  };
+
+  const handleMarkAsRead = (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onRead(notification.id);
   };
 
   return (
@@ -100,7 +107,7 @@ export function NotificationItem({ notification, onRead, style }: NotificationIt
       onClick={handleClick}
       style={style}
       className={cn(
-        "flex items-start gap-3 p-3 hover:bg-muted/50 transition-all duration-200",
+        "flex items-start gap-3 p-3 hover:bg-muted/50 transition-all duration-200 group/notif",
         !notification.isRead && "bg-primary/5"
       )}
     >
@@ -130,7 +137,18 @@ export function NotificationItem({ notification, onRead, style }: NotificationIt
       </div>
 
       {!notification.isRead && (
-        <div className="h-2 w-2 rounded-full bg-gradient-to-br from-primary to-[oklch(0.45_0.20_25)] mt-2 shrink-0 animate-pulse" />
+        showMarkAsRead ? (
+          <button
+            onClick={handleMarkAsRead}
+            className="shrink-0 mt-1 p-1.5 rounded-full text-primary/60 hover:text-primary hover:bg-primary/10 transition-base cursor-pointer opacity-0 group-hover/notif:opacity-100 focus-visible:opacity-100"
+            aria-label="Marcar como lida"
+            title="Marcar como lida"
+          >
+            <CircleCheck className="h-5 w-5" />
+          </button>
+        ) : (
+          <div className="h-2 w-2 rounded-full bg-gradient-to-br from-primary to-[oklch(0.45_0.20_25)] mt-2 shrink-0 animate-pulse" />
+        )
       )}
     </Link>
   );

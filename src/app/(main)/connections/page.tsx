@@ -164,7 +164,7 @@ function ConnectionsContent() {
     connection: Connection;
     type: "connected" | "received" | "sent";
   }) => (
-    <div className="flex items-center justify-between p-4 bento-card">
+    <div className="flex items-center justify-between p-4 bento-card-static">
       <Link
         href={`/profile/${connection.user.username}`}
         className="flex items-center gap-3 flex-1 min-w-0"

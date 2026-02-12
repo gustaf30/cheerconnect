@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Search as SearchIcon, MapPin, X } from "lucide-react";
+import { Search as SearchIcon, MapPin, Sparkles } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion, useReducedMotion } from "framer-motion";
-import { staggerContainer, fadeSlideUp, noMotion, noMotionContainer, stagger } from "@/lib/animations";
+import { staggerContainer, fadeSlideUp, noMotion, noMotionContainer } from "@/lib/animations";
 import { CitySelector } from "@/components/ui/city-selector";
 import { getInitials } from "@/lib/utils";
 import { positionLabels } from "@/lib/constants";
@@ -47,7 +47,7 @@ const positions = [
 
 function SearchContent() {
   const searchParams = useSearchParams();
-  const urlQuery = searchParams.get("q"); // Extrair valor para evitar loop infinito
+  const urlQuery = searchParams.get("q");
 
   const [query, setQuery] = useState("");
   const [position, setPosition] = useState<string>("");
@@ -56,19 +56,12 @@ function SearchContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
-  const [userLocation, setUserLocation] = useState<string | null>(null);
-  const [filterByUserLocation, setFilterByUserLocation] = useState(true);
-  const [isLoadingUserLocation, setIsLoadingUserLocation] = useState(true);
+  const [suggestions, setSuggestions] = useState<User[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(true);
   const shouldReduceMotion = useReducedMotion();
 
   const handleSearchWithQuery = useCallback(
-    async (
-      searchQuery: string,
-      searchPosition: string,
-      searchLocation: string,
-      useUserLocation: boolean,
-      currentUserLocation: string | null
-    ) => {
+    async (searchQuery: string, searchPosition: string, searchLocation: string) => {
       setIsLoading(true);
       setError(null);
       setHasSearched(true);
@@ -78,13 +71,7 @@ function SearchContent() {
         if (searchQuery) params.set("q", searchQuery);
         if (searchPosition && searchPosition !== " ")
           params.set("position", searchPosition);
-
-        // Usar filtro de localização ou localização do usuário
-        if (searchLocation) {
-          params.set("location", searchLocation);
-        } else if (useUserLocation && currentUserLocation) {
-          params.set("location", currentUserLocation);
-        }
+        if (searchLocation) params.set("location", searchLocation);
 
         const response = await fetch(`/api/users?${params.toString()}`);
         if (!response.ok) throw new Error();
@@ -100,49 +87,107 @@ function SearchContent() {
     []
   );
 
-  // Buscar localização do usuário ao montar
+  // Buscar sugestões ao montar
   useEffect(() => {
-    const fetchUserLocation = async () => {
+    const fetchSuggestions = async () => {
       try {
-        const res = await fetch("/api/users/me");
+        const res = await fetch("/api/users?mode=suggestions");
         if (res.ok) {
           const data = await res.json();
-          if (data.user?.location) {
-            setUserLocation(data.user.location);
-          }
+          setSuggestions(data.users);
         }
       } catch {
-        console.error("Erro ao buscar localização do usuário");
+        // Silently fail — suggestions are non-critical
       } finally {
-        setIsLoadingUserLocation(false);
+        setIsLoadingSuggestions(false);
       }
     };
-    fetchUserLocation();
+    fetchSuggestions();
   }, []);
 
-  // Carregar busca da URL ao montar (depende apenas do valor urlQuery, não do objeto searchParams)
+  // Carregar busca da URL ao montar
   useEffect(() => {
     if (urlQuery) {
       setQuery(urlQuery);
-      handleSearchWithQuery(urlQuery, "", "", filterByUserLocation, userLocation);
+      handleSearchWithQuery(urlQuery, "", "");
     }
-  }, [urlQuery, handleSearchWithQuery, filterByUserLocation, userLocation]);
+  }, [urlQuery, handleSearchWithQuery]);
 
   const handleSearch = () => {
-    handleSearchWithQuery(
-      query,
-      position,
-      locationFilter,
-      filterByUserLocation,
-      userLocation
-    );
+    handleSearchWithQuery(query, position, locationFilter);
   };
 
-  const clearLocationFilter = () => {
-    setFilterByUserLocation(false);
-    setLocationFilter("");
-    handleSearchWithQuery(query, position, "", false, null);
-  };
+  const renderUserList = (userList: User[]) => (
+    <motion.div
+      className="space-y-3"
+      variants={shouldReduceMotion ? noMotionContainer : staggerContainer(0.06)}
+      initial="hidden"
+      animate="visible"
+    >
+      {userList.map((user) => (
+        <motion.div key={user.id} variants={shouldReduceMotion ? noMotion : fadeSlideUp}>
+          <Link href={`/profile/${user.username}`}>
+            <div className="bento-card">
+              <div className="p-4">
+                <div className="flex items-start gap-4">
+                  <Avatar className="h-14 w-14 shrink-0 avatar-glow">
+                    <AvatarImage
+                      src={user.avatar || undefined}
+                      alt={user.name}
+                    />
+                    <AvatarFallback className="bg-primary text-primary-foreground font-display font-semibold">
+                      {getInitials(user.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-display font-semibold">{user.name}</h3>
+                      <span className="text-sm text-muted-foreground font-mono">
+                        @{user.username}
+                      </span>
+                    </div>
+                    {user.positions.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {user.positions.map((pos) => (
+                          <Badge
+                            key={pos}
+                            variant="gradient"
+                            className="text-xs"
+                          >
+                            {positionLabels[pos] || pos}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    {user.bio && (
+                      <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                        {user.bio}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                      {user.location && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {user.location}
+                        </span>
+                      )}
+                      {user.experience && (
+                        <span>
+                          {user.experience}{" "}
+                          {user.experience === 1 ? "ano" : "anos"} de
+                          experiência
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Link>
+        </motion.div>
+      ))}
+    </motion.div>
+  );
 
   return (
     <div className="space-y-6">
@@ -150,8 +195,9 @@ function SearchContent() {
 
       {/* Formulário de busca */}
       <div className="bento-card-static p-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
+          <div className="flex flex-col gap-3">
+            {/* Row 1: Search input (full width) */}
+            <div className="relative">
               <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
@@ -162,54 +208,35 @@ function SearchContent() {
                 className="pl-10 input-premium"
               />
             </div>
-            <div className="w-full sm:w-auto">
-              <CitySelector
-                value={locationFilter}
-                onChange={setLocationFilter}
-                placeholder="Filtrar por local"
-              />
+            {/* Row 2: Filters */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="w-full sm:w-auto sm:flex-1">
+                <CitySelector
+                  value={locationFilter}
+                  onChange={setLocationFilter}
+                  placeholder="Cidade"
+                />
+              </div>
+              <Select value={position} onValueChange={setPosition}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="Posição" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value=" ">Todas as posições</SelectItem>
+                  {positions.map((pos) => (
+                    <SelectItem key={pos.value} value={pos.value}>
+                      {pos.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button onClick={handleSearch} disabled={isLoading}>
+                <SearchIcon className="h-4 w-4 mr-2" />
+                Buscar
+              </Button>
             </div>
-            <Select value={position} onValueChange={setPosition}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Posição" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value=" ">Todas as posições</SelectItem>
-                {positions.map((pos) => (
-                  <SelectItem key={pos.value} value={pos.value}>
-                    {pos.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button onClick={handleSearch} disabled={isLoading}>
-              <SearchIcon className="h-4 w-4 mr-2" />
-              Buscar
-            </Button>
           </div>
       </div>
-
-      {/* Banner de filtro por localização */}
-      {!isLoadingUserLocation &&
-        filterByUserLocation &&
-        userLocation &&
-        !locationFilter && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-2">
-            <MapPin className="h-4 w-4" />
-            <span>
-              Mostrando pessoas em <strong>{userLocation}</strong>
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ml-auto h-auto py-1 px-2"
-              onClick={clearLocationFilter}
-            >
-              <X className="h-3 w-3 mr-1" />
-              Ver todos
-            </Button>
-          </div>
-        )}
 
       {/* Resultados */}
       {error ? (
@@ -235,76 +262,31 @@ function SearchContent() {
             Nenhum usuário encontrado. Tente outros termos de busca.
           </div>
         ) : (
-          <motion.div
-            className="space-y-3"
-            variants={shouldReduceMotion ? noMotionContainer : staggerContainer(0.06)}
-            initial="hidden"
-            animate="visible"
-          >
-            {users.map((user) => (
-              <motion.div key={user.id} variants={shouldReduceMotion ? noMotion : fadeSlideUp}>
-              <Link href={`/profile/${user.username}`}>
-                <div className="bento-card">
-                  <div className="p-4">
-                    <div className="flex items-start gap-4">
-                      <Avatar className="h-14 w-14 shrink-0 avatar-glow">
-                        <AvatarImage
-                          src={user.avatar || undefined}
-                          alt={user.name}
-                        />
-                        <AvatarFallback className="bg-primary text-primary-foreground font-display font-semibold">
-                          {getInitials(user.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-display font-semibold">{user.name}</h3>
-                          <span className="text-sm text-muted-foreground font-mono">
-                            @{user.username}
-                          </span>
-                        </div>
-                        {user.positions.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {user.positions.map((pos) => (
-                              <Badge
-                                key={pos}
-                                variant="gradient"
-                                className="text-xs"
-                              >
-                                {positionLabels[pos] || pos}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                        {user.bio && (
-                          <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                            {user.bio}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                          {user.location && (
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {user.location}
-                            </span>
-                          )}
-                          {user.experience && (
-                            <span>
-                              {user.experience}{" "}
-                              {user.experience === 1 ? "ano" : "anos"} de
-                              experiência
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-              </motion.div>
-            ))}
-          </motion.div>
+          renderUserList(users)
         )
+      ) : isLoadingSuggestions ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bento-card-static p-4">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-14 w-14 rounded-xl" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-3 w-28" />
+                  <Skeleton className="h-3 w-56" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : suggestions.length > 0 ? (
+        <>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <span className="font-medium">Sugestões para você</span>
+          </div>
+          {renderUserList(suggestions)}
+        </>
       ) : (
         <div className="bento-card-static p-8 text-center text-muted-foreground">
           Use a busca acima para encontrar atletas, técnicos e outros membros

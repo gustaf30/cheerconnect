@@ -1197,6 +1197,27 @@ a,
   border-radius: 4px 4px 0 0;
 }
 
+/* ========== Landing Page Animations ========== */
+/* CSS-only animations to avoid Framer Motion SSR hydration mismatch */
+
+@keyframes landing-fade-slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes landing-scale-in {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.landing-fade-up {
+  animation: landing-fade-slide-up 0.6s var(--ease-out-expo) both;
+}
+
+.landing-scale-in {
+  animation: landing-scale-in 0.6s var(--ease-out-expo) both;
+}
+
 /* Motion reduce support */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -1214,4 +1235,12 @@ a,
   .animate-banner-shimmer::after {
     animation: none !important;
   }
+
+  .landing-fade-up,
+  .landing-scale-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
 }

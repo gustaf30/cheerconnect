@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { Bell, Check } from "lucide-react";
+import { Bell, Check, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -19,7 +20,11 @@ import {
   stagger,
 } from "@/lib/animations";
 
-export function NotificationDropdown() {
+interface NotificationDropdownProps {
+  variant?: "icon" | "sidebar";
+}
+
+export function NotificationDropdown({ variant = "icon" }: NotificationDropdownProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
@@ -30,18 +35,6 @@ export function NotificationDropdown() {
   const containerVariants = shouldReduceMotion
     ? noMotionContainer
     : staggerContainer(stagger.fast);
-
-  const fetchUnreadCount = useCallback(async () => {
-    try {
-      const response = await fetch("/api/notifications/count");
-      if (response.ok) {
-        const data = await response.json();
-        setUnreadCount(data.count);
-      }
-    } catch {
-      console.error("Erro ao buscar contagem de notificações");
-    }
-  }, []);
 
   const fetchNotifications = useCallback(async () => {
     setIsLoading(true);
@@ -58,12 +51,46 @@ export function NotificationDropdown() {
     }
   }, []);
 
-  // Buscar contagem de não lidas ao montar e atualizar a cada 10s
+  // Real-time via SSE
   useEffect(() => {
-    fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 10000);
-    return () => clearInterval(interval);
-  }, [fetchUnreadCount]);
+    let eventSource: EventSource | null = null;
+    let retryDelay = 1000;
+    let retryTimeout: ReturnType<typeof setTimeout>;
+
+    const connect = () => {
+      eventSource = new EventSource("/api/notifications/stream");
+
+      eventSource.onopen = () => {
+        retryDelay = 1000;
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (typeof data.count === "number") {
+            setUnreadCount(data.count);
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      };
+
+      eventSource.onerror = () => {
+        eventSource?.close();
+        retryTimeout = setTimeout(() => {
+          retryDelay = Math.min(retryDelay * 2, 30000);
+          connect();
+        }, retryDelay);
+      };
+    };
+
+    connect();
+
+    return () => {
+      eventSource?.close();
+      clearTimeout(retryTimeout);
+    };
+  }, []);
 
   // Buscar notificações quando o dropdown abre
   useEffect(() => {
@@ -107,24 +134,41 @@ export function NotificationDropdown() {
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen} modal={false}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative hover:bg-accent/80 transition-all duration-300" aria-label="Notificações">
-          <Bell className="h-5 w-5 transition-transform duration-200 hover:scale-110" />
-          {unreadCount > 0 && (
-            <>
-              {/* Animação dupla de ping para efeito premium */}
-              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary animate-ping opacity-75" />
-              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary animate-pulse-ring" />
-              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-gradient-to-br from-primary to-[oklch(0.45_0.20_25)] text-primary-foreground text-xs flex items-center justify-center font-medium shadow-md">
-                {unreadCount > 9 ? "9+" : unreadCount}
-              </span>
-            </>
-          )}
-          <span className="sr-only">Notificações</span>
-        </Button>
+        {variant === "sidebar" ? (
+          <button
+            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-base cursor-pointer w-full relative"
+            aria-label="Notificações"
+          >
+            <div className="relative">
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1.5 -right-2 h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shadow-sm">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </div>
+            <span>Notificações</span>
+          </button>
+        ) : (
+          <Button variant="ghost" size="icon" className="relative hover:bg-accent/80 transition-all duration-300" aria-label="Notificações">
+            <Bell className="h-5 w-5 transition-transform duration-200 hover:scale-110" />
+            {unreadCount > 0 && (
+              <>
+                <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary animate-ping opacity-75" />
+                <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary animate-pulse-ring" />
+                <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-gradient-to-br from-primary to-[oklch(0.45_0.20_25)] text-primary-foreground text-xs flex items-center justify-center font-medium shadow-md">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              </>
+            )}
+            <span className="sr-only">Notificações</span>
+          </Button>
+        )}
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 p-0 animate-scale-in shadow-depth-3">
-        <div className="flex items-center justify-between border-b px-4 py-3 bg-gradient-to-r from-card to-card/80">
-          <h3 className="font-semibold text-gradient-primary">Notificações</h3>
+      <PopoverContent align={variant === "sidebar" ? "start" : "end"} side={variant === "sidebar" ? "right" : "bottom"} className="w-96 p-0 animate-scale-in shadow-depth-4 hover-glow rounded-2xl border border-border overflow-hidden">
+        <div className="accent-bar" />
+        <div className="flex items-center justify-between border-b border-border/50 px-4 py-3">
+          <h3 className="font-display font-semibold text-gradient-primary">Notificações</h3>
           {unreadCount > 0 && (
             <Button
               variant="ghost"
@@ -148,9 +192,10 @@ export function NotificationDropdown() {
               </div>
             </div>
           ) : notifications.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground animate-fade-in">
-              <Bell className="h-8 w-8 mb-2 opacity-50" />
-              <p className="text-sm">Nenhuma notificação</p>
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground animate-fade-in">
+              <Bell className="h-10 w-10 mb-3 opacity-40" />
+              <p className="text-sm font-medium">Nenhuma notificação</p>
+              <p className="text-xs mt-1 opacity-60">Você está em dia!</p>
             </div>
           ) : (
             <motion.div
@@ -170,6 +215,20 @@ export function NotificationDropdown() {
             </motion.div>
           )}
         </ScrollArea>
+
+        {/* Ver mais */}
+        {!isLoading && notifications.length > 0 && (
+          <div className="border-t border-border/50 px-4 py-2.5">
+            <Link
+              href="/notifications"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center justify-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-fast"
+            >
+              Ver todas as notificações
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );

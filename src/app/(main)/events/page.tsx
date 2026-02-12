@@ -5,7 +5,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useSession } from "next-auth/react";
-import { MapPin, Calendar, Filter, Plus, Loader2, MoreHorizontal, Pencil, Trash2, Search, X } from "lucide-react";
+import { MapPin, Calendar, Filter, Plus, Loader2, MoreHorizontal, Pencil, Trash2, Search, Sparkles } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -75,10 +75,10 @@ export default function EventsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
 
-  // Localização do usuário para filtragem automática
-  const [userLocation, setUserLocation] = useState<string | null>(null);
-  const [filterByUserLocation, setFilterByUserLocation] = useState(true);
-  const [isLoadingUserLocation, setIsLoadingUserLocation] = useState(true);
+  // Sugestões
+  const [suggestions, setSuggestions] = useState<Event[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(true);
+  const [showingSuggestions, setShowingSuggestions] = useState(true);
 
   // Dialog de criação de evento
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -109,41 +109,32 @@ export default function EventsPage() {
     type: "COMPETITION",
   });
 
-  // Buscar localização do usuário ao montar
+  // Buscar sugestões ao montar
   useEffect(() => {
-    const fetchUserLocation = async () => {
+    const fetchSuggestions = async () => {
       try {
-        const res = await fetch("/api/users/me");
+        const res = await fetch("/api/events?mode=suggestions");
         if (res.ok) {
           const data = await res.json();
-          if (data.user?.location) {
-            setUserLocation(data.user.location);
-          }
+          setSuggestions(data.events);
         }
       } catch {
-        console.error("Erro ao buscar localização do usuário");
+        // Silently fail
       } finally {
-        setIsLoadingUserLocation(false);
+        setIsLoadingSuggestions(false);
       }
     };
-    fetchUserLocation();
+    fetchSuggestions();
   }, []);
 
-  const fetchEvents = useCallback(async (useUserLocationFilter?: boolean) => {
+  const fetchEvents = useCallback(async () => {
     setError(null);
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
       if (typeFilter && typeFilter !== " ") params.set("type", typeFilter);
       if (searchQuery) params.set("q", searchQuery);
-
-      // Usar localização do usuário como filtro padrão se habilitado e sem filtro manual
-      const shouldUseUserLocation = useUserLocationFilter ?? filterByUserLocation;
-      if (locationFilter) {
-        params.set("location", locationFilter);
-      } else if (shouldUseUserLocation && userLocation) {
-        params.set("location", userLocation);
-      }
+      if (locationFilter) params.set("location", locationFilter);
 
       const response = await fetch(`/api/events?${params.toString()}`);
       if (!response.ok) throw new Error();
@@ -155,14 +146,7 @@ export default function EventsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [typeFilter, searchQuery, locationFilter, filterByUserLocation, userLocation]);
-
-  // Buscar eventos após a localização do usuário ser carregada
-  useEffect(() => {
-    if (!isLoadingUserLocation) {
-      fetchEvents();
-    }
-  }, [isLoadingUserLocation, fetchEvents]);
+  }, [typeFilter, searchQuery, locationFilter]);
 
   const handleCreateEvent = async () => {
     if (!eventForm.name.trim()) {
@@ -216,6 +200,7 @@ export default function EventsPage() {
         endTime: "",
         type: "COMPETITION",
       });
+      setShowingSuggestions(false);
       fetchEvents();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao criar evento");
@@ -287,6 +272,7 @@ export default function EventsPage() {
       toast.success("Evento atualizado!");
       setEditDialogOpen(false);
       setEditingEvent(null);
+      setShowingSuggestions(false);
       fetchEvents();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao editar evento");
@@ -310,6 +296,7 @@ export default function EventsPage() {
 
       toast.success("Evento excluído!");
       setDeleteTargetId(null);
+      setShowingSuggestions(false);
       fetchEvents();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao excluir evento");
@@ -319,19 +306,23 @@ export default function EventsPage() {
   };
 
   // Agrupar eventos por mês
-  const groupedEvents = events.reduce(
-    (groups, event) => {
-      const month = format(new Date(event.startDate), "MMMM yyyy", {
-        locale: ptBR,
-      });
-      if (!groups[month]) {
-        groups[month] = [];
-      }
-      groups[month].push(event);
-      return groups;
-    },
-    {} as Record<string, Event[]>
-  );
+  const groupByMonth = (list: Event[]) =>
+    list.reduce(
+      (groups, event) => {
+        const month = format(new Date(event.startDate), "MMMM yyyy", {
+          locale: ptBR,
+        });
+        if (!groups[month]) {
+          groups[month] = [];
+        }
+        groups[month].push(event);
+        return groups;
+      },
+      {} as Record<string, Event[]>
+    );
+
+  const groupedEvents = groupByMonth(events);
+  const groupedSuggestions = groupByMonth(suggestions);
 
   const shouldReduceMotion = useReducedMotion();
   const containerVariants = shouldReduceMotion
@@ -340,8 +331,159 @@ export default function EventsPage() {
   const itemVariants = shouldReduceMotion ? noMotion : fadeSlideUp;
 
   const handleSearch = () => {
+    const hasFilters = searchQuery || (typeFilter && typeFilter !== " ") || locationFilter;
+    if (!hasFilters) {
+      setShowingSuggestions(true);
+      return;
+    }
+    setShowingSuggestions(false);
     fetchEvents();
   };
+
+  const renderGroupedEvents = (grouped: Record<string, Event[]>, showActions: boolean) => (
+    <div className="space-y-8">
+      {Object.entries(grouped).map(([month, monthEvents]) => (
+        <div key={month}>
+          <h2 className="heading-card mb-4 capitalize">{month}</h2>
+          <motion.div
+            className="space-y-3"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            {monthEvents.map((event) => {
+              const isCreator = showActions && session?.user?.id === event.creatorId;
+
+              return (
+                <motion.div key={event.id} variants={itemVariants} className="bento-card-static">
+                  <div className="accent-bar" />
+                  <div className="p-4">
+                    <div className="flex items-start gap-4">
+                      <time dateTime={new Date(event.startDate).toISOString()} className="shrink-0 w-16 h-16 glass rounded-xl flex flex-col items-center justify-center">
+                        <div className="stat-number text-2xl text-gradient-primary">
+                          {format(new Date(event.startDate), "dd")}
+                        </div>
+                        <div className="text-xs text-muted-foreground uppercase font-display">
+                          {format(new Date(event.startDate), "EEE", {
+                            locale: ptBR,
+                          })}
+                        </div>
+                      </time>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-display font-semibold">{event.name}</h3>
+                            <Badge variant="gradient" className="text-xs">
+                              {eventTypeLabels[event.type] || event.type}
+                            </Badge>
+                          </div>
+
+                          {isCreator && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Opções do evento">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openEditDialog(event)}>
+                                  <Pencil className="h-4 w-4 mr-2" />
+                                  Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => setDeleteTargetId(event.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Excluir
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
+
+                        {event.description && (
+                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                            {event.description}
+                          </p>
+                        )}
+
+                        <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {event.location}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            <time dateTime={new Date(event.startDate).toISOString()}>
+                              {format(new Date(event.startDate), "HH:mm", {
+                                locale: ptBR,
+                              })}
+                            </time>
+                            {event.endDate && (
+                              <>
+                                {" - "}
+                                <time dateTime={new Date(event.endDate).toISOString()}>
+                                  {format(new Date(event.endDate), "HH:mm", {
+                                    locale: ptBR,
+                                  })}
+                                </time>
+                              </>
+                            )}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-4 mt-3">
+                          {event.team ? (
+                            <Link
+                              href={`/teams/${event.team.slug}`}
+                              className="flex items-center gap-2 hover:opacity-80"
+                            >
+                              <Avatar className="h-6 w-6">
+                                <AvatarImage
+                                  src={event.team.logo || undefined}
+                                  alt={event.team.name}
+                                  className="object-cover"
+                                />
+                                <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+                                  {getInitials(event.team.name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-sm">por {event.team.name}</span>
+                            </Link>
+                          ) : event.creator && (
+                            <Link
+                              href={`/profile/${event.creator.username}`}
+                              className="flex items-center gap-2 hover:opacity-80"
+                            >
+                              <Avatar className="h-6 w-6">
+                                <AvatarImage
+                                  src={event.creator.avatar || undefined}
+                                  alt={event.creator.name}
+                                  className="object-cover"
+                                />
+                                <AvatarFallback className="text-xs bg-muted">
+                                  {getInitials(event.creator.name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-sm text-muted-foreground">
+                                por {event.creator.name}
+                              </span>
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -370,11 +512,11 @@ export default function EventsPage() {
 
           {/* Linha 2: Filtros */}
           <div className="flex flex-col sm:flex-row gap-3">
-            <div className="w-full sm:w-auto">
+            <div className="w-full sm:w-auto sm:flex-1">
               <CitySelector
                 value={locationFilter}
                 onChange={setLocationFilter}
-                placeholder="Filtrar por local"
+                placeholder="Cidade"
               />
             </div>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
@@ -398,27 +540,36 @@ export default function EventsPage() {
           </div>
       </div>
 
-      {/* Indicador de filtro por localização */}
-      {filterByUserLocation && userLocation && !locationFilter && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-2">
-          <MapPin className="h-4 w-4" />
-          <span>Mostrando eventos em <strong>{userLocation}</strong></span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-auto h-auto py-1 px-2"
-            onClick={() => {
-              setFilterByUserLocation(false);
-              fetchEvents(false);
-            }}
-          >
-            <X className="h-3 w-3 mr-1" />
-            Ver todos
-          </Button>
-        </div>
-      )}
-
-      {error ? (
+      {showingSuggestions ? (
+        isLoadingSuggestions ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bento-card-static p-4">
+                <div className="flex gap-4">
+                  <Skeleton className="h-16 w-16 rounded-xl" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-5 w-48" />
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-40" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : suggestions.length > 0 ? (
+          <>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="font-medium">Sugestões para você</span>
+            </div>
+            {renderGroupedEvents(groupedSuggestions, false)}
+          </>
+        ) : (
+          <div className="bento-card-static p-8 text-center text-muted-foreground">
+            Nenhum evento próximo encontrado.
+          </div>
+        )
+      ) : error ? (
         <ErrorState message={error} onRetry={() => { setError(null); fetchEvents(); }} />
       ) : isLoading ? (
         <div className="space-y-4">
@@ -440,148 +591,7 @@ export default function EventsPage() {
           Nenhum evento próximo encontrado.
         </div>
       ) : (
-        <div className="space-y-8">
-          {Object.entries(groupedEvents).map(([month, monthEvents]) => (
-            <div key={month}>
-              <h2 className="heading-card mb-4 capitalize">{month}</h2>
-              <motion.div
-                className="space-y-3"
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-              >
-                {monthEvents.map((event) => {
-                  const isCreator = session?.user?.id === event.creatorId;
-
-                  return (
-                    <motion.div key={event.id} variants={itemVariants} className="bento-card">
-                      <div className="accent-bar" />
-                      <div className="p-4">
-                        <div className="flex items-start gap-4">
-                          <time dateTime={new Date(event.startDate).toISOString()} className="shrink-0 w-16 h-16 glass rounded-xl flex flex-col items-center justify-center">
-                            <div className="stat-number text-2xl text-gradient-primary">
-                              {format(new Date(event.startDate), "dd")}
-                            </div>
-                            <div className="text-xs text-muted-foreground uppercase font-display">
-                              {format(new Date(event.startDate), "EEE", {
-                                locale: ptBR,
-                              })}
-                            </div>
-                          </time>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h3 className="font-display font-semibold">{event.name}</h3>
-                                <Badge variant="gradient" className="text-xs">
-                                  {eventTypeLabels[event.type] || event.type}
-                                </Badge>
-                              </div>
-
-                              {isCreator && (
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Opções do evento">
-                                      <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => openEditDialog(event)}>
-                                      <Pencil className="h-4 w-4 mr-2" />
-                                      Editar
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      className="text-destructive focus:text-destructive"
-                                      onClick={() => setDeleteTargetId(event.id)}
-                                    >
-                                      <Trash2 className="h-4 w-4 mr-2" />
-                                      Excluir
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              )}
-                            </div>
-
-                            {event.description && (
-                              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                                {event.description}
-                              </p>
-                            )}
-
-                            <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <MapPin className="h-3 w-3" />
-                                {event.location}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
-                                <time dateTime={new Date(event.startDate).toISOString()}>
-                                  {format(new Date(event.startDate), "HH:mm", {
-                                    locale: ptBR,
-                                  })}
-                                </time>
-                                {event.endDate && (
-                                  <>
-                                    {" - "}
-                                    <time dateTime={new Date(event.endDate).toISOString()}>
-                                      {format(new Date(event.endDate), "HH:mm", {
-                                        locale: ptBR,
-                                      })}
-                                    </time>
-                                  </>
-                                )}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-4 mt-3">
-                              {event.team ? (
-                                <Link
-                                  href={`/teams/${event.team.slug}`}
-                                  className="flex items-center gap-2 hover:opacity-80"
-                                >
-                                  <Avatar className="h-6 w-6">
-                                    <AvatarImage
-                                      src={event.team.logo || undefined}
-                                      alt={event.team.name}
-                                      className="object-cover"
-                                    />
-                                    <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                                      {getInitials(event.team.name)}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <span className="text-sm">por {event.team.name}</span>
-                                </Link>
-                              ) : event.creator && (
-                                <Link
-                                  href={`/profile/${event.creator.username}`}
-                                  className="flex items-center gap-2 hover:opacity-80"
-                                >
-                                  <Avatar className="h-6 w-6">
-                                    <AvatarImage
-                                      src={event.creator.avatar || undefined}
-                                      alt={event.creator.name}
-                                      className="object-cover"
-                                    />
-                                    <AvatarFallback className="text-xs bg-muted">
-                                      {getInitials(event.creator.name)}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <span className="text-sm text-muted-foreground">
-                                    por {event.creator.name}
-                                  </span>
-                                </Link>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </motion.div>
-            </div>
-          ))}
-        </div>
+        renderGroupedEvents(groupedEvents, true)
       )}
 
       {/* Dialog de Criação de Evento */}
