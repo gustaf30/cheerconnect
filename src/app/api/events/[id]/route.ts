@@ -17,7 +17,7 @@ const updateEventSchema = z.object({
 });
 
 // GET /api/events/[id] - Buscar evento específico
-export async function GET(request: Request, { params }: RouteParams) {
+export async function GET(_request: Request, { params }: RouteParams) {
   try {
     const { session, error } = await requireAuth();
     if (error) return error;
@@ -130,7 +130,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 }
 
 // DELETE /api/events/[id] - Excluir evento
-export async function DELETE(request: Request, { params }: RouteParams) {
+export async function DELETE(_request: Request, { params }: RouteParams) {
   try {
     const { session, error } = await requireAuth();
     if (error) return error;

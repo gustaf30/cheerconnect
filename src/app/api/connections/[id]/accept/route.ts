@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 // POST /api/connections/[id]/accept - Aceitar solicitação de conexão
 export async function POST(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

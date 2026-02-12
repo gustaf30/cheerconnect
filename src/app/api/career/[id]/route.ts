@@ -20,7 +20,7 @@ const updateCareerSchema = z.object({
 
 // GET /api/career/[id] - Buscar experiência de carreira específica
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -122,7 +122,7 @@ export async function PATCH(
 
 // DELETE /api/career/[id] - Excluir experiência de carreira
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

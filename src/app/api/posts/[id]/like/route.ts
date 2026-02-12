@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 // POST /api/posts/[id]/like - Curtir um post
 export async function POST(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -88,7 +88,7 @@ export async function POST(
 
 // DELETE /api/posts/[id]/like - Descurtir um post
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

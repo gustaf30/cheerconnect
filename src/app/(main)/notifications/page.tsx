@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import {
 import { NotificationItem, type Notification } from "@/components/shared/notification-item";
 import { ErrorState } from "@/components/shared/error-state";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
+import { useRealtime } from "@/hooks/use-realtime";
 
 export default function NotificationsPage() {
   const [filter, setFilter] = useState<"all" | "unread">("all");
@@ -53,6 +54,17 @@ export default function NotificationsPage() {
     sentinelRef,
     reset,
   } = useInfiniteScroll({ fetchFn: fetchNotifications });
+
+  // Auto-refresh when new notifications arrive via SSE
+  const { notificationCount } = useRealtime();
+  const prevCountRef = useRef(notificationCount);
+
+  useEffect(() => {
+    if (notificationCount > prevCountRef.current) {
+      reset();
+    }
+    prevCountRef.current = notificationCount;
+  }, [notificationCount, reset]);
 
   const handleMarkAsRead = async (id: string) => {
     const previous = notifications.map((n) => ({ ...n }));

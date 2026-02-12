@@ -174,11 +174,17 @@
     @apply border-border outline-ring/50;
   }
   html {
-    overflow-y: scroll; /* Prevent layout shift when dropdowns open */
+    scrollbar-gutter: stable; /* Reserve scrollbar space — prevents layout shift when Radix locks scroll (Select, Dialog) */
   }
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-body), system-ui, sans-serif;
+  }
+  /* Neutralize Radix react-remove-scroll: keep scrollbar visible and prevent padding compensation */
+  [data-scroll-locked] {
+    overflow-y: scroll !important;
+    padding-right: 0px !important;
+    margin-right: 0px !important;
   }
 }
 

@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { logActivity } from "@/lib/audit";
 
 // POST /api/teams/invites/[id]/accept - Aceitar convite
 export async function POST(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -103,6 +104,19 @@ export async function POST(
           },
         });
       }
+    });
+
+    logActivity({
+      action: "INVITE_ACCEPTED",
+      entityType: "team_invite",
+      entityId: id,
+      actorId: session.user.id,
+      metadata: {
+        teamId: invite.teamId,
+        teamSlug: invite.team.slug,
+        teamName: invite.team.name,
+        role: invite.role,
+      },
     });
 
     return NextResponse.json({

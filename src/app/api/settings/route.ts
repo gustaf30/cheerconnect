@@ -17,6 +17,7 @@ const updateSettingsSchema = z.object({
       connectionAccepted: z.boolean(),
       commentReplied: z.boolean(),
       messageReceived: z.boolean(),
+      mention: z.boolean(),
     })
     .partial()
     .optional(),
@@ -47,6 +48,7 @@ export async function GET() {
         notifyConnectionAccepted: true,
         notifyCommentReplied: true,
         notifyMessageReceived: true,
+        notifyMention: true,
         profileVisibility: true,
         showEmail: true,
         usernameChangedAt: true,
@@ -85,6 +87,7 @@ export async function GET() {
           connectionAccepted: user.notifyConnectionAccepted,
           commentReplied: user.notifyCommentReplied,
           messageReceived: user.notifyMessageReceived,
+          mention: user.notifyMention,
         },
         privacy: {
           profileVisibility: user.profileVisibility,
@@ -174,6 +177,9 @@ export async function PATCH(request: Request) {
       if (data.notifications.messageReceived !== undefined) {
         updateData.notifyMessageReceived = data.notifications.messageReceived;
       }
+      if (data.notifications.mention !== undefined) {
+        updateData.notifyMention = data.notifications.mention;
+      }
     }
 
     // Tratar configurações de privacidade
@@ -200,6 +206,7 @@ export async function PATCH(request: Request) {
         notifyConnectionAccepted: true,
         notifyCommentReplied: true,
         notifyMessageReceived: true,
+        notifyMention: true,
         profileVisibility: true,
         showEmail: true,
       },
@@ -217,6 +224,7 @@ export async function PATCH(request: Request) {
           connectionAccepted: user.notifyConnectionAccepted,
           commentReplied: user.notifyCommentReplied,
           messageReceived: user.notifyMessageReceived,
+          mention: user.notifyMention,
         },
         privacy: {
           profileVisibility: user.profileVisibility,

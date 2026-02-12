@@ -148,12 +148,12 @@
   - Não existe mecanismo para bloquear outros usuários
   - Solução: criar modelo `Block` no Prisma + endpoint + filtrar conteúdo de usuários bloqueados
 
-- [ ] **24. Substituir polling por SSE/WebSocket nas mensagens**
+- [x] **24. Substituir polling por SSE/WebSocket nas mensagens**
   - `src/components/messages/message-list.tsx`
   - Mensagens usam polling com intervalo fixo (desperdício de recursos)
   - Solução: implementar SSE (Server-Sent Events) para atualizações em tempo real
 
-- [ ] **25. Substituir polling por SSE nas notificações**
+- [x] **25. Substituir polling por SSE nas notificações**
   - `src/components/shared/notification-dropdown.tsx`
   - Notificações usam polling similar às mensagens
   - Solução: SSE endpoint para push de notificações
@@ -230,26 +230,26 @@
 
 ### Testes
 
-- [ ] **39. Adicionar infraestrutura de testes (Vitest + Testing Library)**
+- [x] **39. Adicionar infraestrutura de testes (Vitest + Testing Library)**
   - Projeto não tem nenhum teste automatizado
   - Solução: configurar Vitest + React Testing Library + mocks do Prisma
 
-- [ ] **40. Adicionar testes unitários para api-utils e lib/**
+- [x] **40. Adicionar testes unitários para api-utils e lib/**
   - `src/lib/api-utils.ts`, `src/lib/constants.ts`, `src/lib/prisma.ts`
   - Funções utilitárias sem cobertura de testes
   - Solução: testes unitários para funções puras
 
-- [ ] **41. Adicionar testes de integração para API routes críticas**
+- [x] **41. Adicionar testes de integração para API routes críticas**
   - Rotas de auth, posts, connections, teams sem testes
   - Solução: testes de integração com DB de teste
 
 ### Funcionalidades
 
-- [ ] **42. Implementar sistema de hashtags (#tag em posts)**
+- [x] **42. Implementar sistema de hashtags (#tag em posts)**
   - Posts não suportam hashtags
   - Solução: parser de hashtags + modelo `Tag` + link para busca por tag
 
-- [ ] **43. Implementar menções (@username em posts)**
+- [x] **43. Implementar menções (@username em posts)**
   - Posts não suportam menções
   - Solução: parser de menções + notificação ao mencionado + link para perfil
 
@@ -257,7 +257,7 @@
   - Não existe painel de moderação
   - Solução: role de moderador + painel admin + ações de moderação (depende da tarefa 22)
 
-- [ ] **45. Adicionar histórico de edição de posts (modelo PostEdit)**
+- [x] **45. Adicionar histórico de edição de posts (modelo PostEdit)**
   - Se edição for implementada (tarefa 21), não há registro do conteúdo original
   - Solução: modelo `PostEdit` que salva versões anteriores
 
@@ -265,15 +265,15 @@
   - Todas as notificações são apenas in-app
   - Solução: integrar serviço de email (Resend/SendGrid) para notificações críticas
 
-- [ ] **47. Adicionar endpoint GET /api/posts/[id] para post individual**
+- [x] **47. Adicionar endpoint GET /api/posts/[id] para post individual**
   - Não existe rota para buscar um post específico por ID
   - Solução: criar rota GET com includes necessários
 
-- [ ] **48. Adicionar opção de privacidade PRIVATE no perfil**
+- [x] **48. Adicionar opção de privacidade PRIVATE no perfil**
   - Todos os perfis são públicos
   - Solução: campo `visibility` no User + filtros nos endpoints
 
-- [ ] **49. Implementar silenciar usuários/equipes (mute)**
+- [x] **49. Implementar silenciar usuários/equipes (mute)**
   - Não existe mecanismo para silenciar conteúdo sem bloquear
   - Solução: modelo `Mute` + filtro no feed
 
@@ -283,29 +283,29 @@
   - Erros em produção não são rastreados
   - Solução: integrar `@sentry/nextjs` com source maps
 
-- [ ] **51. Adicionar logging estruturado (pino/winston)**
+- [x] **51. Adicionar logging estruturado (pino/winston)**
   - Logs são `console.log` sem estrutura
   - Solução: configurar pino com níveis e formatação JSON
 
-- [ ] **52. Adicionar signal handling no Dockerfile (graceful shutdown)**
+- [x] **52. Adicionar signal handling no Dockerfile (graceful shutdown)**
   - `Dockerfile` — container pode não encerrar graciosamente
   - Solução: usar `tini` como init process ou trap signals no entrypoint
 
 ### DX / Qualidade
 
-- [ ] **53. Remover `skipLibCheck: true` do tsconfig.json**
+- [x] **53. Remover `skipLibCheck: true` do tsconfig.json**
   - `tsconfig.json` — esconde erros de tipo em dependências
   - Solução: remover e corrigir erros que surgirem
 
-- [ ] **54. Adicionar noUnusedLocals e noUnusedParameters no tsconfig**
+- [x] **54. Adicionar noUnusedLocals e noUnusedParameters no tsconfig**
   - Variáveis e parâmetros não usados não geram erro
   - Solução: habilitar flags + limpar código existente
 
-- [ ] **55. Limpar dependências não utilizadas**
+- [x] **55. Limpar dependências não utilizadas**
   - Possíveis deps não usadas: `cmdk`, `dotenv`
   - Solução: verificar uso e remover do `package.json`
 
-- [ ] **56. Adicionar documentação de API (OpenAPI/Swagger)**
+- [x] **56. Adicionar documentação de API (OpenAPI/Swagger)**
   - API não tem documentação formal
   - Solução: gerar spec OpenAPI a partir das rotas
 
@@ -321,13 +321,13 @@
 
 ### SEO
 
-- [ ] **59. Adicionar metadata dinâmica por página**
+- [x] **59. Adicionar metadata dinâmica por página**
   - Páginas de perfil, posts e equipes não têm metadata específica
   - Solução: `generateMetadata()` em cada page.tsx com dados dinâmicos
 
 ### Auditoria
 
-- [ ] **60. Adicionar audit log (modelo ActivityLog)**
+- [x] **60. Adicionar audit log (modelo ActivityLog)**
   - Ações administrativas não são registradas
   - Solução: modelo `ActivityLog` + hooks nos endpoints de admin/moderação
 

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 // DELETE /api/connections/[id] - Remover conexão ou cancelar solicitação
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

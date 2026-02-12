@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Heart, MessageCircle, UserPlus, UserCheck, Mail, Users, Repeat2, Reply, CircleCheck } from "lucide-react";
+import { Heart, MessageCircle, UserPlus, UserCheck, Mail, Users, Repeat2, Reply, CircleCheck, AtSign } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn, getInitials } from "@/lib/utils";
 import type { CSSProperties, MouseEvent } from "react";
@@ -50,6 +50,8 @@ const getNotificationIcon = (type: string) => {
       return <Mail className="h-4 w-4 text-blue-500" />;
     case "TEAM_INVITE":
       return <Users className="h-4 w-4 text-primary" />;
+    case "MENTION":
+      return <AtSign className="h-4 w-4 text-amber-500" />;
     default:
       return null;
   }

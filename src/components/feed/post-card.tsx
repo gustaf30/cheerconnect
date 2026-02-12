@@ -149,7 +149,8 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
     author: PostAuthor,
     team: PostTeam | null | undefined,
     createdAt: string | Date,
-    showRepostIndicator: boolean = false
+    showRepostIndicator: boolean = false,
+    isEdited: boolean = false
   ) => (
     <div className="flex items-start justify-between">
       <div className="flex items-center gap-3">
@@ -189,6 +190,9 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
                     locale: ptBR,
                   })}
                 </time>
+                {isEdited && (
+                  <><span>·</span><span className="text-xs text-muted-foreground">(editado)</span></>
+                )}
               </div>
             </div>
           </>
@@ -238,6 +242,9 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
                     locale: ptBR,
                   })}
                 </time>
+                {isEdited && (
+                  <><span>·</span><span className="text-xs text-muted-foreground">(editado)</span></>
+                )}
               </div>
             </div>
           </>
@@ -266,9 +273,60 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
     </div>
   );
 
+  const renderContentWithLinks = (text: string) => {
+    // Regex que captura #hashtags e @mentions
+    const regex = /(#[a-zA-Z0-9_\u00C0-\u024F]+)|(@[a-zA-Z0-9_]+)/g;
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(text)) !== null) {
+      // Texto antes do match
+      if (match.index > lastIndex) {
+        parts.push(text.slice(lastIndex, match.index));
+      }
+
+      const token = match[0];
+      if (token.startsWith("#")) {
+        const tagName = token.slice(1).toLowerCase();
+        parts.push(
+          <Link
+            key={`tag-${match.index}`}
+            href={`/search?q=${encodeURIComponent("#" + tagName)}`}
+            className="text-primary hover:underline font-medium"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {token}
+          </Link>
+        );
+      } else if (token.startsWith("@")) {
+        const username = token.slice(1);
+        parts.push(
+          <Link
+            key={`mention-${match.index}`}
+            href={`/profile/${username}`}
+            className="text-primary hover:underline font-medium"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {token}
+          </Link>
+        );
+      }
+
+      lastIndex = match.index + token.length;
+    }
+
+    // Texto restante
+    if (lastIndex < text.length) {
+      parts.push(text.slice(lastIndex));
+    }
+
+    return parts.length > 0 ? parts : text;
+  };
+
   const renderPostContent = (content: string, images: string[], videoUrl?: string | null, authorName?: string) => (
     <>
-      {content && <p className="whitespace-pre-wrap">{content}</p>}
+      {content && <p className="whitespace-pre-wrap">{renderContentWithLinks(content)}</p>}
 
       {images.length > 0 && (
         <div className={`mt-3 grid gap-1 ${images.length > 1 ? "grid-cols-2" : ""}`}>
@@ -330,11 +388,12 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
             post.originalPost.author,
             post.originalPost.team,
             post.originalPost.createdAt,
-            true
+            true,
+            !!post.originalPost.isEdited
           )
         ) : (
           <>
-            {renderAuthorHeader(post.author, post.team, post.createdAt, false)}
+            {renderAuthorHeader(post.author, post.team, post.createdAt, false, !!post.isEdited)}
             {isAuthor && !isRepost && (
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
@@ -361,7 +420,7 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
       <div className="px-5 pb-3">
         {isRepost && post.content && (
           <div className="mb-3 pb-3 border-b border-border/50">
-            <p className="whitespace-pre-wrap text-sm">{post.content}</p>
+            <p className="whitespace-pre-wrap text-sm">{renderContentWithLinks(post.content)}</p>
           </div>
         )}
 

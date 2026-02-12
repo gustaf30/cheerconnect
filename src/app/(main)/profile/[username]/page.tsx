@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
+import { Lock } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ProfileHeader } from "@/components/profile/profile-header";
@@ -14,9 +15,15 @@ export async function generateMetadata({ params }: ProfilePageProps): Promise<Me
   const { username } = await params;
   const user = await prisma.user.findUnique({
     where: { username },
-    select: { name: true },
+    select: { name: true, bio: true },
   });
-  return { title: user ? `${user.name} - CheerConnect` : "Perfil - CheerConnect" };
+  if (!user) return { title: "Perfil | CheerConnect" };
+  return {
+    title: `${user.name} | CheerConnect`,
+    description: user.bio
+      ? user.bio.length > 160 ? user.bio.slice(0, 160) + "..." : user.bio
+      : `Perfil de ${user.name} na comunidade de cheerleading CheerConnect.`,
+  };
 }
 
 export default async function UserProfilePage({ params }: ProfilePageProps) {
@@ -157,6 +164,45 @@ export default async function UserProfilePage({ params }: ProfilePageProps) {
 
   const connectionsCount =
     user._count.sentConnections + user._count.receivedConnections;
+
+  // Enforce profile visibility for non-connected users
+  if (
+    user.profileVisibility === "CONNECTIONS_ONLY" &&
+    !isOwnProfile &&
+    connectionStatus !== "connected"
+  ) {
+    return (
+      <div className="space-y-6">
+        <ProfileHeader
+          user={{
+            id: user.id,
+            name: user.name,
+            username: user.username,
+            avatar: user.avatar,
+            banner: user.banner,
+            bio: null,
+            location: null,
+            positions: user.positions,
+            experience: null,
+            skills: [],
+          }}
+          isOwnProfile={false}
+          connectionStatus={connectionStatus}
+          connectionsCount={connectionsCount}
+          postsCount={user._count.posts}
+        />
+        <div className="bento-card-static p-8 text-center">
+          <div className="flex flex-col items-center gap-3">
+            <Lock className="h-12 w-12 text-muted-foreground" />
+            <h2 className="heading-card">Perfil privado</h2>
+            <p className="text-muted-foreground font-body">
+              Conecte-se com {user.name} para ver o perfil completo.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const posts = user.posts.map((post) => ({
     ...post,

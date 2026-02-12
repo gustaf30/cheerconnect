@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 
 // GET /api/teams/[slug]/members - Listar membros da equipe
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { extractHashtags, extractMentions } from "@/lib/parsers";
 
 const createPostSchema = z.object({
   content: z.string().min(1, "Conteúdo é obrigatório").max(5000),
@@ -22,9 +23,21 @@ export async function GET(request: Request) {
     const filter = searchParams.get("filter") || "following";
     const query = searchParams.get("q");
 
+    // Fetch blocked user IDs (bidirectional)
+    const [blockedByMe, blockedMe] = await Promise.all([
+      prisma.block.findMany({ where: { userId: session.user.id }, select: { blockedUserId: true } }),
+      prisma.block.findMany({ where: { blockedUserId: session.user.id }, select: { userId: true } }),
+    ]);
+    const blockedIds = [...blockedByMe.map(b => b.blockedUserId), ...blockedMe.map(b => b.userId)];
+
     // Montar cláusula where baseada no filtro
     // TODO: For better search performance, consider adding PostgreSQL tsvector full-text search indexes
     const conditions: Record<string, unknown>[] = [];
+
+    // Exclude posts from blocked users
+    if (blockedIds.length > 0) {
+      conditions.push({ authorId: { notIn: blockedIds } });
+    }
 
     // Text search filter (post content)
     if (query) {
@@ -201,6 +214,54 @@ export async function POST(request: Request) {
         },
       },
     });
+
+    // Processar hashtags e menções do conteúdo
+    const hashtags = extractHashtags(content);
+    const mentionUsernames = extractMentions(content);
+
+    if (hashtags.length > 0 || mentionUsernames.length > 0) {
+      await prisma.$transaction(async (tx) => {
+        // Upsert tags e criar PostTag
+        for (const tagName of hashtags) {
+          const tag = await tx.tag.upsert({
+            where: { name: tagName },
+            update: {},
+            create: { name: tagName },
+          });
+          await tx.postTag.create({
+            data: { postId: post.id, tagId: tag.id },
+          });
+        }
+
+        // Processar menções
+        if (mentionUsernames.length > 0) {
+          const mentionedUsers = await tx.user.findMany({
+            where: { username: { in: mentionUsernames } },
+            select: { id: true, username: true, notifyMention: true },
+          });
+
+          for (const mentionedUser of mentionedUsers) {
+            await tx.mention.create({
+              data: { postId: post.id, mentionedUserId: mentionedUser.id },
+            });
+
+            // Notificar mencionado (não notificar a si mesmo)
+            if (mentionedUser.id !== session.user.id && mentionedUser.notifyMention) {
+              await tx.notification.create({
+                data: {
+                  userId: mentionedUser.id,
+                  type: "MENTION",
+                  message: `${post.author.name} mencionou você em uma publicação`,
+                  actorId: session.user.id,
+                  relatedId: post.id,
+                  relatedType: "post",
+                },
+              });
+            }
+          }
+        }
+      });
+    }
 
     return NextResponse.json({
       post: {

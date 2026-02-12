@@ -49,11 +49,20 @@ export async function GET(request: Request) {
       c.senderId === session.user.id ? c.receiverId : c.senderId
     );
 
+    // Fetch blocked user IDs (bidirectional)
+    const [blockedByMe, blockedMe] = await Promise.all([
+      prisma.block.findMany({ where: { userId: session.user.id }, select: { blockedUserId: true } }),
+      prisma.block.findMany({ where: { blockedUserId: session.user.id }, select: { userId: true } }),
+    ]);
+    const blockedIds = [...blockedByMe.map(b => b.blockedUserId), ...blockedMe.map(b => b.userId)];
+
     // TODO: For better search performance, consider adding PostgreSQL tsvector full-text search indexes
     const users = await prisma.user.findMany({
       where: {
         id: { not: session.user.id },
         AND: [
+          // Block filtering
+          ...(blockedIds.length > 0 ? [{ id: { notIn: blockedIds } }] : []),
           // Filtro de visibilidade do perfil
           {
             OR: [
@@ -114,7 +123,15 @@ async function handleSuggestions(userId: string) {
   const connectedIds = acceptedConnections.map((c) =>
     c.senderId === userId ? c.receiverId : c.senderId
   );
-  const excludeIds = [userId, ...connectedIds];
+
+  // Fetch blocked user IDs (bidirectional)
+  const [sugBlockedByMe, sugBlockedMe] = await Promise.all([
+    prisma.block.findMany({ where: { userId }, select: { blockedUserId: true } }),
+    prisma.block.findMany({ where: { blockedUserId: userId }, select: { userId: true } }),
+  ]);
+  const sugBlockedIds = [...sugBlockedByMe.map(b => b.blockedUserId), ...sugBlockedMe.map(b => b.userId)];
+
+  const excludeIds = [userId, ...connectedIds, ...sugBlockedIds];
   const seen = new Set<string>();
   const results: Array<Record<string, unknown>> = [];
 

@@ -9,7 +9,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, ArrowRight } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
-import { staggerContainer, fadeSlideUp, noMotion, noMotionContainer, stagger, springs } from "@/lib/animations";
+import { staggerContainer, fadeSlideUp, noMotion, noMotionContainer, stagger } from "@/lib/animations";
 import { toast } from "sonner";
 
 const loginSchema = z.object({

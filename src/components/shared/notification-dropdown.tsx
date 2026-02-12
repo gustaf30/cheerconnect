@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { Bell, Check, ArrowRight } from "lucide-react";
@@ -19,6 +19,7 @@ import {
   staggerContainer,
   stagger,
 } from "@/lib/animations";
+import { useRealtime } from "@/hooks/use-realtime";
 
 interface NotificationDropdownProps {
   variant?: "icon" | "sidebar";
@@ -26,10 +27,23 @@ interface NotificationDropdownProps {
 
 export function NotificationDropdown({ variant = "icon" }: NotificationDropdownProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const shouldReduceMotion = useReducedMotion();
+
+  const { notificationCount } = useRealtime();
+  const [localCountOffset, setLocalCountOffset] = useState(0);
+  const prevSseCountRef = useRef(notificationCount);
+
+  // Reset local offset when SSE count changes (server caught up)
+  useEffect(() => {
+    if (notificationCount !== prevSseCountRef.current) {
+      prevSseCountRef.current = notificationCount;
+      setLocalCountOffset(0);
+    }
+  }, [notificationCount]);
+
+  const effectiveCount = Math.max(0, notificationCount - localCountOffset);
 
   const itemVariants = shouldReduceMotion ? noMotion : fadeSlideUp;
   const containerVariants = shouldReduceMotion
@@ -51,47 +65,6 @@ export function NotificationDropdown({ variant = "icon" }: NotificationDropdownP
     }
   }, []);
 
-  // Real-time via SSE
-  useEffect(() => {
-    let eventSource: EventSource | null = null;
-    let retryDelay = 1000;
-    let retryTimeout: ReturnType<typeof setTimeout>;
-
-    const connect = () => {
-      eventSource = new EventSource("/api/notifications/stream");
-
-      eventSource.onopen = () => {
-        retryDelay = 1000;
-      };
-
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (typeof data.count === "number") {
-            setUnreadCount(data.count);
-          }
-        } catch {
-          // Ignore parse errors
-        }
-      };
-
-      eventSource.onerror = () => {
-        eventSource?.close();
-        retryTimeout = setTimeout(() => {
-          retryDelay = Math.min(retryDelay * 2, 30000);
-          connect();
-        }, retryDelay);
-      };
-    };
-
-    connect();
-
-    return () => {
-      eventSource?.close();
-      clearTimeout(retryTimeout);
-    };
-  }, []);
-
   // Buscar notificações quando o dropdown abre
   useEffect(() => {
     if (isOpen) {
@@ -110,7 +83,7 @@ export function NotificationDropdown({ variant = "icon" }: NotificationDropdownP
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
       );
-      setUnreadCount((prev) => Math.max(0, prev - 1));
+      setLocalCountOffset((prev) => prev + 1);
     } catch {
       console.error("Erro ao marcar notificação como lida");
     }
@@ -125,7 +98,7 @@ export function NotificationDropdown({ variant = "icon" }: NotificationDropdownP
       });
 
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-      setUnreadCount(0);
+      setLocalCountOffset(notificationCount);
     } catch {
       console.error("Erro ao marcar todas notificações como lidas");
     }
@@ -141,9 +114,9 @@ export function NotificationDropdown({ variant = "icon" }: NotificationDropdownP
           >
             <div className="relative">
               <Bell className="h-5 w-5" />
-              {unreadCount > 0 && (
+              {effectiveCount > 0 && (
                 <span className="absolute -top-1.5 -right-2 h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shadow-sm">
-                  {unreadCount > 9 ? "9+" : unreadCount}
+                  {effectiveCount > 9 ? "9+" : effectiveCount}
                 </span>
               )}
             </div>
@@ -152,12 +125,12 @@ export function NotificationDropdown({ variant = "icon" }: NotificationDropdownP
         ) : (
           <Button variant="ghost" size="icon" className="relative hover:bg-accent/80 transition-all duration-300" aria-label="Notificações">
             <Bell className="h-5 w-5 transition-transform duration-200 hover:scale-110" />
-            {unreadCount > 0 && (
+            {effectiveCount > 0 && (
               <>
                 <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary animate-ping opacity-75" />
                 <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary animate-pulse-ring" />
                 <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-gradient-to-br from-primary to-[oklch(0.45_0.20_25)] text-primary-foreground text-xs flex items-center justify-center font-medium shadow-md">
-                  {unreadCount > 9 ? "9+" : unreadCount}
+                  {effectiveCount > 9 ? "9+" : effectiveCount}
                 </span>
               </>
             )}
@@ -169,7 +142,7 @@ export function NotificationDropdown({ variant = "icon" }: NotificationDropdownP
         <div className="accent-bar" />
         <div className="flex items-center justify-between border-b border-border/50 px-4 py-3">
           <h3 className="font-display font-semibold text-gradient-primary">Notificações</h3>
-          {unreadCount > 0 && (
+          {effectiveCount > 0 && (
             <Button
               variant="ghost"
               size="sm"

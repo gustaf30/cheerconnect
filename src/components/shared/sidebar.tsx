@@ -20,6 +20,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { NotificationDropdown } from "./notification-dropdown";
 import { useAnimatedNumber } from "@/hooks/use-animated-number";
+import { useRealtime } from "@/hooks/use-realtime";
 
 const mainNavItems = [
   {
@@ -64,7 +65,7 @@ export function Sidebar() {
   const { data: session } = useSession();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [stats, setStats] = useState<Stats>({ connections: 0, achievements: 0 });
-  const [unreadMessages, setUnreadMessages] = useState(0);
+  const { messageCount } = useRealtime();
 
   const fetchUserProfile = useCallback(async () => {
     try {
@@ -107,28 +108,12 @@ export function Sidebar() {
     }
   }, []);
 
-  const fetchUnreadMessages = useCallback(async () => {
-    try {
-      const response = await fetch("/api/messages/count");
-      if (response.ok) {
-        const data = await response.json();
-        setUnreadMessages(data.count);
-      }
-    } catch {
-      // Fail silently
-    }
-  }, []);
-
   useEffect(() => {
     if (session?.user) {
       fetchUserProfile();
       fetchStats();
-      fetchUnreadMessages();
-
-      const interval = setInterval(fetchUnreadMessages, 30000);
-      return () => clearInterval(interval);
     }
-  }, [session, fetchUserProfile, fetchStats, fetchUnreadMessages]);
+  }, [session, fetchUserProfile, fetchStats]);
 
   const displayName = userProfile?.name || session?.user?.name || "";
   const displayUsername = userProfile?.username || "";
@@ -234,9 +219,9 @@ export function Sidebar() {
               >
                 <div className="relative">
                   <item.icon className="h-5 w-5" />
-                  {isMessages && unreadMessages > 0 && (
+                  {isMessages && messageCount > 0 && (
                     <span className="absolute -top-2 -right-3 h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shadow-sm">
-                      {unreadMessages > 99 ? "99+" : unreadMessages}
+                      {messageCount > 99 ? "99+" : messageCount}
                     </span>
                   )}
                 </div>

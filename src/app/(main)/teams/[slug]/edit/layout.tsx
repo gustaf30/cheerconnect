@@ -14,7 +14,10 @@ export async function generateMetadata({
     });
 
     if (!team) return { title: "Editar Equipe | CheerConnect" };
-    return { title: `Editar ${team.name} | CheerConnect` };
+    return {
+      title: `Editar ${team.name} | CheerConnect`,
+      description: `Gerencie informações, membros e configurações da equipe ${team.name}.`,
+    };
   } catch {
     return { title: "Editar Equipe | CheerConnect" };
   }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
+import logger from "@/lib/logger";
 
 /**
  * Verifica autenticação e retorna a sessão do usuário.
@@ -40,7 +41,7 @@ export function handleZodError(error: unknown): NextResponse | null {
  * Loga o erro e retorna resposta 500 padronizada.
  */
 export function internalError(context: string, error: unknown): NextResponse {
-  console.error(`${context}:`, error);
+  logger.error({ err: error }, context);
   return NextResponse.json(
     { error: "Erro interno do servidor" },
     { status: 500 }
