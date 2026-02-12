@@ -97,14 +97,19 @@ export async function DELETE(
 
     const { id: postId } = await params;
 
-    await prisma.like.delete({
+    const result = await prisma.like.deleteMany({
       where: {
-        userId_postId: {
-          userId: session.user.id,
-          postId,
-        },
+        userId: session.user.id,
+        postId,
       },
     });
+
+    if (result.count === 0) {
+      return NextResponse.json(
+        { error: "Você não curtiu este post" },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

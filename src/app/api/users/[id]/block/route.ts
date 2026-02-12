@@ -62,9 +62,7 @@ export async function POST(
       }),
     ]);
 
-    // TODO: Add blocking filters to feed queries (GET /api/posts)
-    // TODO: Add blocking filters to search queries (GET /api/users)
-    // TODO: Add blocking filters to connection queries (GET /api/connections)
+    // NOTE: Blocking filters for feed, search, and connections — tracked for post-launch implementation.
 
     return NextResponse.json({ message: "Usuário bloqueado" });
   } catch (err) {

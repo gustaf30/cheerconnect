@@ -27,10 +27,10 @@ export async function GET(request: Request) {
       return handleSuggestions(session.user.id);
     }
 
-    const query = searchParams.get("q") || "";
+    const query = searchParams.get("q")?.slice(0, 200) || "";
     const position = searchParams.get("position");
     const location = searchParams.get("location");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
     const cursor = searchParams.get("cursor");
 
     // Buscar IDs de usuários com conexões aceitas com o usuário atual
@@ -56,7 +56,7 @@ export async function GET(request: Request) {
     ]);
     const blockedIds = [...blockedByMe.map(b => b.blockedUserId), ...blockedMe.map(b => b.userId)];
 
-    // TODO: For better search performance, consider adding PostgreSQL tsvector full-text search indexes
+    // NOTE: Full-text search (PostgreSQL tsvector) would improve performance here — deferred to post-launch.
     const users = await prisma.user.findMany({
       where: {
         id: { not: session.user.id },
@@ -96,6 +96,8 @@ export async function GET(request: Request) {
     return NextResponse.json({
       users,
       nextCursor: users.length === limit ? users[users.length - 1]?.id : null,
+    }, {
+      headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" },
     });
   } catch (error) {
     return internalError("Erro ao buscar usuários", error);

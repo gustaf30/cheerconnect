@@ -50,9 +50,24 @@ export async function POST(
     const body = await request.json();
     const { userId, role, hasPermission, isAdmin } = createInviteSchema.parse(body);
 
-    // Apenas admins podem convidar com permissões de admin
+    // Validar e sanitizar role
+    if (role && (typeof role !== "string" || role.length > 50)) {
+      return NextResponse.json(
+        { error: "O cargo deve ter no máximo 50 caracteres" },
+        { status: 400 }
+      );
+    }
+    const sanitizedRole = role ? role.replace(/<[^>]*>/g, "").trim() : role;
+
+    // Apenas admins podem convidar com permissões elevadas
     const currentMember = team.members[0];
-    if ((hasPermission || isAdmin) && !currentMember.isAdmin) {
+    if (isAdmin && !currentMember.isAdmin) {
+      return NextResponse.json(
+        { error: "Apenas administradores podem conceder privilégios de administrador" },
+        { status: 403 }
+      );
+    }
+    if (hasPermission && !currentMember.isAdmin) {
       return NextResponse.json(
         { error: "Apenas administradores podem conceder permissões especiais" },
         { status: 403 }
@@ -114,14 +129,14 @@ export async function POST(
       create: {
         teamId: team.id,
         userId,
-        role,
+        role: sanitizedRole,
         hasPermission,
         isAdmin,
         status: "PENDING",
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias
       },
       update: {
-        role,
+        role: sanitizedRole,
         hasPermission,
         isAdmin,
         status: "PENDING",
@@ -163,7 +178,7 @@ export async function POST(
         teamId: team.id,
         invitedUserId: userId,
         invitedUserName: targetUser.name,
-        role,
+        role: sanitizedRole,
         hasPermission,
         isAdmin,
       },
@@ -213,7 +228,7 @@ export async function GET(
 
     const { searchParams } = new URL(request.url);
     const cursor = searchParams.get("cursor");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
 
     const invites = await prisma.teamInvite.findMany({
       where: {

@@ -186,7 +186,9 @@ export default async function TeamPage({ params }: TeamPageProps) {
                 <span className="flex items-center gap-1">
                   <Calendar className="h-4 w-4" />
                   Fundada em{" "}
-                  {format(new Date(team.foundedAt), "yyyy", { locale: ptBR })}
+                  <time dateTime={new Date(team.foundedAt).toISOString()}>
+                    {format(new Date(team.foundedAt), "yyyy", { locale: ptBR })}
+                  </time>
                 </span>
               )}
               <span className="flex items-center gap-1">
@@ -321,7 +323,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
                       key={event.id}
                       className="flex items-start gap-4 p-4 rounded-lg bg-muted/50"
                     >
-                      <div className="shrink-0 text-center">
+                      <time dateTime={new Date(event.startDate).toISOString()} className="shrink-0 text-center">
                         <div className="text-2xl font-bold text-primary">
                           {format(new Date(event.startDate), "dd")}
                         </div>
@@ -330,7 +332,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
                             locale: ptBR,
                           })}
                         </div>
-                      </div>
+                      </time>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <h4 className="font-semibold">{event.name}</h4>

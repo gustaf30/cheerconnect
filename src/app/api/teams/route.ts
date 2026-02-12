@@ -44,10 +44,10 @@ export async function GET(request: Request) {
       return handleTeamSuggestions(session.user.id);
     }
 
-    const query = searchParams.get("q") || "";
+    const query = searchParams.get("q")?.slice(0, 200) || "";
     const category = searchParams.get("category");
     const location = searchParams.get("location");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
     const cursor = searchParams.get("cursor");
 
     // Separar localização em partes cidade/estado para busca OR
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
       .map((p) => p.trim())
       .filter(Boolean) || [];
 
-    // TODO: For better search performance, consider adding PostgreSQL tsvector full-text search indexes
+    // NOTE: Full-text search (PostgreSQL tsvector) would improve performance here — deferred to post-launch.
     const teams = await prisma.team.findMany({
       where: {
         AND: [
@@ -91,6 +91,8 @@ export async function GET(request: Request) {
     return NextResponse.json({
       teams,
       nextCursor: teams.length === limit ? teams[teams.length - 1]?.id : null,
+    }, {
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
     });
   } catch (error) {
     return internalError("Erro ao buscar equipes", error);

@@ -94,11 +94,11 @@ export function AchievementList({
               </p>
             )}
             <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-              <span>
+              <time dateTime={new Date(achievement.date).toISOString()}>
                 {format(new Date(achievement.date), "MMMM yyyy", {
                   locale: ptBR,
                 })}
-              </span>
+              </time>
               {achievement.category && (
                 <>
                   <span>•</span>

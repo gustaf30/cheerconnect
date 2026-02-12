@@ -33,7 +33,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 
     const { searchParams } = new URL(request.url);
     const cursor = searchParams.get("cursor");
-    const limit = parseInt(searchParams.get("limit") || "10");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "10"), 50);
 
     const achievements = await prisma.teamAchievement.findMany({
       where: { teamId: team.id },

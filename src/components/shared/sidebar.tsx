@@ -219,11 +219,13 @@ export function Sidebar() {
               >
                 <div className="relative">
                   <item.icon className="h-5 w-5" />
-                  {isMessages && messageCount > 0 && (
-                    <span className="absolute -top-2 -right-3 h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shadow-sm">
-                      {messageCount > 99 ? "99+" : messageCount}
-                    </span>
-                  )}
+                  <span aria-live="polite" aria-atomic="true">
+                    {isMessages && messageCount > 0 && (
+                      <span className="absolute -top-2 -right-3 h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shadow-sm">
+                        {messageCount > 99 ? "99+" : messageCount}
+                      </span>
+                    )}
+                  </span>
                 </div>
                 <span>{item.title}</span>
               </Link>

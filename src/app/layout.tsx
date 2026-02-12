@@ -3,6 +3,8 @@ import { Bricolage_Grotesque, Source_Sans_3, JetBrains_Mono, Newsreader } from "
 import "./globals.css";
 import { SessionProvider } from "@/components/providers/session-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
@@ -53,6 +55,10 @@ export const metadata: Metadata = {
     title: "CheerConnect - Rede Social para Cheerleading",
     description: "Conecte-se com atletas, técnicos e equipes de cheerleading.",
   },
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-icon",
+  },
 };
 
 export default function RootLayout({
@@ -67,6 +73,8 @@ export default function RootLayout({
           {children}
           <Toaster position="top-center" richColors />
         </SessionProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
