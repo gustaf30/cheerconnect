@@ -54,9 +54,9 @@ export async function GET(request: Request) {
     }
 
     const type = searchParams.get("type");
-    const q = searchParams.get("q");
+    const q = searchParams.get("q")?.slice(0, 200);
     const location = searchParams.get("location");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
     const cursor = searchParams.get("cursor");
 
     // Separar localização em partes de cidade/estado para busca OR
@@ -98,6 +98,8 @@ export async function GET(request: Request) {
     return NextResponse.json({
       events,
       nextCursor: events.length === limit ? events[events.length - 1]?.id : null,
+    }, {
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
     });
   } catch (error) {
     return internalError("Erro ao buscar eventos", error);

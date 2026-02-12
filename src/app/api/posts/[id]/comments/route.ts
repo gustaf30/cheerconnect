@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { rateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 
 const createCommentSchema = z.object({
   content: z.string().min(1, "Comentário é obrigatório").max(1000),
@@ -146,6 +147,17 @@ export async function POST(
   try {
     const { session, error } = await requireAuth();
     if (error) return error;
+
+    // Rate limit: 10 comentários por minuto
+    const COMMENT_LIMIT = 10;
+    const COMMENT_WINDOW = 60000;
+    const rl = rateLimit(`comment:${session.user.id}`, COMMENT_LIMIT, COMMENT_WINDOW);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Muitos comentários em pouco tempo. Aguarde um momento." },
+        { status: 429, headers: rateLimitHeaders(COMMENT_LIMIT, rl.remaining, rl.resetMs) }
+      );
+    }
 
     const { id: postId } = await params;
 

@@ -323,6 +323,7 @@ model Comment {
 
   @@index([parentId])
   @@index([postId, parentId])
+  @@index([postId, createdAt])
 }
 
 model CommentLike {

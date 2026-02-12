@@ -279,9 +279,11 @@ export default function TeamInvitesPage() {
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">
                       Recebido em{" "}
-                      {format(new Date(invite.createdAt), "dd 'de' MMMM 'de' yyyy", {
-                        locale: ptBR,
-                      })}
+                      <time dateTime={new Date(invite.createdAt).toISOString()}>
+                        {format(new Date(invite.createdAt), "dd 'de' MMMM 'de' yyyy", {
+                          locale: ptBR,
+                        })}
+                      </time>
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">

@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status") || "ACCEPTED";
     const cursor = searchParams.get("cursor");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
 
     // Fetch blocked user IDs (bidirectional)
     const [blockedByMe, blockedMe] = await Promise.all([

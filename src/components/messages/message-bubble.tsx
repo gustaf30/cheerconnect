@@ -63,15 +63,16 @@ export function MessageBubble({ message, isOwn, showAvatar = true }: MessageBubb
         )}
       >
         <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-        <p
+        <time
+          dateTime={new Date(message.createdAt).toISOString()}
           className={cn(
-            "text-[10px] mt-1",
+            "text-[10px] mt-1 block",
             isOwn ? "text-primary-foreground/70" : "text-muted-foreground"
           )}
         >
           {formatTime(message.createdAt)}
           {isOwn && message.isRead && " • Lida"}
-        </p>
+        </time>
       </div>
     </div>
   );

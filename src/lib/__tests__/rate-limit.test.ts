@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-describe('rateLimit', () => {
+describe("rateLimit", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -10,89 +10,82 @@ describe('rateLimit', () => {
     vi.resetModules();
   });
 
-  it('allows the first request', async () => {
-    const { rateLimit } = await import('../rate-limit');
-    const result = rateLimit('first-req', { interval: 60000, maxRequests: 5 });
-    expect(result.success).toBe(true);
-    expect(result.retryAfter).toBe(0);
+  it("allows the first request", async () => {
+    const { rateLimit } = await import("../rate-limit");
+    const result = rateLimit("first-req", 5, 60000);
+    expect(result.allowed).toBe(true);
+    expect(result.remaining).toBe(4);
   });
 
-  it('allows multiple requests within the limit', async () => {
-    const { rateLimit } = await import('../rate-limit');
-    const config = { interval: 60000, maxRequests: 3 };
+  it("allows multiple requests within the limit", async () => {
+    const { rateLimit } = await import("../rate-limit");
 
-    const r1 = rateLimit('multi-key', config);
-    const r2 = rateLimit('multi-key', config);
-    const r3 = rateLimit('multi-key', config);
+    const r1 = rateLimit("multi-key", 3, 60000);
+    const r2 = rateLimit("multi-key", 3, 60000);
+    const r3 = rateLimit("multi-key", 3, 60000);
 
-    expect(r1.success).toBe(true);
-    expect(r2.success).toBe(true);
-    expect(r3.success).toBe(true);
+    expect(r1.allowed).toBe(true);
+    expect(r2.allowed).toBe(true);
+    expect(r3.allowed).toBe(true);
   });
 
-  it('rejects requests exceeding maxRequests', async () => {
-    const { rateLimit } = await import('../rate-limit');
-    const config = { interval: 60000, maxRequests: 2 };
+  it("rejects requests exceeding limit", async () => {
+    const { rateLimit } = await import("../rate-limit");
 
-    rateLimit('exceed-key', config);
-    rateLimit('exceed-key', config);
-    const r3 = rateLimit('exceed-key', config);
+    rateLimit("exceed-key", 2, 60000);
+    rateLimit("exceed-key", 2, 60000);
+    const r3 = rateLimit("exceed-key", 2, 60000);
 
-    expect(r3.success).toBe(false);
-    expect(r3.retryAfter).toBeGreaterThan(0);
+    expect(r3.allowed).toBe(false);
+    expect(r3.remaining).toBe(0);
+    expect(r3.resetMs).toBeGreaterThan(0);
   });
 
-  it('returns retryAfter in seconds', async () => {
-    const { rateLimit } = await import('../rate-limit');
-    const config = { interval: 60000, maxRequests: 1 };
+  it("returns resetMs for blocked requests", async () => {
+    const { rateLimit } = await import("../rate-limit");
 
-    rateLimit('retry-key', config);
+    rateLimit("retry-key", 1, 60000);
 
-    // Advance 10 seconds
     vi.advanceTimersByTime(10000);
 
-    const result = rateLimit('retry-key', config);
-    expect(result.success).toBe(false);
-    // Should be ~50 seconds remaining (60 - 10)
-    expect(result.retryAfter).toBe(50);
+    const result = rateLimit("retry-key", 1, 60000);
+    expect(result.allowed).toBe(false);
+    // resetMs should be ~50000ms (60000 - 10000)
+    expect(result.resetMs).toBeGreaterThanOrEqual(49000);
+    expect(result.resetMs).toBeLessThanOrEqual(51000);
   });
 
-  it('tracks different keys independently', async () => {
-    const { rateLimit } = await import('../rate-limit');
-    const config = { interval: 60000, maxRequests: 1 };
+  it("tracks different keys independently", async () => {
+    const { rateLimit } = await import("../rate-limit");
 
-    rateLimit('key-a', config);
-    const resultA = rateLimit('key-a', config);
-    const resultB = rateLimit('key-b', config);
+    rateLimit("key-a", 1, 60000);
+    const resultA = rateLimit("key-a", 1, 60000);
+    const resultB = rateLimit("key-b", 1, 60000);
 
-    expect(resultA.success).toBe(false);
-    expect(resultB.success).toBe(true);
+    expect(resultA.allowed).toBe(false);
+    expect(resultB.allowed).toBe(true);
   });
 
-  it('resets after window expires', async () => {
-    const { rateLimit } = await import('../rate-limit');
-    const config = { interval: 10000, maxRequests: 1 };
+  it("resets after window expires", async () => {
+    const { rateLimit } = await import("../rate-limit");
 
-    rateLimit('reset-key', config);
-    const blocked = rateLimit('reset-key', config);
-    expect(blocked.success).toBe(false);
+    rateLimit("reset-key", 1, 10000);
+    const blocked = rateLimit("reset-key", 1, 10000);
+    expect(blocked.allowed).toBe(false);
 
-    // Advance past the window
     vi.advanceTimersByTime(11000);
 
-    const afterReset = rateLimit('reset-key', config);
-    expect(afterReset.success).toBe(true);
-    expect(afterReset.retryAfter).toBe(0);
+    const afterReset = rateLimit("reset-key", 1, 10000);
+    expect(afterReset.allowed).toBe(true);
   });
 
-  it('handles single-request limit correctly', async () => {
-    const { rateLimit } = await import('../rate-limit');
-    const config = { interval: 5000, maxRequests: 1 };
+  it("handles single-request limit correctly", async () => {
+    const { rateLimit } = await import("../rate-limit");
 
-    const first = rateLimit('single-key', config);
-    expect(first.success).toBe(true);
+    const first = rateLimit("single-key", 1, 5000);
+    expect(first.allowed).toBe(true);
 
-    const second = rateLimit('single-key', config);
-    expect(second.success).toBe(false);
+    const second = rateLimit("single-key", 1, 5000);
+    expect(second.allowed).toBe(false);
   });
 });

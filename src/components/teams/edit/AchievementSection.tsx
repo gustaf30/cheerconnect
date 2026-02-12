@@ -184,11 +184,11 @@ export function AchievementSection({
                           {achievement.description}
                         </p>
                       )}
-                      <p className="text-xs text-muted-foreground mt-2">
+                      <time dateTime={new Date(achievement.date).toISOString()} className="text-xs text-muted-foreground mt-2 block">
                         {format(new Date(achievement.date), "dd 'de' MMMM 'de' yyyy", {
                           locale: ptBR,
                         })}
-                      </p>
+                      </time>
                     </div>
                   </div>
                   <Button

@@ -69,6 +69,7 @@ export default function TeamsPage() {
   // Dialog de criação de equipe
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [teamFormErrors, setTeamFormErrors] = useState<Record<string, string>>({});
   const [teamForm, setTeamForm] = useState({
     name: "",
     description: "",
@@ -143,10 +144,15 @@ export default function TeamsPage() {
   };
 
   const handleCreateTeam = async () => {
-    if (!teamForm.name.trim()) {
-      toast.error("Nome da equipe é obrigatório");
-      return;
+    const errors: Record<string, string> = {};
+    if (!teamForm.name || teamForm.name.trim().length < 2) {
+      errors.name = "Nome da equipe é obrigatório (mínimo 2 caracteres)";
     }
+    if (!teamForm.description || teamForm.description.trim().length < 1) {
+      errors.description = "Descrição é obrigatória";
+    }
+    setTeamFormErrors(errors);
+    if (Object.keys(errors).length > 0) return;
 
     setIsCreating(true);
     try {
@@ -408,19 +414,27 @@ export default function TeamsPage() {
               <label className="text-sm font-medium">Nome da Equipe *</label>
               <Input
                 value={teamForm.name}
-                onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })}
+                onChange={(e) => {
+                  setTeamForm({ ...teamForm, name: e.target.value });
+                  if (teamFormErrors.name) setTeamFormErrors((prev) => { const { name: _, ...rest } = prev; return rest; });
+                }}
                 placeholder="Ex: Sharks Allstars"
               />
+              {teamFormErrors.name && <p className="text-xs text-destructive mt-1">{teamFormErrors.name}</p>}
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Descrição</label>
+              <label className="text-sm font-medium">Descrição *</label>
               <Textarea
                 value={teamForm.description}
-                onChange={(e) => setTeamForm({ ...teamForm, description: e.target.value })}
+                onChange={(e) => {
+                  setTeamForm({ ...teamForm, description: e.target.value });
+                  if (teamFormErrors.description) setTeamFormErrors((prev) => { const { description: _, ...rest } = prev; return rest; });
+                }}
                 placeholder="Sobre a equipe..."
                 rows={3}
               />
+              {teamFormErrors.description && <p className="text-xs text-destructive mt-1">{teamFormErrors.description}</p>}
             </div>
 
             <div className="grid grid-cols-2 gap-4">

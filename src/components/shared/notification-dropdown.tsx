@@ -114,26 +114,30 @@ export function NotificationDropdown({ variant = "icon" }: NotificationDropdownP
           >
             <div className="relative">
               <Bell className="h-5 w-5" />
-              {effectiveCount > 0 && (
-                <span className="absolute -top-1.5 -right-2 h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shadow-sm">
-                  {effectiveCount > 9 ? "9+" : effectiveCount}
-                </span>
-              )}
+              <span aria-live="polite" aria-atomic="true">
+                {effectiveCount > 0 && (
+                  <span className="absolute -top-1.5 -right-2 h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shadow-sm">
+                    {effectiveCount > 9 ? "9+" : effectiveCount}
+                  </span>
+                )}
+              </span>
             </div>
             <span>Notificações</span>
           </button>
         ) : (
           <Button variant="ghost" size="icon" className="relative hover:bg-accent/80 transition-all duration-300" aria-label="Notificações">
             <Bell className="h-5 w-5 transition-transform duration-200 hover:scale-110" />
-            {effectiveCount > 0 && (
-              <>
-                <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary animate-ping opacity-75" />
-                <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary animate-pulse-ring" />
-                <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-gradient-to-br from-primary to-[oklch(0.45_0.20_25)] text-primary-foreground text-xs flex items-center justify-center font-medium shadow-md">
-                  {effectiveCount > 9 ? "9+" : effectiveCount}
-                </span>
-              </>
-            )}
+            <span aria-live="polite" aria-atomic="true">
+              {effectiveCount > 0 && (
+                <>
+                  <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary animate-ping opacity-75" />
+                  <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary animate-pulse-ring" />
+                  <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-gradient-to-br from-primary to-[oklch(0.45_0.20_25)] text-primary-foreground text-xs flex items-center justify-center font-medium shadow-md">
+                    {effectiveCount > 9 ? "9+" : effectiveCount}
+                  </span>
+                </>
+              )}
+            </span>
             <span className="sr-only">Notificações</span>
           </Button>
         )}

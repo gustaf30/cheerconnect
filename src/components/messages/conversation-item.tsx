@@ -66,9 +66,9 @@ export function ConversationItem({ conversation, isActive }: ConversationItemPro
             {otherParticipant.name}
           </span>
           {lastMessageAt && (
-            <span className="text-xs text-muted-foreground shrink-0">
+            <time dateTime={new Date(lastMessageAt).toISOString()} className="text-xs text-muted-foreground shrink-0">
               {formatTimeAgo(lastMessageAt)}
-            </span>
+            </time>
           )}
         </div>
         <div className="flex items-center justify-between gap-2">

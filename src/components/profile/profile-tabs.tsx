@@ -184,14 +184,18 @@ export function ProfileTabs({ user, posts, isOwnProfile, achievementLimit = 10 }
                             {entry.location && <span>• {entry.location}</span>}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {format(new Date(entry.startDate), "MMM yyyy", {
-                              locale: ptBR,
-                            })}{" "}
+                            <time dateTime={new Date(entry.startDate).toISOString()}>
+                              {format(new Date(entry.startDate), "MMM yyyy", {
+                                locale: ptBR,
+                              })}
+                            </time>{" "}
                             -{" "}
                             {entry.endDate
-                              ? format(new Date(entry.endDate), "MMM yyyy", {
-                                  locale: ptBR,
-                                })
+                              ? <time dateTime={new Date(entry.endDate).toISOString()}>
+                                  {format(new Date(entry.endDate), "MMM yyyy", {
+                                    locale: ptBR,
+                                  })}
+                                </time>
                               : "Presente"}
                           </div>
                           {entry.positions.length > 0 && (

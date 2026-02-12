@@ -1,42 +1,60 @@
 /**
  * In-memory sliding window rate limiter.
- * Usable in Node.js API route handlers (NOT Edge middleware — see middleware.ts for Edge version).
+ * Usable in Node.js API route handlers (NOT Edge middleware).
  */
 
-type RateLimitConfig = {
-  interval: number; // ms
-  maxRequests: number;
-};
+const rateLimitMap = new Map<string, number[]>();
 
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-
-// Clean up expired entries every 60s
+// Clean up old entries periodically
 setInterval(() => {
   const now = Date.now();
-  for (const [key, value] of rateLimitMap) {
-    if (now > value.resetTime) {
+  for (const [key, timestamps] of rateLimitMap.entries()) {
+    const filtered = timestamps.filter((t) => t > now - 60000);
+    if (filtered.length === 0) {
       rateLimitMap.delete(key);
+    } else {
+      rateLimitMap.set(key, filtered);
     }
   }
-}, 60_000);
+}, 60000);
 
 export function rateLimit(
   key: string,
-  config: RateLimitConfig
-): { success: boolean; retryAfter: number } {
+  limit: number,
+  windowMs: number
+): { allowed: boolean; remaining: number; resetMs: number } {
   const now = Date.now();
-  const entry = rateLimitMap.get(key);
+  const windowStart = now - windowMs;
+  const timestamps = (rateLimitMap.get(key) || []).filter(
+    (t) => t > windowStart
+  );
 
-  if (!entry || now > entry.resetTime) {
-    rateLimitMap.set(key, { count: 1, resetTime: now + config.interval });
-    return { success: true, retryAfter: 0 };
+  if (timestamps.length >= limit) {
+    return {
+      allowed: false,
+      remaining: 0,
+      resetMs: timestamps[0] + windowMs - now,
+    };
   }
 
-  if (entry.count >= config.maxRequests) {
-    const retryAfter = Math.ceil((entry.resetTime - now) / 1000);
-    return { success: false, retryAfter };
-  }
+  timestamps.push(now);
+  rateLimitMap.set(key, timestamps);
 
-  entry.count++;
-  return { success: true, retryAfter: 0 };
+  return {
+    allowed: true,
+    remaining: limit - timestamps.length,
+    resetMs: windowMs,
+  };
+}
+
+export function rateLimitHeaders(
+  limit: number,
+  remaining: number,
+  resetMs: number
+): Record<string, string> {
+  return {
+    "RateLimit-Limit": String(limit),
+    "RateLimit-Remaining": String(remaining),
+    "RateLimit-Reset": String(Math.ceil(resetMs / 1000)),
+  };
 }

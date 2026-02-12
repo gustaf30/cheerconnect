@@ -19,9 +19,9 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const cursor = searchParams.get("cursor");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
     const filter = searchParams.get("filter") || "following";
-    const query = searchParams.get("q");
+    const query = searchParams.get("q")?.slice(0, 200);
 
     // Fetch blocked user IDs (bidirectional)
     const [blockedByMe, blockedMe] = await Promise.all([
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     const blockedIds = [...blockedByMe.map(b => b.blockedUserId), ...blockedMe.map(b => b.userId)];
 
     // Montar cláusula where baseada no filtro
-    // TODO: For better search performance, consider adding PostgreSQL tsvector full-text search indexes
+    // NOTE: Full-text search (PostgreSQL tsvector) would improve performance here — deferred to post-launch.
     const conditions: Record<string, unknown>[] = [];
 
     // Exclude posts from blocked users
@@ -173,6 +173,8 @@ export async function GET(request: Request) {
     return NextResponse.json({
       posts: formattedPosts,
       nextCursor: posts.length === limit ? posts[posts.length - 1]?.id : null,
+    }, {
+      headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" },
     });
   } catch (error) {
     return internalError("Erro ao buscar posts", error);

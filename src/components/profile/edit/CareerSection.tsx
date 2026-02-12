@@ -203,12 +203,16 @@ export function CareerSection({ careerHistory, fetchCareerHistory }: CareerSecti
                       </p>
                     )}
                     <p className="text-xs text-muted-foreground mt-1">
-                      {format(new Date(career.startDate), "MMM yyyy", { locale: ptBR })}
+                      <time dateTime={new Date(career.startDate).toISOString()}>
+                        {format(new Date(career.startDate), "MMM yyyy", { locale: ptBR })}
+                      </time>
                       {" - "}
                       {career.isCurrent
                         ? "Presente"
                         : career.endDate
-                        ? format(new Date(career.endDate), "MMM yyyy", { locale: ptBR })
+                        ? <time dateTime={new Date(career.endDate).toISOString()}>
+                            {format(new Date(career.endDate), "MMM yyyy", { locale: ptBR })}
+                          </time>
                         : ""}
                     </p>
                   </div>

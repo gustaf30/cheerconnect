@@ -83,6 +83,7 @@ export default function EventsPage() {
   // Dialog de criação de evento
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [eventFormErrors, setEventFormErrors] = useState<Record<string, string>>({});
   const [eventForm, setEventForm] = useState({
     name: "",
     description: "",
@@ -98,6 +99,7 @@ export default function EventsPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
   const [editForm, setEditForm] = useState({
     name: "",
     description: "",
@@ -149,18 +151,24 @@ export default function EventsPage() {
   }, [typeFilter, searchQuery, locationFilter]);
 
   const handleCreateEvent = async () => {
-    if (!eventForm.name.trim()) {
-      toast.error("Nome do evento é obrigatório");
-      return;
+    const errors: Record<string, string> = {};
+    if (!eventForm.name || eventForm.name.trim().length < 2) {
+      errors.name = "Nome do evento é obrigatório (mínimo 2 caracteres)";
     }
     if (!eventForm.location.trim()) {
-      toast.error("Localização é obrigatória");
-      return;
+      errors.location = "Localização é obrigatória";
     }
-    if (!eventForm.startDate || !eventForm.startTime) {
-      toast.error("Data e hora de início são obrigatórias");
-      return;
+    if (!eventForm.startDate) {
+      errors.startDate = "Data de início é obrigatória";
     }
+    if (!eventForm.startTime) {
+      errors.startTime = "Hora de início é obrigatória";
+    }
+    if (eventForm.endDate && eventForm.startDate && eventForm.endDate < eventForm.startDate) {
+      errors.endDate = "Data de término deve ser igual ou posterior à data de início";
+    }
+    setEventFormErrors(errors);
+    if (Object.keys(errors).length > 0) return;
 
     setIsCreating(true);
     try {
@@ -230,18 +238,24 @@ export default function EventsPage() {
   const handleEditEvent = async () => {
     if (!editingEvent) return;
 
-    if (!editForm.name.trim()) {
-      toast.error("Nome do evento é obrigatório");
-      return;
+    const errors: Record<string, string> = {};
+    if (!editForm.name || editForm.name.trim().length < 2) {
+      errors.name = "Nome do evento é obrigatório (mínimo 2 caracteres)";
     }
     if (!editForm.location.trim()) {
-      toast.error("Localização é obrigatória");
-      return;
+      errors.location = "Localização é obrigatória";
     }
-    if (!editForm.startDate || !editForm.startTime) {
-      toast.error("Data e hora de início são obrigatórias");
-      return;
+    if (!editForm.startDate) {
+      errors.startDate = "Data de início é obrigatória";
     }
+    if (!editForm.startTime) {
+      errors.startTime = "Hora de início é obrigatória";
+    }
+    if (editForm.endDate && editForm.startDate && editForm.endDate < editForm.startDate) {
+      errors.endDate = "Data de término deve ser igual ou posterior à data de início";
+    }
+    setEditFormErrors(errors);
+    if (Object.keys(errors).length > 0) return;
 
     setIsEditing(true);
     try {
@@ -605,9 +619,13 @@ export default function EventsPage() {
               <label className="text-sm font-medium">Nome do Evento *</label>
               <Input
                 value={eventForm.name}
-                onChange={(e) => setEventForm({ ...eventForm, name: e.target.value })}
+                onChange={(e) => {
+                  setEventForm({ ...eventForm, name: e.target.value });
+                  if (eventFormErrors.name) setEventFormErrors((prev) => { const { name: _, ...rest } = prev; return rest; });
+                }}
                 placeholder="Ex: Campeonato Nacional"
               />
+              {eventFormErrors.name && <p className="text-xs text-destructive mt-1">{eventFormErrors.name}</p>}
             </div>
 
             <div className="space-y-2">
@@ -643,8 +661,12 @@ export default function EventsPage() {
               <label className="text-sm font-medium">Localização *</label>
               <CitySelector
                 value={eventForm.location}
-                onChange={(value) => setEventForm({ ...eventForm, location: value })}
+                onChange={(value) => {
+                  setEventForm({ ...eventForm, location: value });
+                  if (eventFormErrors.location) setEventFormErrors((prev) => { const { location: _, ...rest } = prev; return rest; });
+                }}
               />
+              {eventFormErrors.location && <p className="text-xs text-destructive mt-1">{eventFormErrors.location}</p>}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -653,16 +675,24 @@ export default function EventsPage() {
                 <Input
                   type="date"
                   value={eventForm.startDate}
-                  onChange={(e) => setEventForm({ ...eventForm, startDate: e.target.value })}
+                  onChange={(e) => {
+                    setEventForm({ ...eventForm, startDate: e.target.value });
+                    if (eventFormErrors.startDate) setEventFormErrors((prev) => { const { startDate: _, ...rest } = prev; return rest; });
+                  }}
                 />
+                {eventFormErrors.startDate && <p className="text-xs text-destructive mt-1">{eventFormErrors.startDate}</p>}
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Hora de Início *</label>
                 <Input
                   type="time"
                   value={eventForm.startTime}
-                  onChange={(e) => setEventForm({ ...eventForm, startTime: e.target.value })}
+                  onChange={(e) => {
+                    setEventForm({ ...eventForm, startTime: e.target.value });
+                    if (eventFormErrors.startTime) setEventFormErrors((prev) => { const { startTime: _, ...rest } = prev; return rest; });
+                  }}
                 />
+                {eventFormErrors.startTime && <p className="text-xs text-destructive mt-1">{eventFormErrors.startTime}</p>}
               </div>
             </div>
 
@@ -672,8 +702,12 @@ export default function EventsPage() {
                 <Input
                   type="date"
                   value={eventForm.endDate}
-                  onChange={(e) => setEventForm({ ...eventForm, endDate: e.target.value })}
+                  onChange={(e) => {
+                    setEventForm({ ...eventForm, endDate: e.target.value });
+                    if (eventFormErrors.endDate) setEventFormErrors((prev) => { const { endDate: _, ...rest } = prev; return rest; });
+                  }}
                 />
+                {eventFormErrors.endDate && <p className="text-xs text-destructive mt-1">{eventFormErrors.endDate}</p>}
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Hora de Término</label>
@@ -708,9 +742,13 @@ export default function EventsPage() {
               <label className="text-sm font-medium">Nome do Evento *</label>
               <Input
                 value={editForm.name}
-                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                onChange={(e) => {
+                  setEditForm({ ...editForm, name: e.target.value });
+                  if (editFormErrors.name) setEditFormErrors((prev) => { const { name: _, ...rest } = prev; return rest; });
+                }}
                 placeholder="Ex: Campeonato Nacional"
               />
+              {editFormErrors.name && <p className="text-xs text-destructive mt-1">{editFormErrors.name}</p>}
             </div>
 
             <div className="space-y-2">
@@ -746,8 +784,12 @@ export default function EventsPage() {
               <label className="text-sm font-medium">Localização *</label>
               <CitySelector
                 value={editForm.location}
-                onChange={(value) => setEditForm({ ...editForm, location: value })}
+                onChange={(value) => {
+                  setEditForm({ ...editForm, location: value });
+                  if (editFormErrors.location) setEditFormErrors((prev) => { const { location: _, ...rest } = prev; return rest; });
+                }}
               />
+              {editFormErrors.location && <p className="text-xs text-destructive mt-1">{editFormErrors.location}</p>}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -756,16 +798,24 @@ export default function EventsPage() {
                 <Input
                   type="date"
                   value={editForm.startDate}
-                  onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })}
+                  onChange={(e) => {
+                    setEditForm({ ...editForm, startDate: e.target.value });
+                    if (editFormErrors.startDate) setEditFormErrors((prev) => { const { startDate: _, ...rest } = prev; return rest; });
+                  }}
                 />
+                {editFormErrors.startDate && <p className="text-xs text-destructive mt-1">{editFormErrors.startDate}</p>}
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Hora de Início *</label>
                 <Input
                   type="time"
                   value={editForm.startTime}
-                  onChange={(e) => setEditForm({ ...editForm, startTime: e.target.value })}
+                  onChange={(e) => {
+                    setEditForm({ ...editForm, startTime: e.target.value });
+                    if (editFormErrors.startTime) setEditFormErrors((prev) => { const { startTime: _, ...rest } = prev; return rest; });
+                  }}
                 />
+                {editFormErrors.startTime && <p className="text-xs text-destructive mt-1">{editFormErrors.startTime}</p>}
               </div>
             </div>
 
@@ -775,8 +825,12 @@ export default function EventsPage() {
                 <Input
                   type="date"
                   value={editForm.endDate}
-                  onChange={(e) => setEditForm({ ...editForm, endDate: e.target.value })}
+                  onChange={(e) => {
+                    setEditForm({ ...editForm, endDate: e.target.value });
+                    if (editFormErrors.endDate) setEditFormErrors((prev) => { const { endDate: _, ...rest } = prev; return rest; });
+                  }}
                 />
+                {editFormErrors.endDate && <p className="text-xs text-destructive mt-1">{editFormErrors.endDate}</p>}
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Hora de Término</label>

@@ -211,9 +211,9 @@ export function AchievementSection({ achievements, fetchAchievements }: Achievem
                         {achievement.description}
                       </p>
                     )}
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <time dateTime={new Date(achievement.date).toISOString()} className="text-xs text-muted-foreground mt-1 block">
                       {format(new Date(achievement.date), "MMMM yyyy", { locale: ptBR })}
-                    </p>
+                    </time>
                   </div>
                   <div className="flex gap-1">
                     <Button

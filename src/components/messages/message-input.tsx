@@ -67,6 +67,7 @@ export function MessageInput({ conversationId, onMessageSent }: MessageInputProp
         disabled={!content.trim() || isSending}
         size="icon"
         className="shrink-0 h-11 w-11"
+        aria-label="Enviar mensagem"
       >
         {isSending ? (
           <Loader2 className="h-5 w-5 animate-spin" />

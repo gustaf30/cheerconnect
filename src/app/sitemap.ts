@@ -1,9 +1,11 @@
 import { MetadataRoute } from "next";
+import { prisma } from "@/lib/prisma";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXTAUTH_URL || "https://cheerconnect.com";
 
-  return [
+  // Static routes
+  const staticRoutes: MetadataRoute.Sitemap = [
     {
       url: baseUrl,
       lastModified: new Date(),
@@ -23,4 +25,41 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.5,
     },
   ];
+
+  // Dynamic team routes
+  let teamRoutes: MetadataRoute.Sitemap = [];
+  try {
+    const teams = await prisma.team.findMany({
+      select: { slug: true, updatedAt: true },
+    });
+    teamRoutes = teams.map((team) => ({
+      url: `${baseUrl}/teams/${team.slug}`,
+      lastModified: team.updatedAt,
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    }));
+  } catch {
+    // DB unavailable during build — skip dynamic routes
+  }
+
+  // Dynamic public profile routes
+  let profileRoutes: MetadataRoute.Sitemap = [];
+  try {
+    const users = await prisma.user.findMany({
+      where: { profileVisibility: "PUBLIC" },
+      select: { username: true, updatedAt: true },
+    });
+    profileRoutes = users
+      .filter((u) => u.username)
+      .map((user) => ({
+        url: `${baseUrl}/profile/${user.username}`,
+        lastModified: user.updatedAt,
+        changeFrequency: "weekly" as const,
+        priority: 0.6,
+      }));
+  } catch {
+    // DB unavailable during build — skip dynamic routes
+  }
+
+  return [...staticRoutes, ...teamRoutes, ...profileRoutes];
 }

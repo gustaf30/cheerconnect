@@ -12,11 +12,11 @@ export async function GET(
     if (error) return error;
 
     const { name } = await params;
-    const tagName = decodeURIComponent(name).toLowerCase();
+    const tagName = decodeURIComponent(name).slice(0, 200).toLowerCase();
 
     const { searchParams } = new URL(request.url);
     const cursor = searchParams.get("cursor");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
 
     const tag = await prisma.tag.findUnique({
       where: { name: tagName },
