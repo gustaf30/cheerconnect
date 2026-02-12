@@ -147,7 +147,7 @@ export async function POST(
           type: "POST_REPOSTED",
           message: `${currentUser?.name || "Alguém"} repostou sua publicação`,
           actorId: session.user.id,
-          relatedId: repost.id,
+          relatedId: postId,
           relatedType: "post",
         },
       });

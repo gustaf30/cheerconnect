@@ -13,13 +13,46 @@ const createEventSchema = z.object({
   teamId: z.string().optional().nullable(),
 });
 
+const eventSelect = {
+  id: true,
+  name: true,
+  description: true,
+  location: true,
+  startDate: true,
+  endDate: true,
+  type: true,
+  creatorId: true,
+  creator: {
+    select: {
+      id: true,
+      name: true,
+      username: true,
+      avatar: true,
+    },
+  },
+  team: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      logo: true,
+    },
+  },
+} as const;
+
 // GET /api/events - Buscar próximos eventos
 export async function GET(request: Request) {
   try {
-    const { error } = await requireAuth();
+    const { session, error } = await requireAuth();
     if (error) return error;
 
     const { searchParams } = new URL(request.url);
+    const mode = searchParams.get("mode");
+
+    if (mode === "suggestions") {
+      return handleEventSuggestions(session.user.id);
+    }
+
     const type = searchParams.get("type");
     const q = searchParams.get("q");
     const location = searchParams.get("location");
@@ -59,32 +92,7 @@ export async function GET(request: Request) {
         cursor: { id: cursor },
       }),
       orderBy: { startDate: "asc" },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        location: true,
-        startDate: true,
-        endDate: true,
-        type: true,
-        creatorId: true,
-        creator: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
-            avatar: true,
-          },
-        },
-        team: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            logo: true,
-          },
-        },
-      },
+      select: eventSelect,
     });
 
     return NextResponse.json({
@@ -94,6 +102,89 @@ export async function GET(request: Request) {
   } catch (error) {
     return internalError("Erro ao buscar eventos", error);
   }
+}
+
+async function handleEventSuggestions(userId: string) {
+  const MAX = 12;
+  const now = new Date();
+
+  // Get user info and team memberships in parallel
+  const [currentUser, myMemberships] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { location: true },
+    }),
+    prisma.teamMember.findMany({
+      where: { userId, isActive: true },
+      select: { teamId: true },
+    }),
+  ]);
+
+  const myTeamIds = myMemberships.map((m) => m.teamId);
+  const seen = new Set<string>();
+  const results: Array<Record<string, unknown>> = [];
+
+  const add = (events: Array<Record<string, unknown>>) => {
+    for (const e of events) {
+      const id = e.id as string;
+      if (!seen.has(id) && results.length < MAX) {
+        seen.add(id);
+        results.push(e);
+      }
+    }
+  };
+
+  // Events from user's teams
+  const teamEventsPromise = myTeamIds.length > 0
+    ? prisma.event.findMany({
+        where: {
+          teamId: { in: myTeamIds },
+          startDate: { gte: now },
+        },
+        take: 5,
+        orderBy: { startDate: "asc" },
+        select: eventSelect,
+      })
+    : Promise.resolve([]);
+
+  // Same region events
+  const locationParts = currentUser?.location
+    ?.split(",")
+    .map((p) => p.trim())
+    .filter(Boolean) || [];
+  const statePart = locationParts[locationParts.length - 1];
+
+  const regionEventsPromise = statePart
+    ? prisma.event.findMany({
+        where: {
+          startDate: { gte: now },
+          location: { contains: statePart, mode: "insensitive" },
+        },
+        take: 8,
+        orderBy: { startDate: "asc" },
+        select: eventSelect,
+      })
+    : Promise.resolve([]);
+
+  // Upcoming events (fallback)
+  const upcomingPromise = prisma.event.findMany({
+    where: { startDate: { gte: now } },
+    take: MAX,
+    orderBy: { startDate: "asc" },
+    select: eventSelect,
+  });
+
+  const [teamEvents, regionEvents, upcoming] = await Promise.all([
+    teamEventsPromise,
+    regionEventsPromise,
+    upcomingPromise,
+  ]);
+
+  add(teamEvents);
+  add(regionEvents);
+  add(upcoming);
+
+  return NextResponse.json({ events: results, nextCursor: null });
 }
 
 // POST /api/events - Criar novo evento

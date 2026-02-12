@@ -1,17 +1,9 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
-import { motion, useReducedMotion } from "framer-motion";
+import { useInView } from "framer-motion";
 import { Users, Trophy, Calendar, Search, ArrowRight, Sparkles } from "lucide-react";
-import {
-  staggerContainer,
-  fadeSlideUp,
-  scaleIn,
-  noMotion,
-  noMotionContainer,
-  springs,
-  stagger,
-} from "@/lib/animations";
 import { useAnimatedNumber } from "@/hooks/use-animated-number";
 
 const iconMap = { Users, Trophy, Calendar, Search } as const;
@@ -19,46 +11,32 @@ const iconMap = { Users, Trophy, Calendar, Search } as const;
 // ─── Hero Section ──────────────────────────────────────────────
 
 export function LandingHero() {
-  const shouldReduceMotion = useReducedMotion();
-  const containerVariants = shouldReduceMotion
-    ? noMotionContainer
-    : staggerContainer(stagger.slow);
-  const itemVariants = shouldReduceMotion ? noMotion : fadeSlideUp;
-
   return (
-    <motion.div
-      className="space-y-8"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      <motion.div
-        variants={itemVariants}
-        className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full border border-primary/20 text-sm font-bold text-primary"
-      >
+    <div className="space-y-8">
+      <div className="landing-fade-up inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full border border-primary/20 text-sm font-bold text-primary">
         <Sparkles className="h-4 w-4" />
         A maior rede de cheerleading do Brasil
-      </motion.div>
+      </div>
 
-      <motion.h1
-        variants={itemVariants}
-        className="text-5xl md:text-6xl lg:text-7xl font-display font-extrabold tracking-tight leading-[1.1]"
+      <h1
+        className="landing-fade-up text-5xl md:text-6xl lg:text-7xl font-display font-extrabold tracking-tight leading-[1.1]"
+        style={{ animationDelay: "100ms" }}
       >
         A rede social para quem vive o{" "}
         <span className="text-gradient-primary">cheerleading</span>
-      </motion.h1>
+      </h1>
 
-      <motion.p
-        variants={itemVariants}
-        className="text-xl text-muted-foreground max-w-lg leading-relaxed font-light"
+      <p
+        className="landing-fade-up text-xl text-muted-foreground max-w-lg leading-relaxed font-light"
+        style={{ animationDelay: "200ms" }}
       >
         Conecte-se com atletas, tecnicos e equipes. Compartilhe suas
         conquistas e encontre novas oportunidades na comunidade.
-      </motion.p>
+      </p>
 
-      <motion.div
-        variants={itemVariants}
-        className="flex flex-col sm:flex-row gap-4 pt-4"
+      <div
+        className="landing-fade-up flex flex-col sm:flex-row gap-4 pt-4"
+        style={{ animationDelay: "300ms" }}
       >
         <Link href="/register">
           <button className="w-full sm:w-auto px-8 py-4 bg-primary hover:bg-[oklch(0.40_0.18_25)] text-white font-bold rounded-xl transition-all active:scale-[0.98] shadow-xl shadow-primary/20 flex items-center justify-center gap-2 group">
@@ -71,8 +49,8 @@ export function LandingHero() {
             Ja tenho conta
           </button>
         </Link>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }
 
@@ -102,24 +80,19 @@ interface StatData {
 }
 
 export function LandingStats({ stats }: { stats: StatData[] }) {
-  const shouldReduceMotion = useReducedMotion();
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true });
 
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div ref={ref} className="grid grid-cols-2 gap-4">
       {stats.map((stat, index) => (
-        <motion.div
+        <div
           key={stat.label}
-          initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.85 }}
-          whileInView={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
-          viewport={{ once: true }}
-          transition={
-            shouldReduceMotion
-              ? { duration: 0.15 }
-              : { ...springs.gentle, delay: index * 0.1 }
-          }
+          className={isInView ? "landing-scale-in" : ""}
+          style={isInView ? { animationDelay: `${index * 100}ms` } : { opacity: 0 }}
         >
           <StatCard value={stat.value} suffix={stat.suffix} label={stat.label} />
-        </motion.div>
+        </div>
       ))}
     </div>
   );
@@ -134,27 +107,18 @@ interface FeatureData {
 }
 
 export function LandingFeatures({ features }: { features: FeatureData[] }) {
-  const shouldReduceMotion = useReducedMotion();
-  const containerVariants = shouldReduceMotion
-    ? noMotionContainer
-    : staggerContainer(stagger.default);
-  const itemVariants = shouldReduceMotion ? noMotion : fadeSlideUp;
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true });
 
   return (
-    <motion.div
-      className="grid md:grid-cols-2 lg:grid-cols-4 gap-6"
-      variants={containerVariants}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true }}
-    >
-      {features.map((feature) => {
+    <div ref={ref} className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {features.map((feature, index) => {
         const Icon = iconMap[feature.icon];
         return (
-          <motion.div
+          <div
             key={feature.title}
-            variants={itemVariants}
-            className="bento-card-static group"
+            className={`bento-card-static group ${isInView ? "landing-fade-up" : ""}`}
+            style={isInView ? { animationDelay: `${index * 80}ms` } : { opacity: 0 }}
           >
             <div className="accent-bar" />
             <div className="p-6">
@@ -166,26 +130,24 @@ export function LandingFeatures({ features }: { features: FeatureData[] }) {
                 {feature.description}
               </p>
             </div>
-          </motion.div>
+          </div>
         );
       })}
-    </motion.div>
+    </div>
   );
 }
 
 // ─── CTA Section ───────────────────────────────────────────────
 
 export function LandingCTA() {
-  const shouldReduceMotion = useReducedMotion();
-  const variants = shouldReduceMotion ? noMotion : scaleIn;
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true });
 
   return (
-    <motion.div
-      variants={variants}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true }}
-      className="bento-card-static bg-primary text-white overflow-hidden relative"
+    <div
+      ref={ref}
+      className={`bento-card-static bg-primary text-white overflow-hidden relative ${isInView ? "landing-scale-in" : ""}`}
+      style={isInView ? undefined : { opacity: 0 }}
     >
       <div className="absolute inset-0 split-pattern" />
       <div className="absolute -top-24 -right-24 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
@@ -204,6 +166,6 @@ export function LandingCTA() {
           </button>
         </Link>
       </div>
-    </motion.div>
+    </div>
   );
 }
