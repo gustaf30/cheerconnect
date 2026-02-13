@@ -155,7 +155,7 @@ export async function GET(request: Request) {
       posts: formattedPosts,
       nextCursor: posts.length === limit ? posts[posts.length - 1]?.id : null,
     }, {
-      headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" },
+      headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
     return internalError("Erro ao buscar posts", error);

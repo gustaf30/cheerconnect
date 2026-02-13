@@ -36,6 +36,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { PASSWORD_MIN_LENGTH, PASSWORD_REGEX, PASSWORD_ERROR } from "@/lib/constants";
 
 interface Settings {
   email: string;
@@ -161,8 +162,8 @@ export default function SettingsPage() {
       return;
     }
 
-    if (newPassword.length < 6) {
-      toast.error("Nova senha deve ter pelo menos 6 caracteres");
+    if (newPassword.length < PASSWORD_MIN_LENGTH || !PASSWORD_REGEX.test(newPassword)) {
+      toast.error(PASSWORD_ERROR);
       return;
     }
 
@@ -601,7 +602,7 @@ export default function SettingsPage() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Mínimo de 6 caracteres
+                Min. 8 caracteres, incluindo maiuscula, minuscula e numero
               </p>
             </div>
 

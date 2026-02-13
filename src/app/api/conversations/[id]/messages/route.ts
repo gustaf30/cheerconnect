@@ -159,7 +159,7 @@ export async function POST(
       });
 
       // Atualizar conversa com informações da última mensagem
-      const preview = content.length > 100 ? content.substring(0, 100) + "..." : content;
+      const preview = content.length > 50 ? content.substring(0, 50) + "..." : content;
       await tx.conversation.update({
         where: { id: conversationId },
         data: {

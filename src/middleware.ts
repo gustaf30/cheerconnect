@@ -1,16 +1,15 @@
 import { withAuth } from "next-auth/middleware";
 import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
 
-// --- Edge-compatible in-memory rate limiter ---
-const rateLimitMap = new Map<
-  string,
-  { count: number; resetTime: number }
->();
+// --- Rate limit configuration ---
 
 type RateLimitRule = { maxRequests: number; interval: number };
 
 const RATE_LIMIT_RULES: { pattern: string; rule: RateLimitRule }[] = [
+  { pattern: "/api/auth/callback/credentials", rule: { maxRequests: 5, interval: 60_000 } },
   { pattern: "/api/auth/register", rule: { maxRequests: 5, interval: 60_000 } },
   { pattern: "/api/posts", rule: { maxRequests: 10, interval: 60_000 } },
   { pattern: "/api/upload", rule: { maxRequests: 5, interval: 60_000 } },
@@ -20,6 +19,7 @@ const RATE_LIMIT_RULES: { pattern: string; rule: RateLimitRule }[] = [
   { pattern: "/api/events", rule: { maxRequests: 10, interval: 60_000 } },
   { pattern: "/api/conversations", rule: { maxRequests: 10, interval: 60_000 } },
   { pattern: "/api/notifications", rule: { maxRequests: 30, interval: 60_000 } },
+  { pattern: "/api/settings/password", rule: { maxRequests: 3, interval: 60_000 } },
   { pattern: "/api/settings", rule: { maxRequests: 10, interval: 60_000 } },
 ];
 
@@ -28,15 +28,71 @@ function matchesConversationMessages(pathname: string): boolean {
   return /^\/api\/conversations\/[^/]+\/messages$/.test(pathname);
 }
 
+// --- IP extraction ---
+// Prefer request.ip (reliable on Vercel), then last x-forwarded-for value
+// (closest trusted proxy), then "anonymous"
 function getIp(request: { headers: Headers; ip?: string }): string {
-  return (
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    request.ip ||
-    "anonymous"
-  );
+  if (request.ip) return request.ip;
+
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) {
+    const parts = forwarded.split(",");
+    const last = parts[parts.length - 1]?.trim();
+    if (last) return last;
+  }
+
+  return "anonymous";
 }
 
-function checkRateLimit(
+// When IP is "anonymous", compute a weak fingerprint from headers to
+// differentiate clients sharing the same missing-IP bucket
+function getClientIdentifier(request: { headers: Headers; ip?: string }): string {
+  const ip = getIp(request);
+  if (ip !== "anonymous") return ip;
+
+  const ua = request.headers.get("user-agent") ?? "";
+  const lang = request.headers.get("accept-language") ?? "";
+  const accept = request.headers.get("accept") ?? "";
+  // Simple hash: sum char codes to produce a numeric fingerprint
+  const raw = `${ua}|${lang}|${accept}`;
+  let hash = 0;
+  for (let i = 0; i < raw.length; i++) {
+    hash = ((hash << 5) - hash + raw.charCodeAt(i)) | 0;
+  }
+  return `anon:${hash.toString(36)}`;
+}
+
+// --- Upstash rate limiter with in-memory dev fallback ---
+
+const useUpstash = !!(
+  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+);
+
+// Build Upstash rate limiters keyed by rule signature
+const upstashLimiters = new Map<string, Ratelimit>();
+
+function getUpstashLimiter(rule: RateLimitRule): Ratelimit {
+  const key = `${rule.maxRequests}:${rule.interval}`;
+  let limiter = upstashLimiters.get(key);
+  if (!limiter) {
+    limiter = new Ratelimit({
+      redis: Redis.fromEnv(),
+      limiter: Ratelimit.slidingWindow(
+        rule.maxRequests,
+        `${rule.interval}ms` as `${number} ms`
+      ),
+      analytics: false,
+      prefix: "rl",
+    });
+    upstashLimiters.set(key, limiter);
+  }
+  return limiter;
+}
+
+// --- In-memory fallback (local dev only) ---
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+
+function checkRateLimitInMemory(
   key: string,
   rule: RateLimitRule
 ): { success: boolean; retryAfter: number } {
@@ -57,17 +113,17 @@ function checkRateLimit(
   return { success: true, retryAfter: 0 };
 }
 
-// Periodic cleanup of expired entries (best-effort, runs on each request)
+// Best-effort cleanup for in-memory map (only used without Upstash)
 const MAX_RATE_LIMIT_ENTRIES = 10_000;
 let lastCleanup = Date.now();
 function cleanupRateLimitMap() {
+  if (useUpstash) return;
   const now = Date.now();
   if (now - lastCleanup < 60_000) return;
   lastCleanup = now;
   for (const [key, value] of rateLimitMap) {
     if (now > value.resetTime) rateLimitMap.delete(key);
   }
-  // Cap map size to prevent memory leak
   if (rateLimitMap.size > MAX_RATE_LIMIT_ENTRIES) {
     const entriesToDelete = rateLimitMap.size - MAX_RATE_LIMIT_ENTRIES;
     let deleted = 0;
@@ -79,6 +135,25 @@ function cleanupRateLimitMap() {
   }
 }
 
+// --- Unified rate limit check ---
+async function checkRateLimit(
+  key: string,
+  rule: RateLimitRule
+): Promise<{ success: boolean; retryAfter: number }> {
+  if (useUpstash) {
+    const limiter = getUpstashLimiter(rule);
+    const result = await limiter.limit(key);
+    if (result.success) return { success: true, retryAfter: 0 };
+    const retryAfter = Math.ceil(
+      Math.max(0, result.reset - Date.now()) / 1000
+    );
+    return { success: false, retryAfter };
+  }
+  return checkRateLimitInMemory(key, rule);
+}
+
+// --- Middleware ---
+
 export default withAuth(
   async function middleware(request) {
     cleanupRateLimitMap();
@@ -86,14 +161,14 @@ export default withAuth(
     // Rate limiting — only POST requests to specific paths
     if (request.method === "POST") {
       const { pathname } = request.nextUrl;
-      const ip = getIp(request);
+      const clientId = getClientIdentifier(request);
       let rule: RateLimitRule | null = null;
 
       // Check conversation messages route
       if (matchesConversationMessages(pathname)) {
         rule = { maxRequests: 30, interval: 60_000 };
       } else {
-        // Check static pattern rules
+        // Check static pattern rules (first match wins)
         for (const r of RATE_LIMIT_RULES) {
           if (pathname === r.pattern || pathname.startsWith(r.pattern + "/")) {
             rule = r.rule;
@@ -103,12 +178,12 @@ export default withAuth(
       }
 
       if (rule) {
-        // Use user ID from JWT when available, fall back to IP
+        // Use user ID from JWT when available, fall back to client identifier
         const token = await getToken({ req: request });
         const key = token?.sub
           ? `user:${token.sub}:${pathname}`
-          : `ip:${ip}:${pathname}`;
-        const result = checkRateLimit(key, rule);
+          : `ip:${clientId}:${pathname}`;
+        const result = await checkRateLimit(key, rule);
         if (!result.success) {
           return NextResponse.json(
             { error: "Muitas requisições. Tente novamente mais tarde." },
@@ -133,6 +208,7 @@ export default withAuth(
           pathname === "/" ||
           pathname.startsWith("/login") ||
           pathname.startsWith("/register") ||
+          pathname.startsWith("/verify-email") ||
           pathname.startsWith("/api/auth") ||
           pathname.startsWith("/api/health")
         ) {
@@ -156,6 +232,8 @@ export const config = {
     "/search/:path*",
     "/messages/:path*",
     "/settings/:path*",
+    "/verify-email/:path*",
+    "/api/auth/:path*",
     "/api/posts/:path*",
     "/api/users/:path*",
     "/api/connections/:path*",

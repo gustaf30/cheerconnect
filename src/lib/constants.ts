@@ -72,6 +72,12 @@ export const achievementCategoryOptions = [
   { value: "OTHER", label: "Outro" },
 ] as const;
 
+// Política de senha
+export const PASSWORD_MIN_LENGTH = 8;
+export const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/;
+export const PASSWORD_ERROR =
+  "Senha deve ter pelo menos 8 caracteres, incluindo maiúscula, minúscula e número";
+
 // Limites de upload de mídia
 export const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
 export const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB
