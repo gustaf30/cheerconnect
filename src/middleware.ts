@@ -1,6 +1,5 @@
-import { withAuth } from "next-auth/middleware";
 import { getToken } from "next-auth/jwt";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
@@ -31,7 +30,7 @@ function matchesConversationMessages(pathname: string): boolean {
 // --- IP extraction ---
 // Prefer request.ip (reliable on Vercel), then last x-forwarded-for value
 // (closest trusted proxy), then "anonymous"
-function getIp(request: { headers: Headers; ip?: string }): string {
+function getIp(request: NextRequest): string {
   if (request.ip) return request.ip;
 
   const forwarded = request.headers.get("x-forwarded-for");
@@ -46,7 +45,7 @@ function getIp(request: { headers: Headers; ip?: string }): string {
 
 // When IP is "anonymous", compute a weak fingerprint from headers to
 // differentiate clients sharing the same missing-IP bucket
-function getClientIdentifier(request: { headers: Headers; ip?: string }): string {
+function getClientIdentifier(request: NextRequest): string {
   const ip = getIp(request);
   if (ip !== "anonymous") return ip;
 
@@ -62,6 +61,18 @@ function getClientIdentifier(request: { headers: Headers; ip?: string }): string
   return `anon:${hash.toString(36)}`;
 }
 
+// --- Public routes (no auth required) ---
+function isPublicRoute(pathname: string): boolean {
+  return (
+    pathname === "/" ||
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register") ||
+    pathname.startsWith("/verify-email") ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/health")
+  );
+}
+
 // --- Upstash rate limiter with in-memory dev fallback ---
 
 const useUpstash = !!(
@@ -75,11 +86,13 @@ function getUpstashLimiter(rule: RateLimitRule): Ratelimit {
   const key = `${rule.maxRequests}:${rule.interval}`;
   let limiter = upstashLimiters.get(key);
   if (!limiter) {
+    // Convert ms to seconds for Upstash duration format (e.g. "60 s")
+    const seconds = Math.ceil(rule.interval / 1000);
     limiter = new Ratelimit({
       redis: Redis.fromEnv(),
       limiter: Ratelimit.slidingWindow(
         rule.maxRequests,
-        `${rule.interval}ms` as `${number} ms`
+        `${seconds} s` as `${number} s`
       ),
       analytics: false,
       prefix: "rl",
@@ -141,86 +154,88 @@ async function checkRateLimit(
   rule: RateLimitRule
 ): Promise<{ success: boolean; retryAfter: number }> {
   if (useUpstash) {
-    const limiter = getUpstashLimiter(rule);
-    const result = await limiter.limit(key);
-    if (result.success) return { success: true, retryAfter: 0 };
-    const retryAfter = Math.ceil(
-      Math.max(0, result.reset - Date.now()) / 1000
-    );
-    return { success: false, retryAfter };
+    try {
+      const limiter = getUpstashLimiter(rule);
+      const result = await limiter.limit(key);
+      if (result.success) return { success: true, retryAfter: 0 };
+      const retryAfter = Math.ceil(
+        Math.max(0, result.reset - Date.now()) / 1000
+      );
+      return { success: false, retryAfter };
+    } catch {
+      // Upstash failure — fall back to in-memory so we never skip rate limiting
+      return checkRateLimitInMemory(key, rule);
+    }
   }
   return checkRateLimitInMemory(key, rule);
 }
 
-// --- Middleware ---
+// --- Middleware (standalone, not wrapped by withAuth) ---
+// This runs BEFORE route handlers, including NextAuth's /api/auth/* routes.
+// withAuth's inner function does NOT execute for /api/auth/* paths,
+// so rate limiting must happen here at the top level.
 
-export default withAuth(
-  async function middleware(request) {
-    cleanupRateLimitMap();
+export default async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
 
-    // Rate limiting — only POST requests to specific paths
-    if (request.method === "POST") {
-      const { pathname } = request.nextUrl;
-      const clientId = getClientIdentifier(request);
-      let rule: RateLimitRule | null = null;
+  cleanupRateLimitMap();
 
-      // Check conversation messages route
-      if (matchesConversationMessages(pathname)) {
-        rule = { maxRequests: 30, interval: 60_000 };
-      } else {
-        // Check static pattern rules (first match wins)
-        for (const r of RATE_LIMIT_RULES) {
-          if (pathname === r.pattern || pathname.startsWith(r.pattern + "/")) {
-            rule = r.rule;
-            break;
-          }
-        }
-      }
+  // 1. Rate limiting — POST requests to specific paths
+  if (request.method === "POST") {
+    const clientId = getClientIdentifier(request);
+    let rule: RateLimitRule | null = null;
 
-      if (rule) {
-        // Use user ID from JWT when available, fall back to client identifier
-        const token = await getToken({ req: request });
-        const key = token?.sub
-          ? `user:${token.sub}:${pathname}`
-          : `ip:${clientId}:${pathname}`;
-        const result = await checkRateLimit(key, rule);
-        if (!result.success) {
-          return NextResponse.json(
-            { error: "Muitas requisições. Tente novamente mais tarde." },
-            {
-              status: 429,
-              headers: { "Retry-After": String(result.retryAfter) },
-            }
-          );
+    // Check conversation messages route
+    if (matchesConversationMessages(pathname)) {
+      rule = { maxRequests: 30, interval: 60_000 };
+    } else {
+      // Check static pattern rules (first match wins)
+      for (const r of RATE_LIMIT_RULES) {
+        if (pathname === r.pattern || pathname.startsWith(r.pattern + "/")) {
+          rule = r.rule;
+          break;
         }
       }
     }
 
-    return NextResponse.next();
-  },
-  {
-    callbacks: {
-      authorized: ({ token, req }) => {
-        const { pathname } = req.nextUrl;
-
-        // Rotas públicas
-        if (
-          pathname === "/" ||
-          pathname.startsWith("/login") ||
-          pathname.startsWith("/register") ||
-          pathname.startsWith("/verify-email") ||
-          pathname.startsWith("/api/auth") ||
-          pathname.startsWith("/api/health")
-        ) {
-          return true;
-        }
-
-        // Rotas protegidas requerem autenticação
-        return !!token;
-      },
-    },
+    if (rule) {
+      // Use user ID from JWT when available, fall back to client identifier
+      const token = await getToken({ req: request });
+      const key = token?.sub
+        ? `user:${token.sub}:${pathname}`
+        : `ip:${clientId}:${pathname}`;
+      const result = await checkRateLimit(key, rule);
+      if (!result.success) {
+        return NextResponse.json(
+          { error: "Muitas requisições. Tente novamente mais tarde." },
+          {
+            status: 429,
+            headers: { "Retry-After": String(result.retryAfter) },
+          }
+        );
+      }
+    }
   }
-);
+
+  // 2. Auth check — protect non-public routes
+  if (!isPublicRoute(pathname)) {
+    const token = await getToken({ req: request });
+    if (!token) {
+      // Redirect to login for page routes, return 401 for API routes
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json(
+          { error: "Não autorizado" },
+          { status: 401 }
+        );
+      }
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("callbackUrl", request.url);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
+  return NextResponse.next();
+}
 
 export const config = {
   matcher: [
