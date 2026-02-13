@@ -51,7 +51,7 @@ export function MemberRow({
           </AvatarFallback>
         </Avatar>
         <div>
-          <p className="font-medium">{member.user.name}</p>
+          <p className="font-display font-medium">{member.user.name}</p>
           <p className="text-sm text-muted-foreground">
             @{member.user.username}
           </p>
@@ -81,6 +81,7 @@ export function MemberRow({
             size="icon"
             className="h-8 w-8"
             onClick={() => onEdit(member)}
+            aria-label="Editar membro"
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -92,6 +93,7 @@ export function MemberRow({
             className="h-8 w-8 text-destructive hover:text-destructive"
             onClick={() => onRemove(member)}
             disabled={isRemoving}
+            aria-label="Remover membro"
           >
             {isRemoving ? (
               <Loader2 className="h-4 w-4 animate-spin" />

@@ -155,9 +155,7 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
   }, []);
 
   return (
-    <div className="bento-card-static relative">
-      <div className="accent-bar" />
-
+    <div className="bento-card-static shadow-depth-1 relative">
       {isRepost && (
         <PostRepostInfo
           authorName={post.author.name}
@@ -165,7 +163,7 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
         />
       )}
 
-      <div className="px-5 pt-4 pb-3">
+      <div className="px-4 pt-3 pb-2">
         {isRepost && post.originalPost ? (
           <PostHeader
             author={post.originalPost.author}
@@ -207,7 +205,7 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
         )}
       </div>
 
-      <div className="px-5 pb-3">
+      <div className="px-4 pb-3">
         {isRepost && post.content && (
           <div className="mb-3 pb-3 border-b border-border/50">
             <p className="whitespace-pre-wrap text-sm">{renderContentWithLinks(post.content)}</p>
@@ -265,7 +263,7 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
           <button
             onClick={() => setSelectedImage(null)}
             aria-label="Fechar imagem"
-            className="absolute -top-10 right-0 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-fast z-10 hover:scale-105"
+            className="absolute -top-10 right-0 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-fast z-10"
           >
             <X className="h-6 w-6" />
           </button>

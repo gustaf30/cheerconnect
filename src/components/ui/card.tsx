@@ -8,12 +8,12 @@ const cardVariants = cva(
   {
     variants: {
       variant: {
-        default: "shadow-sm hover:shadow-md",
-        glass: "glass shadow-sm hover:shadow-md",
+        default: "shadow-depth-1 hover:shadow-depth-2",
+        glass: "glass shadow-depth-1 hover:shadow-depth-2",
         elevated: "shadow-depth-2 hover:shadow-depth-3",
-        interactive: "shadow-sm hover:scale-[1.05] cursor-pointer",
+        interactive: "shadow-depth-1 hover:-translate-y-0.5 hover:shadow-depth-2 cursor-pointer",
         premium: "gradient-border shadow-depth-2 hover:shadow-depth-3 hover-glow",
-        spotlight: "shadow-sm hover:shadow-md relative overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-b before:from-primary/5 before:to-transparent before:pointer-events-none",
+        spotlight: "shadow-depth-1 hover:shadow-depth-2 relative overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-b before:from-primary/5 before:to-transparent before:pointer-events-none",
       },
     },
     defaultVariants: {

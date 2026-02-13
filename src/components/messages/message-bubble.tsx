@@ -41,7 +41,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, showA
       )}
     >
       {showAvatar && !isOwn ? (
-        <Avatar className="h-8 w-8 shrink-0 avatar-ring-hover transition-all duration-200">
+        <Avatar className="h-8 w-8 shrink-0 avatar-ring-hover transition-base">
           <AvatarImage
             src={message.sender.avatar || undefined}
             alt={message.sender.name}
@@ -57,10 +57,10 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, showA
 
       <div
         className={cn(
-          "rounded-2xl px-4 py-2 break-words transition-all duration-200",
+          "rounded-2xl px-4 py-2 break-words transition-base",
           isOwn
-            ? "bg-primary text-primary-foreground rounded-br-sm message-bubble-sent hover:shadow-md"
-            : "bg-muted rounded-bl-sm message-bubble-received hover:shadow-sm"
+            ? "bg-primary text-primary-foreground rounded-br-sm message-bubble-sent hover:shadow-depth-2"
+            : "bg-muted rounded-bl-sm message-bubble-received hover:shadow-depth-1"
         )}
       >
         <p className="text-sm whitespace-pre-wrap">{message.content}</p>

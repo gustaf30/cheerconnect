@@ -129,9 +129,9 @@ export default function RegisterPage() {
             placeholder=" "
             disabled={isLoading}
             {...form.register("name")}
-            className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-colors duration-300 outline-none text-foreground font-medium"
+            className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-fast outline-none text-foreground font-medium"
           />
-          <label className="absolute left-0 pointer-events-none transition-all duration-300 font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
+          <label className="absolute left-0 pointer-events-none transition-slow font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
             Nome Completo
           </label>
           {form.formState.errors.name && (
@@ -147,9 +147,9 @@ export default function RegisterPage() {
             placeholder=" "
             disabled={isLoading}
             {...form.register("email")}
-            className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-colors duration-300 outline-none text-foreground font-medium"
+            className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-fast outline-none text-foreground font-medium"
           />
-          <label className="absolute left-0 pointer-events-none transition-all duration-300 font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
+          <label className="absolute left-0 pointer-events-none transition-slow font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
             Endereço de Email
           </label>
           {form.formState.errors.email && (
@@ -165,9 +165,9 @@ export default function RegisterPage() {
             placeholder=" "
             disabled={isLoading}
             {...form.register("username")}
-            className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-colors duration-300 outline-none text-foreground font-medium"
+            className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-fast outline-none text-foreground font-medium"
           />
-          <label className="absolute left-0 pointer-events-none transition-all duration-300 font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
+          <label className="absolute left-0 pointer-events-none transition-slow font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
             Username
           </label>
           {form.formState.errors.username && (
@@ -184,9 +184,9 @@ export default function RegisterPage() {
               placeholder=" "
               disabled={isLoading}
               {...form.register("password")}
-              className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-colors duration-300 outline-none text-foreground font-medium"
+              className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-fast outline-none text-foreground font-medium"
             />
-            <label className="absolute left-0 pointer-events-none transition-all duration-300 font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
+            <label className="absolute left-0 pointer-events-none transition-slow font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
               Senha
             </label>
             {form.formState.errors.password && (
@@ -202,9 +202,9 @@ export default function RegisterPage() {
               placeholder=" "
               disabled={isLoading}
               {...form.register("confirmPassword")}
-              className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-colors duration-300 outline-none text-foreground font-medium"
+              className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-fast outline-none text-foreground font-medium"
             />
-            <label className="absolute left-0 pointer-events-none transition-all duration-300 font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
+            <label className="absolute left-0 pointer-events-none transition-slow font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
               Confirmar Senha
             </label>
             {form.formState.errors.confirmPassword && (
@@ -219,14 +219,14 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-4 bg-primary hover:bg-[oklch(0.40_0.18_25)] text-primary-foreground font-bold rounded-xl transition-all duration-200 shadow-xl shadow-primary/20 active:scale-[0.98] flex items-center justify-center gap-2 group disabled:opacity-50"
+            className="w-full py-4 bg-primary hover:bg-primary-hover text-primary-foreground font-bold rounded-xl transition-base shadow-depth-2 shadow-primary/20 hover:shadow-depth-3 hover:shadow-primary/30 flex items-center justify-center gap-2 group disabled:opacity-50"
           >
             {isLoading ? (
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
               <>
                 Criar Conta
-                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-fast" />
               </>
             )}
           </button>
@@ -238,7 +238,7 @@ export default function RegisterPage() {
           Já faz parte da comunidade?
           <Link
             href="/login"
-            className="text-primary font-extrabold hover:text-[oklch(0.40_0.18_25)] ml-1 transition-colors"
+            className="text-primary font-extrabold hover:text-primary-hover ml-1 transition-fast"
           >
             Fazer Login
           </Link>

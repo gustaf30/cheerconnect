@@ -88,7 +88,7 @@ export function ConversationList({ activeConversationId }: ConversationListProps
         <div className="rounded-full bg-muted p-4 mb-4">
           <MessageSquare className="h-8 w-8 text-muted-foreground" />
         </div>
-        <h3 className="font-medium text-lg mb-1">Nenhuma conversa</h3>
+        <h3 className="heading-card mb-1">Nenhuma conversa</h3>
         <p className="text-sm text-muted-foreground">
           Conecte-se com outros usuários para começar uma conversa
         </p>

@@ -2,7 +2,6 @@
 
 import { Heart, MessageCircle, Repeat2 } from "lucide-react";
 import { motion, useAnimation } from "framer-motion";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface PostActionsProps {
@@ -39,17 +38,16 @@ export function PostActions({
   onRepost,
 }: PostActionsProps) {
   return (
-    <div className="px-5 pb-0 flex gap-1">
+    <div className="flex border-t border-border/50 px-2 py-1">
       <motion.div
+        className="flex-1"
         animate={likeControls}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
       >
-        <Button
-          variant="ghost"
-          size="sm"
+        <button
           className={cn(
-            "gap-2 transition-base like-btn-premium",
+            "w-full flex items-center justify-center gap-3 px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent/50 rounded-lg transition-base like-btn-premium",
             isLiked && "text-primary hover:text-primary",
             justLiked && "liked"
           )}
@@ -58,47 +56,55 @@ export function PostActions({
         >
           <Heart
             className={cn(
-              "h-4 w-4 transition-fast",
+              "h-[18px] w-[18px] transition-fast",
               isLiked && "fill-current animate-heart-pop"
             )}
           />
-          <span className="stat-number">{likesCount}</span>
-        </Button>
+          <span className="leading-none">Curtir</span>
+          {likesCount > 0 && <span className="stat-number text-xs">{likesCount}</span>}
+        </button>
       </motion.div>
 
-      <Button
-        variant="ghost"
-        size="sm"
-        className={cn(
-          "gap-2 transition-base",
-          showCommentInput && "text-primary hover:text-primary"
-        )}
-        onClick={onToggleComments}
-        aria-label="Comentar"
-      >
-        <MessageCircle className="h-4 w-4" />
-        <span className="stat-number">{commentsCount}</span>
-      </Button>
+      <div className="w-px bg-border/50 my-2" />
+
+      <div className="flex-1">
+        <button
+          className={cn(
+            "w-full flex items-center justify-center gap-3 px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent/50 rounded-lg transition-base",
+            showCommentInput && "text-primary hover:text-primary"
+          )}
+          onClick={onToggleComments}
+          aria-label="Comentar"
+        >
+          <MessageCircle className="h-[18px] w-[18px]" />
+          <span className="leading-none">Comentar</span>
+          {commentsCount > 0 && <span className="stat-number text-xs">{commentsCount}</span>}
+        </button>
+      </div>
 
       {!isRepost && !isTargetAuthor && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className={cn(
-            "gap-2 transition-base",
-            hasReposted && "text-green-600 hover:text-green-600"
-          )}
-          onClick={onRepost}
-          disabled={isReposting}
-          aria-label={hasReposted ? "Remover repost" : "Repostar"}
-        >
-          <Repeat2 className={cn(
-            "h-4 w-4 transition-base",
-            hasReposted && "scale-110",
-            isReposting && "animate-spin"
-          )} />
-          <span className="stat-number">{repostsCount}</span>
-        </Button>
+        <>
+          <div className="w-px bg-border/50 my-2" />
+          <div className="flex-1">
+            <button
+              className={cn(
+                "w-full flex items-center justify-center gap-3 px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent/50 rounded-lg transition-base",
+                hasReposted && "text-green-600 hover:text-green-600"
+              )}
+              onClick={onRepost}
+              disabled={isReposting}
+              aria-label={hasReposted ? "Remover repost" : "Repostar"}
+            >
+              <Repeat2 className={cn(
+                "h-[18px] w-[18px] transition-base",
+                hasReposted && "scale-110",
+                isReposting && "animate-spin"
+              )} />
+              <span className="leading-none">Repostar</span>
+              {repostsCount > 0 && <span className="stat-number text-xs">{repostsCount}</span>}
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

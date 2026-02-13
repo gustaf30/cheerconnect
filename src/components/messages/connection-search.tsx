@@ -163,7 +163,7 @@ export function ConnectionSearch() {
         <div className="rounded-full bg-muted p-3 mb-3">
           <Users className="h-6 w-6 text-muted-foreground" />
         </div>
-        <h3 className="font-medium mb-1">Nenhuma conexão</h3>
+        <h3 className="font-display font-medium mb-1">Nenhuma conexão</h3>
         <p className="text-sm text-muted-foreground">
           Conecte-se com outros usuários para enviar mensagens
         </p>

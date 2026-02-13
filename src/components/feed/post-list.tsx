@@ -110,13 +110,12 @@ export function PostList({ filter = "following" }: PostListProps) {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="bento-card-static">
-            <div className="accent-bar" />
-            <div className="p-5">
+          <div key={i} className="bento-card-static shadow-depth-1">
+            <div className="p-4">
               <div className="flex gap-3">
-                <Skeleton className="h-10 w-10 rounded-xl" />
+                <Skeleton className="h-12 w-12 rounded-lg" />
                 <div className="flex-1 space-y-3">
                   <Skeleton className="h-4 w-32" />
                   <Skeleton className="h-3 w-24" />
@@ -138,8 +137,7 @@ export function PostList({ filter = "following" }: PostListProps) {
 
   if (posts.length === 0) {
     return (
-      <div className="bento-card-static">
-        <div className="accent-bar" />
+      <div className="bento-card-static shadow-depth-1">
         <div className="p-8 text-center">
           <p className="text-muted-foreground">
             Nenhuma publicação ainda. Seja o primeiro a compartilhar algo!
@@ -151,7 +149,7 @@ export function PostList({ filter = "following" }: PostListProps) {
 
   if (shouldReduceMotion) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         {posts.map((post) => (
           <PostCard key={post.id} post={post} onDelete={handleDelete} />
         ))}
@@ -175,7 +173,7 @@ export function PostList({ filter = "following" }: PostListProps) {
 
   return (
     <motion.div
-      className="space-y-6"
+      className="space-y-4"
       variants={containerVariants}
       initial="hidden"
       animate="visible"

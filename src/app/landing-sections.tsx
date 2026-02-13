@@ -39,13 +39,13 @@ export function LandingHero() {
         style={{ animationDelay: "300ms" }}
       >
         <Link href="/register">
-          <button className="w-full sm:w-auto px-8 py-4 bg-primary hover:bg-[oklch(0.40_0.18_25)] text-white font-bold rounded-xl transition-all active:scale-[0.98] shadow-xl shadow-primary/20 flex items-center justify-center gap-2 group">
+          <button className="w-full sm:w-auto px-8 py-4 bg-primary hover:bg-primary-hover text-white font-bold rounded-xl transition-base shadow-depth-2 shadow-primary/20 hover:shadow-depth-3 hover:shadow-primary/30 flex items-center justify-center gap-2 group">
             Comece agora
-            <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+            <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-fast" />
           </button>
         </Link>
         <Link href="/login">
-          <button className="w-full sm:w-auto px-8 py-4 border-2 border-border text-foreground font-bold rounded-xl hover:border-primary/30 hover:bg-accent transition-all active:scale-[0.98]">
+          <button className="w-full sm:w-auto px-8 py-4 border-2 border-border text-foreground font-bold rounded-xl hover:border-primary/30 hover:bg-accent transition-base">
             Ja tenho conta
           </button>
         </Link>
@@ -122,7 +122,7 @@ export function LandingFeatures({ features }: { features: FeatureData[] }) {
           >
             <div className="accent-bar" />
             <div className="p-6">
-              <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
+              <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-fast">
                 <Icon className="h-6 w-6 text-primary" />
               </div>
               <h3 className="font-display font-bold mb-2">{feature.title}</h3>
@@ -160,9 +160,9 @@ export function LandingCTA() {
           cheerleading hoje mesmo.
         </p>
         <Link href="/register">
-          <button className="px-8 py-4 bg-white text-primary font-bold rounded-xl hover:bg-white/90 transition-all active:scale-[0.98] shadow-xl inline-flex items-center gap-2 group">
+          <button className="px-8 py-4 bg-white text-primary font-bold rounded-xl hover:bg-white/90 transition-base shadow-depth-2 hover:shadow-depth-3 inline-flex items-center gap-2 group">
             Criar minha conta
-            <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+            <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-fast" />
           </button>
         </Link>
       </div>

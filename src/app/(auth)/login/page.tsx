@@ -107,9 +107,9 @@ export default function LoginPage() {
             placeholder=" "
             disabled={isLoading}
             {...form.register("email")}
-            className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-colors duration-300 outline-none text-foreground font-medium"
+            className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-fast outline-none text-foreground font-medium"
           />
-          <label className="absolute left-0 pointer-events-none transition-all duration-300 font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
+          <label className="absolute left-0 pointer-events-none transition-slow font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
             Endereço de Email
           </label>
           {form.formState.errors.email && (
@@ -125,9 +125,9 @@ export default function LoginPage() {
             placeholder=" "
             disabled={isLoading}
             {...form.register("password")}
-            className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-colors duration-300 outline-none text-foreground font-medium"
+            className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-fast outline-none text-foreground font-medium"
           />
-          <label className="absolute left-0 pointer-events-none transition-all duration-300 font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
+          <label className="absolute left-0 pointer-events-none transition-slow font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
             Sua Senha
           </label>
           {form.formState.errors.password && (
@@ -141,14 +141,14 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-4 bg-primary hover:bg-[oklch(0.40_0.18_25)] text-primary-foreground font-bold rounded-xl transition-all duration-200 shadow-xl shadow-primary/20 active:scale-[0.98] flex items-center justify-center gap-2 group disabled:opacity-50"
+            className="w-full py-4 bg-primary hover:bg-primary-hover text-primary-foreground font-bold rounded-xl transition-base shadow-depth-2 shadow-primary/20 hover:shadow-depth-3 hover:shadow-primary/30 flex items-center justify-center gap-2 group disabled:opacity-50"
           >
             {isLoading ? (
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
               <>
                 Acessar Plataforma
-                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-fast" />
               </>
             )}
           </button>
@@ -171,7 +171,7 @@ export default function LoginPage() {
           type="button"
           onClick={handleGoogleLogin}
           disabled={isLoading}
-          className="flex items-center justify-center gap-3 w-full py-4 bg-card border-2 border-border rounded-xl font-bold text-foreground hover:border-primary/30 hover:bg-accent transition-all duration-200 active:scale-[0.98] disabled:opacity-50"
+          className="flex items-center justify-center gap-3 w-full py-4 bg-card border-2 border-border rounded-xl font-bold text-foreground hover:border-primary/30 hover:bg-accent transition-base disabled:opacity-50"
         >
           <svg className="size-5" viewBox="0 0 24 24">
             <path
@@ -200,7 +200,7 @@ export default function LoginPage() {
           Ainda não faz parte da comunidade?
           <Link
             href="/register"
-            className="text-primary font-extrabold hover:text-[oklch(0.40_0.18_25)] ml-1 transition-colors"
+            className="text-primary font-extrabold hover:text-primary-hover ml-1 transition-fast"
           >
             Criar Conta Grátis
           </Link>

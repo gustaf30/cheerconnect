@@ -162,7 +162,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
 
           <div className="mt-4 space-y-3">
             <div>
-              <h1 className="text-2xl font-bold">{team.name}</h1>
+              <h1 className="heading-section font-display">{team.name}</h1>
               <div className="flex items-center gap-2 mt-1">
                 <Badge variant="secondary">
                   {categoryLabels[team.category] || team.category}
@@ -172,7 +172,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
             </div>
 
             {team.description && (
-              <p className="text-muted-foreground">{team.description}</p>
+              <p className="text-muted-foreground whitespace-pre-wrap">{team.description}</p>
             )}
 
             <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
@@ -259,7 +259,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
                   <Link
                     key={member.id}
                     href={`/profile/${member.user.username}`}
-                    className="flex items-center justify-between p-3 rounded-lg hover:bg-muted transition-colors"
+                    className="flex items-center justify-between p-3 rounded-lg hover:bg-muted transition-fast"
                   >
                     <div className="flex items-center gap-3">
                       <Avatar className="h-10 w-10">
@@ -272,7 +272,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <div className="font-medium">{member.user.name}</div>
+                        <div className="font-display font-medium">{member.user.name}</div>
                         <div className="text-sm text-muted-foreground">
                           @{member.user.username}
                         </div>
@@ -335,13 +335,13 @@ export default async function TeamPage({ params }: TeamPageProps) {
                       </time>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <h4 className="font-semibold">{event.name}</h4>
+                          <h4 className="font-display font-semibold">{event.name}</h4>
                           <Badge variant="secondary" className="text-xs">
                             {eventTypeLabels[event.type] || event.type}
                           </Badge>
                         </div>
                         {event.description && (
-                          <p className="text-sm text-muted-foreground mt-1">
+                          <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
                             {event.description}
                           </p>
                         )}

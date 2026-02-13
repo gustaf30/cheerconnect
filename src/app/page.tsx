@@ -62,12 +62,12 @@ export default async function LandingPage() {
         </Link>
         <div className="flex items-center gap-3">
           <Link href="/login">
-            <button className="px-5 py-2 text-sm font-bold text-foreground hover:text-primary transition-colors">
+            <button className="px-5 py-2 text-sm font-bold text-foreground hover:text-primary transition-fast">
               Entrar
             </button>
           </Link>
           <Link href="/register">
-            <button className="px-5 py-2.5 bg-primary hover:bg-[oklch(0.40_0.18_25)] text-white text-sm font-bold rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-primary/20">
+            <button className="px-5 py-2.5 bg-primary hover:bg-primary-hover text-white text-sm font-bold rounded-xl transition-base shadow-depth-1 shadow-primary/10 hover:shadow-depth-2 hover:shadow-primary/20">
               Cadastrar
             </button>
           </Link>

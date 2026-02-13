@@ -126,10 +126,11 @@ function SearchContent() {
     >
       {userList.map((user) => (
         <motion.div key={user.id} variants={shouldReduceMotion ? noMotion : fadeSlideUp}>
-          <Link href={`/profile/${user.username}`}>
-            <div className="bento-card">
-              <div className="p-4">
-                <div className="flex items-start gap-4">
+          <div className="bento-card-static">
+            <div className="accent-bar" />
+            <div className="p-4">
+              <div className="flex items-start gap-4">
+                <Link href={`/profile/${user.username}`}>
                   <Avatar className="h-14 w-14 shrink-0 avatar-glow">
                     <AvatarImage
                       src={user.avatar || undefined}
@@ -139,51 +140,53 @@ function SearchContent() {
                       {getInitials(user.name)}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-display font-semibold">{user.name}</h3>
-                      <span className="text-sm text-muted-foreground font-mono">
-                        @{user.username}
+                </Link>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Link href={`/profile/${user.username}`} className="font-display font-semibold hover:text-primary transition-fast">
+                      {user.name}
+                    </Link>
+                    <Link href={`/profile/${user.username}`} className="text-sm text-muted-foreground font-mono hover:text-primary transition-fast">
+                      @{user.username}
+                    </Link>
+                  </div>
+                  {user.positions.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {user.positions.map((pos) => (
+                        <Badge
+                          key={pos}
+                          variant="gradient"
+                          className="text-xs"
+                        >
+                          {positionLabels[pos] || pos}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  {user.bio && (
+                    <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                      {user.bio}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                    {user.location && (
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
+                        {user.location}
                       </span>
-                    </div>
-                    {user.positions.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {user.positions.map((pos) => (
-                          <Badge
-                            key={pos}
-                            variant="gradient"
-                            className="text-xs"
-                          >
-                            {positionLabels[pos] || pos}
-                          </Badge>
-                        ))}
-                      </div>
                     )}
-                    {user.bio && (
-                      <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                        {user.bio}
-                      </p>
+                    {user.experience && (
+                      <span>
+                        {user.experience}{" "}
+                        {user.experience === 1 ? "ano" : "anos"} de
+                        experiência
+                      </span>
                     )}
-                    <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                      {user.location && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {user.location}
-                        </span>
-                      )}
-                      {user.experience && (
-                        <span>
-                          {user.experience}{" "}
-                          {user.experience === 1 ? "ano" : "anos"} de
-                          experiência
-                        </span>
-                      )}
-                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </Link>
+          </div>
         </motion.div>
       ))}
     </motion.div>
@@ -299,7 +302,7 @@ function SearchContent() {
 
 export default function SearchPage() {
   return (
-    <Suspense fallback={<div className="space-y-6"><h2 className="text-2xl font-bold">Buscar</h2></div>}>
+    <Suspense fallback={<div className="space-y-6"><h2 className="heading-section font-display">Buscar</h2></div>}>
       <SearchContent />
     </Suspense>
   );

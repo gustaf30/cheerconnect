@@ -138,7 +138,7 @@ export function ProfileHeader({
       <div className="px-4 sm:px-6 pb-6">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between -mt-12 sm:-mt-16">
           <div>
-            <Avatar className="h-24 w-24 sm:h-32 sm:w-32 border-4 border-background shadow-depth-4 transition-all duration-300 hover:scale-105 avatar-glow">
+            <Avatar className="h-24 w-24 sm:h-32 sm:w-32 border-4 border-background shadow-depth-4 transition-slow avatar-glow">
               <AvatarImage src={user.avatar || undefined} alt={user.name} className="object-cover" />
               <AvatarFallback className="bg-primary text-primary-foreground text-2xl sm:text-4xl font-display font-bold">
                 {getInitials(user.name)}
@@ -149,7 +149,7 @@ export function ProfileHeader({
           <div className="mt-4 sm:mt-0 flex gap-2">
             {isOwnProfile ? (
               <Link href="/profile/edit">
-                <Button variant="outline" className="hover:border-primary/50 hover:text-primary transition-colors duration-200">
+                <Button variant="outline" className="hover:border-primary/50 hover:text-primary transition-fast">
                   <Pencil className="h-4 w-4 mr-2" />
                   Editar perfil
                 </Button>
@@ -161,7 +161,7 @@ export function ProfileHeader({
                     onClick={handleStartConversation}
                     disabled={isStartingConversation}
                     variant="outline"
-                    className="hover:border-primary/50 hover:text-primary transition-colors duration-200"
+                    className="hover:border-primary/50 hover:text-primary transition-fast"
                   >
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Mensagem
@@ -177,7 +177,7 @@ export function ProfileHeader({
                     disabled={isLoading}
                     variant={status === "connected" ? "outline" : status === "none" ? "premium" : "default"}
                     className={cn(
-                      "transition-all duration-300",
+                      "transition-slow",
                       status === "pending" && "animate-pulse-ring"
                     )}
                   >
@@ -235,18 +235,18 @@ export function ProfileHeader({
           )}
 
           {/* Biografia */}
-          {user.bio && <p className="text-editorial">{user.bio}</p>}
+          {user.bio && <p className="text-editorial whitespace-pre-wrap">{user.bio}</p>}
 
           {/* Informações adicionais */}
           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
             {user.location && (
-              <span className="flex items-center gap-1 transition-colors duration-200 hover:text-foreground">
+              <span className="flex items-center gap-1 transition-fast hover:text-foreground">
                 <MapPin className="h-4 w-4" />
                 {user.location}
               </span>
             )}
             {user.experience && (
-              <span className="flex items-center gap-1 transition-colors duration-200 hover:text-foreground">
+              <span className="flex items-center gap-1 transition-fast hover:text-foreground">
                 <Briefcase className="h-4 w-4" />
                 {user.experience} {user.experience === 1 ? "ano" : "anos"} de
                 experiência

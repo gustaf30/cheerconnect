@@ -11,6 +11,7 @@ const createEventSchema = z.object({
   endDate: z.string().transform((str) => new Date(str)).optional().nullable(),
   type: z.enum(["COMPETITION", "TRYOUT", "CAMP", "WORKSHOP", "SHOWCASE", "OTHER"]),
   teamId: z.string().optional().nullable(),
+  registrationUrl: z.string().url().optional().nullable(),
 });
 
 const eventSelect = {
@@ -21,6 +22,7 @@ const eventSelect = {
   startDate: true,
   endDate: true,
   type: true,
+  registrationUrl: true,
   creatorId: true,
   creator: {
     select: {
@@ -206,6 +208,7 @@ export async function POST(request: Request) {
         startDate: data.startDate,
         endDate: data.endDate || null,
         type: data.type,
+        registrationUrl: data.registrationUrl || null,
         creatorId: session.user.id,
         teamId: data.teamId || null,
       },

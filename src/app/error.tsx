@@ -21,16 +21,16 @@ export default function RootError({
 
   return (
     <html lang="pt-BR">
-      <body className="min-h-screen bg-[oklch(0.98_0.005_15)] flex items-center justify-center p-4">
+      <body className="min-h-screen bg-background flex items-center justify-center p-4">
         <motion.div
           className="w-full max-w-md bg-white rounded-2xl border border-neutral-200/60 shadow-sm p-8 text-center"
           variants={variants}
           initial="hidden"
           animate="visible"
         >
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-[oklch(0.55_0.22_25/0.1)]">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
             <svg
-              className="h-8 w-8 text-[oklch(0.55_0.22_25)]"
+              className="h-8 w-8 text-primary"
               fill="none"
               viewBox="0 0 24 24"
               strokeWidth={1.5}
@@ -67,7 +67,7 @@ export default function RootError({
           <div className="flex flex-col gap-3">
             <motion.button
               onClick={reset}
-              className="w-full rounded-xl bg-[oklch(0.55_0.22_25)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[oklch(0.40_0.18_25)]"
+              className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-base hover:bg-primary-hover"
               whileHover={shouldReduceMotion ? {} : { scale: 1.05 }}
               whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
               transition={springs.snappy}
@@ -76,7 +76,7 @@ export default function RootError({
             </motion.button>
             <Link
               href="/feed"
-              className="text-sm font-medium text-neutral-500 hover:text-neutral-700 transition-colors"
+              className="text-sm font-medium text-neutral-500 hover:text-neutral-700 transition-base"
             >
               Voltar ao inicio
             </Link>
