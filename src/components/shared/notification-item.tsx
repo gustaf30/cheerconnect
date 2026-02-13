@@ -98,12 +98,12 @@ export function NotificationItem({ notification, onRead, showMarkAsRead, style }
       onClick={handleClick}
       style={style}
       className={cn(
-        "flex items-start gap-3 p-3 hover:bg-muted/50 transition-all duration-200 group/notif",
+        "flex items-start gap-3 p-4 hover:bg-muted/50 transition-base group/notif hover-flash",
         !notification.isRead && "bg-primary/5"
       )}
     >
       <div className="relative">
-        <Avatar className="h-10 w-10 ring-2 ring-transparent hover:ring-primary/20 transition-all duration-200">
+        <Avatar className="h-10 w-10 ring-2 ring-transparent hover:ring-primary/20 transition-base">
           <AvatarImage
             src={notification.actor?.avatar || undefined}
             alt={notification.actor?.name || ""}
@@ -119,7 +119,7 @@ export function NotificationItem({ notification, onRead, showMarkAsRead, style }
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className={cn("text-sm transition-colors duration-200", !notification.isRead && "font-medium")}>
+        <p className={cn("text-sm transition-fast", !notification.isRead && "font-medium")}>
           {notification.message}
         </p>
         <time dateTime={new Date(notification.createdAt).toISOString()} className="text-xs text-muted-foreground mt-0.5 block">

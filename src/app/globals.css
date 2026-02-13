@@ -36,6 +36,8 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-dark: var(--primary-dark);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -117,6 +119,11 @@
   --ease-luxury: cubic-bezier(0.45, 0, 0.15, 1);
   /* Spring scale: overshoot+settle for hover scale animations */
   --ease-spring-scale: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Asymmetric timing — fast entry, slow exit for "weight" feel */
+  --duration-in: 250ms;
+  --duration-out: 450ms;
+  --ease-premium: var(--ease-smooth);
 }
 
 .dark {
@@ -406,16 +413,6 @@ a,
 
 /* ========== Premium Animations ========== */
 
-/* Gentle floating effect */
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-6px);
-  }
-}
-
 /* Enhanced loading shimmer */
 @keyframes shimmer-premium {
   0% {
@@ -428,16 +425,6 @@ a,
   100% {
     background-position: 200% 0;
     opacity: 0.8;
-  }
-}
-
-/* Pulsing glow effect */
-@keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 0 0 15px oklch(0.55 0.22 25 / 0.3);
-  }
-  50% {
-    box-shadow: 0 0 25px oklch(0.55 0.22 25 / 0.5);
   }
 }
 
@@ -468,18 +455,6 @@ a,
   100% {
     opacity: 1;
     transform: scale(1);
-  }
-}
-
-/* Button ripple effect */
-@keyframes ripple-out {
-  0% {
-    transform: scale(0);
-    opacity: 0.5;
-  }
-  100% {
-    transform: scale(4);
-    opacity: 0;
   }
 }
 
@@ -576,76 +551,62 @@ a,
 /* ========== Standardized Transition Classes ========== */
 /* Aligned with shadcn/ui timing: short durations + simple easing = snappy feel */
 
-/* Fast (150ms): Color changes, opacity, focus states */
+/* Fast (150ms in / 300ms out): Color changes, opacity, focus states */
 .transition-fast {
   transition:
-    transform 150ms ease-out,
-    opacity 150ms ease-out,
-    background-color 150ms ease-out,
-    border-color 150ms ease-out,
-    color 150ms ease-out,
-    box-shadow 150ms ease-out;
+    transform 300ms var(--ease-premium),
+    opacity 300ms var(--ease-premium),
+    background-color 300ms var(--ease-premium),
+    border-color 300ms var(--ease-premium),
+    color 300ms var(--ease-premium),
+    box-shadow 300ms var(--ease-premium);
+}
+.transition-fast:hover,
+:hover > .transition-fast {
+  transition-duration: 150ms;
 }
 
-/* Base (200ms): Standard hover transitions - DEFAULT */
+/* Base (250ms in / 450ms out): DEFAULT hover — cards, buttons, avatars */
 .transition-base {
   transition:
-    transform 200ms ease-out,
-    opacity 200ms ease-out,
-    background-color 200ms ease-out,
-    border-color 200ms ease-out,
-    color 200ms ease-out,
-    box-shadow 200ms ease-out;
+    transform var(--duration-out) var(--ease-premium),
+    opacity var(--duration-out) var(--ease-premium),
+    background-color var(--duration-out) var(--ease-premium),
+    border-color var(--duration-out) var(--ease-premium),
+    color var(--duration-out) var(--ease-premium),
+    box-shadow var(--duration-out) var(--ease-premium);
+}
+.transition-base:hover,
+:hover > .transition-base {
+  transition-duration: var(--duration-in);
 }
 
-/* Slow (300ms): Complex entrance animations */
+/* Slow (300ms in / 500ms out): Complex entrance animations */
 .transition-slow {
   transition:
-    transform 300ms ease-out,
-    opacity 300ms ease-out,
-    background-color 300ms ease-out,
-    border-color 300ms ease-out,
-    color 300ms ease-out,
-    box-shadow 300ms ease-out;
+    transform 500ms var(--ease-premium),
+    opacity 500ms var(--ease-premium),
+    background-color 500ms var(--ease-premium),
+    border-color 500ms var(--ease-premium),
+    color 500ms var(--ease-premium),
+    box-shadow 500ms var(--ease-premium);
+}
+.transition-slow:hover,
+:hover > .transition-slow {
+  transition-duration: 300ms;
 }
 
 /* ========== Interactive Utility Classes ========== */
 
-/* Base interactive class for smooth transitions */
-.interactive {
-  transition:
-    transform 200ms ease-out,
-    opacity 200ms ease-out,
-    background-color 200ms ease-out,
-    border-color 200ms ease-out,
-    color 200ms ease-out,
-    box-shadow 200ms ease-out;
-}
 
-/* Hover lift effect — translate + shadow */
-.hover-lift {
-  transition: transform 200ms ease-out, box-shadow 200ms ease-out;
-}
-
-.hover-lift:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-depth-2);
-}
-
-/* Button press effect */
-.press-effect:active {
-  transform: scale(0.98);
-}
-
-/* Image hover effect — spring scale */
+/* Image hover effect */
 .image-hover {
-  transition: filter 200ms ease-out, transform 250ms var(--ease-spring-scale);
-  will-change: transform;
+  transition: filter var(--duration-out) var(--ease-premium);
 }
 
 .image-hover:hover {
   filter: brightness(0.95);
-  transform: scale(1.05);
+  transition: filter var(--duration-in) var(--ease-premium);
 }
 
 /* Text gradient with primary colors */
@@ -658,50 +619,6 @@ a,
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-}
-
-/* Card hover — translate + shadow */
-.card-hover {
-  transition: transform 200ms ease-out, box-shadow 200ms ease-out;
-}
-
-.card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-depth-2);
-}
-
-/* Focus ring animation */
-.focus-ring-animated {
-  transition: box-shadow 150ms ease-out, border-color 150ms ease-out;
-  will-change: box-shadow;
-}
-
-.focus-ring-animated:focus {
-  box-shadow: 0 0 0 3px oklch(0.55 0.22 25 / 0.2);
-  border-color: oklch(0.55 0.22 25);
-}
-
-/* Sidebar active indicator */
-.sidebar-active-indicator {
-  position: relative;
-}
-
-.sidebar-active-indicator::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 60%;
-  background: oklch(0.55 0.22 25);
-  border-radius: 0 2px 2px 0;
-  opacity: 0;
-  transition: opacity 200ms ease-out;
-}
-
-.sidebar-active-indicator.active::before {
-  opacity: 1;
 }
 
 /* Badge pulse for unread notifications */
@@ -719,12 +636,13 @@ a,
 
 /* Avatar ring animation on hover */
 .avatar-ring-hover {
-  transition: box-shadow 200ms ease-out;
+  transition: box-shadow var(--duration-out) var(--ease-premium);
   will-change: box-shadow;
 }
 
 .avatar-ring-hover:hover {
   box-shadow: 0 0 0 3px oklch(0.55 0.22 25 / 0.3);
+  transition: box-shadow var(--duration-in) var(--ease-premium);
 }
 
 /* Message bubble shadows */
@@ -764,10 +682,6 @@ a,
 
 /* ========== Premium Animation Classes ========== */
 
-.animate-float {
-  animation: float 3s ease-in-out infinite;
-}
-
 .animate-shimmer-premium {
   background: linear-gradient(
     90deg,
@@ -777,10 +691,6 @@ a,
   );
   background-size: 200% 100%;
   animation: shimmer-premium 2s infinite;
-}
-
-.animate-pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
 }
 
 .animate-slide-in-right {
@@ -818,21 +728,9 @@ a,
     border-color 200ms ease-out;
 }
 
-.glass-subtle {
-  background: oklch(1 0 0 / 0.5);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid oklch(1 0 0 / 0.15);
-}
-
 .dark .glass {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
-}
-
-.dark .glass-subtle {
-  background: oklch(0.16 0.02 25 / 0.6);
-  border: 1px solid oklch(1 0 0 / 0.08);
 }
 
 /* Gradient border effect */
@@ -855,12 +753,13 @@ a,
 
 /* Premium glow on hover */
 .hover-glow {
-  transition: box-shadow 200ms ease-out;
+  transition: box-shadow var(--duration-out) var(--ease-premium);
   will-change: box-shadow;
 }
 
 .hover-glow:hover {
   box-shadow: var(--shadow-glow-md);
+  transition: box-shadow var(--duration-in) var(--ease-premium);
 }
 
 /* Animated underline */
@@ -878,21 +777,12 @@ a,
   background: linear-gradient(90deg, oklch(0.55 0.22 25), oklch(0.65 0.18 30));
   transform: scaleX(0);
   transform-origin: right;
-  transition: transform 200ms ease-out;
+  transition: transform var(--duration-out) var(--ease-premium);
 }
 
 .animated-underline:hover::after {
   transform: scaleX(1);
   transform-origin: left;
-}
-
-/* Premium focus ring */
-.focus-premium:focus-visible {
-  outline: none;
-  box-shadow:
-    0 0 0 2px var(--background),
-    0 0 0 4px oklch(0.55 0.22 25),
-    var(--shadow-glow-sm);
 }
 
 /* Depth shadows */
@@ -912,93 +802,34 @@ a,
   box-shadow: var(--shadow-depth-4);
 }
 
-/* Premium card variant */
-.card-glass {
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--glass-border);
-}
 
-.card-elevated {
-  box-shadow: var(--shadow-depth-2);
-}
-
-.card-interactive {
-  transition: transform 200ms ease-out, box-shadow 200ms ease-out;
-}
-
-.card-interactive:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-depth-2);
-}
-
-/* Premium button states */
-.btn-premium {
-  background: linear-gradient(135deg, oklch(0.55 0.22 25), oklch(0.45 0.20 25));
-  box-shadow: var(--shadow-depth-1), inset 0 1px 0 oklch(1 0 0 / 0.1);
-  transition: transform 250ms var(--ease-spring-scale), box-shadow 200ms ease-out;
-  will-change: transform, box-shadow;
-}
-
-.btn-premium:hover {
-  box-shadow: var(--shadow-depth-2), var(--shadow-glow-sm), inset 0 1px 0 oklch(1 0 0 / 0.1);
-  transform: scale(1.05);
-}
-
-.btn-premium:active {
-  transform: scale(0.98);
-  box-shadow: var(--shadow-depth-1), inset 0 1px 0 oklch(1 0 0 / 0.1);
-}
-
-/* Button spring scale — all non-link buttons */
+/* Button asymmetric transitions — all non-link buttons */
 [data-slot="button"]:not([data-variant="link"]) {
-  transition: transform 250ms var(--ease-spring-scale),
-              background-color 200ms ease-out,
-              color 200ms ease-out,
-              box-shadow 200ms ease-out,
-              border-color 200ms ease-out;
+  transition: transform var(--duration-out) var(--ease-premium),
+              background-color var(--duration-out) var(--ease-premium),
+              color var(--duration-out) var(--ease-premium),
+              box-shadow var(--duration-out) var(--ease-premium),
+              border-color var(--duration-out) var(--ease-premium);
 }
 [data-slot="button"]:not([data-variant="link"]):hover {
-  transform: scale(1.05);
+  transition-duration: var(--duration-in);
 }
 [data-slot="button"]:not([data-variant="link"]):active {
-  transform: scale(0.98);
-}
-
-/* Ripple effect container */
-.ripple-effect {
-  position: relative;
-  overflow: hidden;
-}
-
-.ripple-effect::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 5px;
-  height: 5px;
-  background: oklch(1 0 0 / 0.3);
-  border-radius: 50%;
-  opacity: 0;
-  transform: translate(-50%, -50%) scale(0);
-  pointer-events: none;
-}
-
-.ripple-effect:active::after {
-  animation: ripple-out 0.6s ease-out;
+  transform: scale(0.98) translateY(1px);
+  transition-duration: 50ms;
 }
 
 /* Premium input glow */
 .input-premium {
-  transition: box-shadow 150ms ease-out, border-color 150ms ease-out;
+  transition: box-shadow var(--duration-out) var(--ease-premium),
+              border-color var(--duration-out) var(--ease-premium);
   will-change: box-shadow;
 }
 
 .input-premium:focus {
   box-shadow: var(--shadow-glow-sm);
   border-color: oklch(0.55 0.22 25);
+  transition-duration: var(--duration-in);
 }
 
 /* Like button particle effect */
@@ -1014,17 +845,6 @@ a,
   border-radius: 50%;
   animation: particle-burst 0.4s ease-out;
   pointer-events: none;
-}
-
-/* Header scroll shadow */
-.header-scroll-shadow {
-  box-shadow: 0 1px 0 oklch(0 0 0 / 0);
-  transition: box-shadow 200ms ease-out, border-color 200ms ease-out;
-}
-
-.header-scroll-shadow.scrolled {
-  box-shadow: var(--shadow-depth-2);
-  border-color: transparent;
 }
 
 /* Stagger children animation helper */
@@ -1059,34 +879,48 @@ a,
   height: 0;
   background: linear-gradient(180deg, oklch(0.55 0.22 25), oklch(0.45 0.20 25));
   border-radius: 0 2px 2px 0;
-  transition: height 200ms ease-out;
+  transition: height var(--duration-out) var(--ease-premium);
 }
 
 .nav-indicator.active::before {
   height: 60%;
 }
 
-/* Premium badge */
-.badge-gradient {
-  background: linear-gradient(135deg, oklch(0.55 0.22 25), oklch(0.65 0.18 30));
-  color: white;
-}
-
-.badge-subtle {
-  background: oklch(0.55 0.22 25 / 0.1);
-  color: oklch(0.55 0.22 25);
-  border: 1px solid oklch(0.55 0.22 25 / 0.2);
-}
-
-/* Avatar premium glow + spring scale */
+/* Avatar premium glow */
 .avatar-glow {
-  transition: box-shadow 200ms ease-out, transform 250ms var(--ease-spring-scale);
-  will-change: box-shadow, transform;
+  transition: box-shadow var(--duration-out) var(--ease-premium);
+  will-change: box-shadow;
 }
 
 .avatar-glow:hover {
   box-shadow: 0 0 30px oklch(0.55 0.22 25 / 0.3);
-  transform: scale(1.05);
+  transition: box-shadow var(--duration-in) var(--ease-premium);
+}
+
+/* Flash overlay for list items — subtle highlight via ::after */
+.hover-flash {
+  position: relative;
+  overflow: hidden;
+}
+
+.hover-flash::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: oklch(0 0 0 / 0.03);
+  opacity: 0;
+  transition: opacity var(--duration-out) var(--ease-premium);
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.hover-flash:hover::after {
+  opacity: 1;
+  transition: opacity var(--duration-in) var(--ease-premium);
+}
+
+.dark .hover-flash::after {
+  background: oklch(1 0 0 / 0.04);
 }
 
 /* ========== Bento Design System ========== */
@@ -1094,29 +928,36 @@ a,
 /* Bento card - main card pattern for the redesign */
 .bento-card {
   background: white;
-  border-radius: 1.25rem;
+  border-radius: 0.75rem;
   border: 1px solid var(--border);
   overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  transform: translateY(0);
   transition:
-    transform 200ms ease-out,
-    box-shadow 200ms ease-out,
-    border-color 200ms ease-out;
+    transform var(--duration-out) var(--ease-premium),
+    box-shadow var(--duration-out) var(--ease-premium),
+    border-color var(--duration-out) var(--ease-premium);
 }
 
 .bento-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-depth-2);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
   border-color: oklch(0.55 0.22 25 / 0.15);
+  transition:
+    transform var(--duration-in) var(--ease-premium),
+    box-shadow var(--duration-in) var(--ease-premium),
+    border-color var(--duration-in) var(--ease-premium);
 }
 
 .bento-card:active {
-  transform: translateY(0px);
+  transform: translateY(0);
   box-shadow: var(--shadow-depth-1);
+  transition-duration: 50ms;
 }
 
 .bento-card-static {
   background: white;
-  border-radius: 1.25rem;
+  border-radius: 0.75rem;
   border: 1px solid var(--border);
   overflow: hidden;
 }
@@ -1139,9 +980,9 @@ a,
 
 /* Nav card - sidebar navigation cards in 2x2 grid */
 .nav-card {
-  transition: transform 250ms var(--ease-spring-scale),
-              background 200ms ease-out,
-              color 200ms ease-out;
+  transition: transform var(--duration-out) var(--ease-premium),
+              background var(--duration-out) var(--ease-premium),
+              color var(--duration-out) var(--ease-premium);
 }
 
 .nav-card.active {
@@ -1151,12 +992,11 @@ a,
 
 .nav-card:not(.active):hover {
   background: oklch(0 0 0 / 0.04);
-  transform: scale(1.05);
+  transition-duration: var(--duration-in);
 }
 
 .dark .nav-card:not(.active):hover {
   background: oklch(1 0 0 / 0.06);
-  transform: scale(1.05);
 }
 
 /* Split screen pattern for auth pages */
@@ -1177,13 +1017,6 @@ a,
   transform: translateY(-0.6rem);
   font-size: 0.65rem;
   color: oklch(0.55 0.22 25);
-}
-
-/* Bento stat card */
-.stat-card-bento {
-  background: oklch(1 0 0 / 0.6);
-  backdrop-filter: blur(12px);
-  border: 1px solid oklch(1 0 0 / 0.1);
 }
 
 /* Profile tab indicator */
@@ -1235,9 +1068,7 @@ a,
     scroll-behavior: auto !important;
   }
 
-  .animate-float,
   .animate-shimmer-premium,
-  .animate-pulse-glow,
   .animate-banner-shimmer::after {
     animation: none !important;
   }

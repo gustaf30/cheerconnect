@@ -212,23 +212,22 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
   const canAddVideo = mediaFiles.length === 0;
 
   return (
-    <div className={`bento-card-static transition-all duration-200 ${isFocused ? 'ring-2 ring-primary/20 shadow-lg' : ''}`}>
-      <div className="accent-bar" />
-      <div className="p-5">
+    <div className={`bento-card-static shadow-depth-1 transition-base ${isFocused ? 'ring-2 ring-primary/20 shadow-lg' : ''}`}>
+      <div className="p-4">
         <div className="flex gap-3">
-          <Avatar className="h-10 w-10 shrink-0 rounded-xl">
+          <Avatar className="h-12 w-12 shrink-0 rounded-lg">
             <AvatarImage
               src={displayAvatar}
               alt={displayName}
               className="object-cover"
             />
-            <AvatarFallback className="bg-primary text-primary-foreground font-display font-semibold rounded-xl">
+            <AvatarFallback className="bg-primary text-primary-foreground font-display font-semibold rounded-lg">
               {displayName ? getInitials(displayName) : "U"}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 space-y-3">
             <textarea
-              placeholder="Compartilhe algo com a comunidade..."
+              placeholder="Começar uma publicação..."
               value={content}
               onChange={(e) => setContent(e.target.value)}
               onFocus={() => setIsFocused(true)}
@@ -258,15 +257,17 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
                       ) : (
                         <video
                           src={media.preview}
-                          className="rounded-xl w-full h-32 object-cover"
-                          controls
+                          className="rounded-xl w-full h-32 object-cover bg-black"
+                          playsInline
+                          preload="metadata"
+                          muted
                         />
                       )}
                       <button
                         type="button"
                         onClick={() => removeMedia(index)}
                         aria-label="Remover mídia"
-                        className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-black/80"
+                        className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-base hover:bg-black/80"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>
@@ -289,9 +290,9 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
                 <button
                   onClick={() => imageInputRef.current?.click()}
                   disabled={!canAddImages || isLoading}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-40"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-accent/50 transition-base disabled:opacity-40"
                 >
-                  <ImagePlus className="h-4 w-4" />
+                  <ImagePlus className="h-[18px] w-[18px] text-blue-500" />
                   Foto
                 </button>
 
@@ -305,9 +306,9 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
                 <button
                   onClick={() => videoInputRef.current?.click()}
                   disabled={!canAddVideo || isLoading}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-40"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-accent/50 transition-base disabled:opacity-40"
                 >
-                  <Video className="h-4 w-4" />
+                  <Video className="h-[18px] w-[18px] text-emerald-500" />
                   Vídeo
                 </button>
               </div>
@@ -315,7 +316,7 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
                 onClick={handleSubmit}
                 disabled={isLoading || (!content.trim() && mediaFiles.length === 0)}
                 size="sm"
-                className="bg-primary hover:bg-[oklch(0.40_0.18_25)] text-white font-bold rounded-lg px-4"
+                className="bg-primary hover:bg-primary-hover text-white font-bold rounded-lg px-4"
               >
                 {isLoading ? (
                   <>

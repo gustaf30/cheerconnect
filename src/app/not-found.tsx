@@ -21,7 +21,7 @@ export default function NotFound() {
 
         <Link
           href="/feed"
-          className="inline-flex items-center justify-center w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-[oklch(0.40_0.18_25)]"
+          className="inline-flex items-center justify-center w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-base hover:bg-primary-hover"
         >
           Voltar ao inicio
         </Link>

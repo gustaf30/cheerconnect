@@ -87,9 +87,9 @@ export function AchievementList({
             <Trophy className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1">
-            <h4 className="font-semibold">{achievement.title}</h4>
+            <h4 className="font-display font-semibold">{achievement.title}</h4>
             {achievement.description && (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                 {achievement.description}
               </p>
             )}

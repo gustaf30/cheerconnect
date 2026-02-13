@@ -92,10 +92,7 @@ export async function GET(
           },
         },
       },
-      orderBy:
-        sort === "popular"
-          ? [{ likes: { _count: "desc" } }, { createdAt: "desc" }]
-          : { createdAt: "desc" },
+      orderBy: { createdAt: "desc" },
       take: limit + 1,
       ...(cursor && {
         skip: 1,
@@ -105,7 +102,12 @@ export async function GET(
 
     // Verificar se há mais resultados
     const hasMore = comments.length > limit;
-    const resultComments = hasMore ? comments.slice(0, limit) : comments;
+    const paginatedComments = hasMore ? comments.slice(0, limit) : comments;
+
+    // Sort by popularity client-side (avoids Prisma 7 orderBy edge case)
+    const resultComments = sort === "popular"
+      ? [...paginatedComments].sort((a, b) => b._count.likes - a._count.likes)
+      : paginatedComments;
 
     // Transformar comentários para incluir flag isLiked e respostas
     const transformedComments = resultComments.map((comment) => ({

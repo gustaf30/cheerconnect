@@ -137,14 +137,14 @@ export default function ConversationPage({
         <div className="p-6 pb-2 border-b shrink-0 py-3">
           <div className="flex items-center gap-3">
             <Link href="/messages" className="lg:hidden">
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" aria-label="Voltar para mensagens">
                 <ArrowLeft className="h-5 w-5" />
               </Button>
             </Link>
 
             <Link
               href={`/profile/${conversation.otherParticipant.username}`}
-              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+              className="flex items-center gap-3 hover:opacity-80 transition-fast"
             >
               <Avatar className="h-10 w-10">
                 <AvatarImage
@@ -158,7 +158,7 @@ export default function ConversationPage({
               </Avatar>
 
               <div>
-                <h2 className="font-semibold">{conversation.otherParticipant.name}</h2>
+                <h2 className="font-display font-semibold">{conversation.otherParticipant.name}</h2>
                 <p className="text-sm text-muted-foreground">
                   @{conversation.otherParticipant.username}
                 </p>

@@ -9,18 +9,18 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-[oklch(0.40_0.18_25)] hover:shadow-md hover:shadow-primary/20",
+        default: "bg-primary text-primary-foreground shadow-depth-1 shadow-primary/10 hover:bg-primary-hover hover:shadow-depth-2 hover:shadow-primary/20",
         destructive:
-          "bg-destructive text-white hover:bg-destructive/90 hover:shadow-md hover:shadow-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+          "bg-destructive text-white shadow-depth-1 shadow-destructive/10 hover:bg-destructive/90 hover:shadow-depth-2 hover:shadow-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
         outline:
           "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground hover:shadow-sm dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80 hover:shadow-sm",
         ghost:
           "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
-        link: "text-primary underline-offset-4 hover:underline active:scale-100",
+        link: "text-primary underline-offset-4 hover:underline",
         premium:
-          "bg-gradient-to-br from-primary to-[oklch(0.45_0.20_25)] text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 focus-visible:ring-primary/30",
+          "bg-gradient-to-br from-primary to-[oklch(0.45_0.20_25)] text-primary-foreground shadow-depth-2 shadow-primary/20 hover:shadow-depth-3 hover:shadow-primary/30 focus-visible:ring-primary/30",
       },
       size: {
         default: "h-9 px-4 py-2 has-[>svg]:px-3",

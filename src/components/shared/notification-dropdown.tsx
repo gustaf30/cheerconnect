@@ -19,6 +19,7 @@ import {
   staggerContainer,
   stagger,
 } from "@/lib/animations";
+import { cn } from "@/lib/utils";
 import { useRealtime } from "@/hooks/use-realtime";
 
 interface NotificationDropdownProps {
@@ -125,8 +126,8 @@ export function NotificationDropdown({ variant = "icon" }: NotificationDropdownP
             <span>Notificações</span>
           </button>
         ) : (
-          <Button variant="ghost" size="icon" className="relative hover:bg-accent/80 transition-all duration-300" aria-label="Notificações">
-            <Bell className="h-5 w-5 transition-transform duration-200 hover:scale-110" />
+          <Button variant="ghost" size="icon" className="relative hover:bg-accent/80 transition-slow" aria-label="Notificações">
+            <Bell className="h-5 w-5" />
             <span aria-live="polite" aria-atomic="true">
               {effectiveCount > 0 && (
                 <>
@@ -142,7 +143,19 @@ export function NotificationDropdown({ variant = "icon" }: NotificationDropdownP
           </Button>
         )}
       </PopoverTrigger>
-      <PopoverContent align={variant === "sidebar" ? "start" : "end"} side={variant === "sidebar" ? "right" : "bottom"} className="w-96 p-0 animate-scale-in shadow-depth-4 hover-glow rounded-2xl border border-border overflow-hidden">
+      <PopoverContent align={variant === "sidebar" ? "start" : "end"} side={variant === "sidebar" ? "right" : "bottom"} className={cn(
+        "w-96 p-0 animate-scale-in !rounded-[1.25rem]",
+        variant !== "sidebar" && "overflow-hidden"
+      )}>
+        {/* Arrow connector — sidebar variant only */}
+        {variant === "sidebar" && (
+          <div
+            className="absolute -left-[5px] top-5 h-3 w-3 rotate-45 bg-popover border-l border-b border-border"
+            aria-hidden="true"
+          />
+        )}
+
+        <div className={variant === "sidebar" ? "overflow-hidden rounded-[inherit]" : undefined}>
         <div className="accent-bar" />
         <div className="flex items-center justify-between border-b border-border/50 px-4 py-3">
           <h3 className="font-display font-semibold text-gradient-primary">Notificações</h3>
@@ -150,7 +163,7 @@ export function NotificationDropdown({ variant = "icon" }: NotificationDropdownP
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 text-xs hover:bg-primary/10 hover:text-primary transition-colors duration-200"
+              className="h-8 text-xs hover:bg-primary/10 hover:text-primary transition-fast"
               onClick={handleMarkAllAsRead}
             >
               <Check className="h-3 w-3 mr-1" />
@@ -176,7 +189,7 @@ export function NotificationDropdown({ variant = "icon" }: NotificationDropdownP
             </div>
           ) : (
             <motion.div
-              className="divide-y"
+              className="divide-y divide-border/50"
               variants={containerVariants}
               initial="hidden"
               animate="visible"
@@ -206,6 +219,7 @@ export function NotificationDropdown({ variant = "icon" }: NotificationDropdownP
             </Link>
           </div>
         )}
+        </div>
       </PopoverContent>
     </Popover>
   );

@@ -9,17 +9,17 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground [a&]:hover:bg-primary/90 hover:scale-[1.05]",
+        default: "bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
         secondary:
-          "bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90 hover:scale-[1.05]",
+          "bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
         destructive:
-          "bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60 hover:scale-[1.05]",
+          "bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
         outline:
-          "border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground hover:scale-[1.05]",
-        ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground hover:scale-[1.05]",
+          "border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
+        ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
         link: "text-primary underline-offset-4 [a&]:hover:underline",
-        gradient: "bg-gradient-to-r from-primary to-[oklch(0.65_0.18_30)] text-white hover:shadow-md hover:shadow-primary/20 hover:scale-[1.05]",
-        subtle: "bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 hover:scale-[1.05]",
+        gradient: "bg-gradient-to-r from-primary to-[oklch(0.65_0.18_30)] text-white hover:shadow-md hover:shadow-primary/20",
+        subtle: "bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15",
       },
       size: {
         sm: "px-1.5 py-0 text-[10px]",

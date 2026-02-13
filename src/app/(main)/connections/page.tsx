@@ -199,6 +199,7 @@ function ConnectionsContent() {
             <Button
               size="sm"
               onClick={() => handleAccept(connection.user.id)}
+              aria-label="Aceitar conexão"
             >
               <Check className="h-4 w-4" />
             </Button>
@@ -206,6 +207,7 @@ function ConnectionsContent() {
               size="sm"
               variant="outline"
               onClick={() => handleReject(connection.user.id)}
+              aria-label="Rejeitar conexão"
             >
               <X className="h-4 w-4" />
             </Button>
@@ -225,6 +227,7 @@ function ConnectionsContent() {
             size="sm"
             variant="ghost"
             onClick={() => setRemoveTargetId(connection.user.id)}
+            aria-label="Remover conexão"
           >
             <UserMinus className="h-4 w-4" />
           </Button>

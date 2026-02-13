@@ -5,7 +5,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useSession } from "next-auth/react";
-import { MapPin, Calendar, Filter, Plus, Loader2, MoreHorizontal, Pencil, Trash2, Search, Sparkles } from "lucide-react";
+import { MapPin, Calendar, Filter, Plus, Loader2, MoreHorizontal, Pencil, Trash2, Search, Sparkles, ExternalLink } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -49,6 +49,7 @@ interface Event {
   startDate: string;
   endDate: string | null;
   type: string;
+  registrationUrl: string | null;
   creatorId: string | null;
   creator: {
     id: string;
@@ -93,6 +94,7 @@ export default function EventsPage() {
     endDate: "",
     endTime: "",
     type: "COMPETITION",
+    registrationUrl: "",
   });
 
   // Dialog de edição de evento
@@ -109,6 +111,7 @@ export default function EventsPage() {
     endDate: "",
     endTime: "",
     type: "COMPETITION",
+    registrationUrl: "",
   });
 
   // Buscar sugestões ao montar
@@ -188,6 +191,7 @@ export default function EventsPage() {
           startDate: startDateTime.toISOString(),
           endDate: endDateTime?.toISOString() || null,
           type: eventForm.type,
+          registrationUrl: eventForm.registrationUrl || null,
         }),
       });
 
@@ -207,6 +211,7 @@ export default function EventsPage() {
         endDate: "",
         endTime: "",
         type: "COMPETITION",
+        registrationUrl: "",
       });
       setShowingSuggestions(false);
       fetchEvents();
@@ -231,6 +236,7 @@ export default function EventsPage() {
       endDate: endDate ? endDate.toISOString().split("T")[0] : "",
       endTime: endDate ? endDate.toTimeString().slice(0, 5) : "",
       type: event.type,
+      registrationUrl: event.registrationUrl || "",
     });
     setEditDialogOpen(true);
   };
@@ -275,6 +281,7 @@ export default function EventsPage() {
           startDate: startDateTime.toISOString(),
           endDate: endDateTime?.toISOString() || null,
           type: editForm.type,
+          registrationUrl: editForm.registrationUrl || null,
         }),
       });
 
@@ -387,7 +394,9 @@ export default function EventsPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-display font-semibold">{event.name}</h3>
+                            <Link href={`/events/${event.id}`} className="font-display font-semibold hover:text-primary transition-fast">
+                              {event.name}
+                            </Link>
                             <Badge variant="gradient" className="text-xs">
                               {eventTypeLabels[event.type] || event.type}
                             </Badge>
@@ -448,43 +457,54 @@ export default function EventsPage() {
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-4 mt-3">
-                          {event.team ? (
-                            <Link
-                              href={`/teams/${event.team.slug}`}
-                              className="flex items-center gap-2 hover:opacity-80"
-                            >
-                              <Avatar className="h-6 w-6">
-                                <AvatarImage
-                                  src={event.team.logo || undefined}
-                                  alt={event.team.name}
-                                  className="object-cover"
-                                />
-                                <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                                  {getInitials(event.team.name)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span className="text-sm">por {event.team.name}</span>
-                            </Link>
-                          ) : event.creator && (
-                            <Link
-                              href={`/profile/${event.creator.username}`}
-                              className="flex items-center gap-2 hover:opacity-80"
-                            >
-                              <Avatar className="h-6 w-6">
-                                <AvatarImage
-                                  src={event.creator.avatar || undefined}
-                                  alt={event.creator.name}
-                                  className="object-cover"
-                                />
-                                <AvatarFallback className="text-xs bg-muted">
-                                  {getInitials(event.creator.name)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span className="text-sm text-muted-foreground">
-                                por {event.creator.name}
-                              </span>
-                            </Link>
+                        <div className="flex items-center justify-between mt-3">
+                          <div className="flex items-center gap-4">
+                            {event.team ? (
+                              <Link
+                                href={`/teams/${event.team.slug}`}
+                                className="flex items-center gap-2 hover:opacity-80"
+                              >
+                                <Avatar className="h-6 w-6">
+                                  <AvatarImage
+                                    src={event.team.logo || undefined}
+                                    alt={event.team.name}
+                                    className="object-cover"
+                                  />
+                                  <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+                                    {getInitials(event.team.name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="text-sm">por {event.team.name}</span>
+                              </Link>
+                            ) : event.creator && (
+                              <Link
+                                href={`/profile/${event.creator.username}`}
+                                className="flex items-center gap-2 hover:opacity-80"
+                              >
+                                <Avatar className="h-6 w-6">
+                                  <AvatarImage
+                                    src={event.creator.avatar || undefined}
+                                    alt={event.creator.name}
+                                    className="object-cover"
+                                  />
+                                  <AvatarFallback className="text-xs bg-muted">
+                                    {getInitials(event.creator.name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="text-sm text-muted-foreground">
+                                  por {event.creator.name}
+                                </span>
+                              </Link>
+                            )}
+                          </div>
+
+                          {event.registrationUrl && (
+                            <a href={event.registrationUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                              <Button size="sm" variant="premium">
+                                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                                Inscrever-se
+                              </Button>
+                            </a>
                           )}
                         </div>
                       </div>
@@ -639,6 +659,16 @@ export default function EventsPage() {
             </div>
 
             <div className="space-y-2">
+              <label className="text-sm font-medium">Link de Inscrição</label>
+              <Input
+                type="url"
+                value={eventForm.registrationUrl}
+                onChange={(e) => setEventForm({ ...eventForm, registrationUrl: e.target.value })}
+                placeholder="https://forms.google.com/..."
+              />
+            </div>
+
+            <div className="space-y-2">
               <label className="text-sm font-medium">Tipo *</label>
               <Select
                 value={eventForm.type}
@@ -758,6 +788,16 @@ export default function EventsPage() {
                 onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                 placeholder="Detalhes sobre o evento..."
                 rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Link de Inscrição</label>
+              <Input
+                type="url"
+                value={editForm.registrationUrl}
+                onChange={(e) => setEditForm({ ...editForm, registrationUrl: e.target.value })}
+                placeholder="https://forms.google.com/..."
               />
             </div>
 

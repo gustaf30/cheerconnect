@@ -276,7 +276,7 @@ export default function SettingsPage() {
     <div className="space-y-6 stagger-children">
       <div className="flex items-center gap-4">
         <Link href="/profile">
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" aria-label="Voltar">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
@@ -287,7 +287,7 @@ export default function SettingsPage() {
       <div className="bento-card-static">
         <div className="accent-bar" />
         <div className="p-6">
-          <h2 className="font-display font-bold text-lg mb-1">Conta</h2>
+          <h2 className="heading-card mb-1">Conta</h2>
           <p className="text-sm text-muted-foreground mb-6">
             Gerencie suas informações de conta
           </p>
@@ -400,7 +400,7 @@ export default function SettingsPage() {
       <div className="bento-card-static">
         <div className="accent-bar" />
         <div className="p-6">
-          <h2 className="font-display font-bold text-lg mb-1">Notificações</h2>
+          <h2 className="heading-card mb-1">Notificações</h2>
           <p className="text-sm text-muted-foreground mb-6">
             Escolha quais notificações você deseja receber
           </p>
@@ -490,7 +490,7 @@ export default function SettingsPage() {
       <div className="bento-card-static">
         <div className="accent-bar" />
         <div className="p-6">
-          <h2 className="font-display font-bold text-lg mb-1">Privacidade</h2>
+          <h2 className="heading-card mb-1">Privacidade</h2>
           <p className="text-sm text-muted-foreground mb-6">
             Controle quem pode ver suas informações
           </p>
@@ -565,6 +565,7 @@ export default function SettingsPage() {
                   size="icon"
                   className="absolute right-0 top-0 h-full px-3"
                   onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  aria-label={showCurrentPassword ? "Ocultar senha atual" : "Mostrar senha atual"}
                 >
                   {showCurrentPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -590,6 +591,7 @@ export default function SettingsPage() {
                   size="icon"
                   className="absolute right-0 top-0 h-full px-3"
                   onClick={() => setShowNewPassword(!showNewPassword)}
+                  aria-label={showNewPassword ? "Ocultar nova senha" : "Mostrar nova senha"}
                 >
                   {showNewPassword ? (
                     <EyeOff className="h-4 w-4" />

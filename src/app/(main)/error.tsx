@@ -62,7 +62,7 @@ export default function MainError({
         <div className="flex flex-col gap-3">
           <motion.button
             onClick={reset}
-            className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-[oklch(0.40_0.18_25)]"
+            className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-hover"
             whileHover={shouldReduceMotion ? {} : { scale: 1.05 }}
             whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
             transition={springs.snappy}

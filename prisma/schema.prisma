@@ -476,6 +476,7 @@ model Event {
   startDate   DateTime
   endDate     DateTime?
   type        EventType
+  registrationUrl String?
 
   creatorId   String?
   creator     User?     @relation(fields: [creatorId], references: [id], onDelete: SetNull)

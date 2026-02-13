@@ -79,7 +79,7 @@ export function TeamInfoForm({
                   {getInitials(team.name)}
                 </AvatarFallback>
               </Avatar>
-              <label className="absolute bottom-0 right-0 p-2 bg-primary rounded-full cursor-pointer hover:bg-primary/90 transition-colors">
+              <label className="absolute bottom-0 right-0 p-2 bg-primary rounded-full cursor-pointer hover:bg-primary/90 transition-fast">
                 <Camera className="h-4 w-4 text-primary-foreground" />
                 <input
                   type="file"

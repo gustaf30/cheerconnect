@@ -14,6 +14,7 @@ const updateEventSchema = z.object({
   startDate: z.string().transform((str) => new Date(str)).optional(),
   endDate: z.string().transform((str) => new Date(str)).optional().nullable(),
   type: z.enum(["COMPETITION", "TRYOUT", "CAMP", "WORKSHOP", "SHOWCASE", "OTHER"]).optional(),
+  registrationUrl: z.string().url().optional().nullable(),
 });
 
 // GET /api/events/[id] - Buscar evento específico

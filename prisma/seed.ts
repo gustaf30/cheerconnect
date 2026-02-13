@@ -662,6 +662,7 @@ async function main() {
       location: "Universidade Federal, Rio de Janeiro, RJ",
       startDate: daysFromNow(15),
       type: EventType.TRYOUT,
+      registrationUrl: "https://forms.gle/exemplo-seletiva-eagles",
       creatorId: maria.id,
       teamId: eagles.id,
     },
@@ -672,6 +673,7 @@ async function main() {
       startDate: daysFromNow(45),
       endDate: daysFromNow(52),
       type: EventType.CAMP,
+      registrationUrl: "https://forms.gle/exemplo-camp-cheerbrasil",
       creatorId: fernanda.id,
     },
     {
@@ -690,6 +692,7 @@ async function main() {
       startDate: daysFromNow(60),
       endDate: daysFromNow(62),
       type: EventType.COMPETITION,
+      registrationUrl: "https://forms.gle/exemplo-nacional-cheer",
       creatorId: fernanda.id,
     },
     {

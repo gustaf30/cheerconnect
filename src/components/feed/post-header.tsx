@@ -43,13 +43,13 @@ export function PostHeader({
           <>
             <Link href={`/teams/${team.slug}`}>
               <div>
-                <Avatar className="h-10 w-10 ring-2 ring-transparent hover:ring-primary/30 transition-base avatar-glow">
+                <Avatar className="h-12 w-12 rounded-lg ring-2 ring-transparent hover:ring-primary/30 transition-base avatar-glow">
                   <AvatarImage
                     src={team.logo || undefined}
                     alt={team.name}
                     className="object-cover"
                   />
-                  <AvatarFallback className="bg-primary text-primary-foreground font-display font-semibold">
+                  <AvatarFallback className="bg-primary text-primary-foreground font-display font-semibold rounded-lg">
                     {getInitials(team.name)}
                   </AvatarFallback>
                 </Avatar>
@@ -84,13 +84,13 @@ export function PostHeader({
           <>
             <Link href={`/profile/${author.username}`}>
               <div>
-                <Avatar className="h-10 w-10 ring-2 ring-transparent hover:ring-primary/30 transition-base avatar-glow">
+                <Avatar className="h-12 w-12 rounded-lg ring-2 ring-transparent hover:ring-primary/30 transition-base avatar-glow">
                   <AvatarImage
                     src={author.avatar || undefined}
                     alt={author.name}
                     className="object-cover"
                   />
-                  <AvatarFallback className="bg-primary text-primary-foreground font-display font-semibold">
+                  <AvatarFallback className="bg-primary text-primary-foreground font-display font-semibold rounded-lg">
                     {getInitials(author.name)}
                   </AvatarFallback>
                 </Avatar>

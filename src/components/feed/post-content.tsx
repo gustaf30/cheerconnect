@@ -98,8 +98,13 @@ export function PostContent({ content, images, videoUrl, authorName, onImageClic
           <video
             src={videoUrl}
             controls
-            className="rounded-lg max-h-96 w-full"
-          />
+            playsInline
+            preload="metadata"
+            crossOrigin="anonymous"
+            className="rounded-xl max-h-[32rem] w-full"
+          >
+            Seu navegador não suporta reprodução de vídeo.
+          </video>
         </div>
       )}
     </>

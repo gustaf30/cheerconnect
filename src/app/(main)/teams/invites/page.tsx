@@ -206,12 +206,12 @@ export default function TeamInvitesPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Link href="/teams">
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" aria-label="Voltar para equipes">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
         <div>
-          <h1 className="text-2xl font-bold">Convites de Equipe</h1>
+          <h1 className="heading-section font-display">Convites de Equipe</h1>
           <p className="text-muted-foreground text-sm">
             Gerencie seus convites pendentes
           </p>
@@ -224,7 +224,7 @@ export default function TeamInvitesPage() {
             <div className="mx-auto h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
               <Users className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">
+            <h3 className="heading-card mb-2">
               Nenhum convite pendente
             </h3>
             <p className="text-muted-foreground mb-4">
@@ -256,7 +256,7 @@ export default function TeamInvitesPage() {
                   <div className="flex-1 min-w-0">
                     <Link
                       href={`/teams/${invite.team.slug}`}
-                      className="font-semibold hover:underline"
+                      className="font-display font-semibold hover:underline"
                     >
                       {invite.team.name}
                     </Link>

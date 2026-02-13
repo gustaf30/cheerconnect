@@ -186,7 +186,7 @@ export function MessageList({ conversationId, currentUserId, onNewMessage }: Mes
         <div className="rounded-full bg-muted p-4 mb-4">
           <MessageSquare className="h-8 w-8 text-muted-foreground" />
         </div>
-        <h3 className="font-medium text-lg mb-1">Nenhuma mensagem</h3>
+        <h3 className="heading-card mb-1">Nenhuma mensagem</h3>
         <p className="text-sm text-muted-foreground">
           Envie uma mensagem para iniciar a conversa
         </p>
