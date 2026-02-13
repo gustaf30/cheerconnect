@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAuth, internalError } from "@/lib/api-utils";
+import { requireAuth, internalError, getBlockedUserIds, getConnectedUserIds } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { Position } from "@prisma/client";
 
@@ -33,28 +33,11 @@ export async function GET(request: Request) {
     const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
     const cursor = searchParams.get("cursor");
 
-    // Buscar IDs de usuários com conexões aceitas com o usuário atual
-    const acceptedConnections = await prisma.connection.findMany({
-      where: {
-        status: "ACCEPTED",
-        OR: [
-          { senderId: session.user.id },
-          { receiverId: session.user.id },
-        ],
-      },
-      select: { senderId: true, receiverId: true },
-    });
-
-    const connectedUserIds = acceptedConnections.map((c) =>
-      c.senderId === session.user.id ? c.receiverId : c.senderId
-    );
-
-    // Fetch blocked user IDs (bidirectional)
-    const [blockedByMe, blockedMe] = await Promise.all([
-      prisma.block.findMany({ where: { userId: session.user.id }, select: { blockedUserId: true } }),
-      prisma.block.findMany({ where: { blockedUserId: session.user.id }, select: { userId: true } }),
+    // Buscar IDs de usuários conectados e bloqueados em paralelo
+    const [connectedUserIds, blockedIds] = await Promise.all([
+      getConnectedUserIds(session.user.id),
+      getBlockedUserIds(session.user.id),
     ]);
-    const blockedIds = [...blockedByMe.map(b => b.blockedUserId), ...blockedMe.map(b => b.userId)];
 
     // NOTE: Full-text search (PostgreSQL tsvector) would improve performance here — deferred to post-launch.
     const users = await prisma.user.findMany({
@@ -107,33 +90,17 @@ export async function GET(request: Request) {
 async function handleSuggestions(userId: string) {
   const MAX = 12;
 
-  // Get current user info + direct connections in parallel
-  const [currentUser, acceptedConnections] = await Promise.all([
+  // Get current user info, connections, and blocked users in parallel
+  const [currentUser, connectedIds, blockedIds] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: { positions: true, location: true },
     }),
-    prisma.connection.findMany({
-      where: {
-        status: "ACCEPTED",
-        OR: [{ senderId: userId }, { receiverId: userId }],
-      },
-      select: { senderId: true, receiverId: true },
-    }),
+    getConnectedUserIds(userId),
+    getBlockedUserIds(userId),
   ]);
 
-  const connectedIds = acceptedConnections.map((c) =>
-    c.senderId === userId ? c.receiverId : c.senderId
-  );
-
-  // Fetch blocked user IDs (bidirectional)
-  const [sugBlockedByMe, sugBlockedMe] = await Promise.all([
-    prisma.block.findMany({ where: { userId }, select: { blockedUserId: true } }),
-    prisma.block.findMany({ where: { blockedUserId: userId }, select: { userId: true } }),
-  ]);
-  const sugBlockedIds = [...sugBlockedByMe.map(b => b.blockedUserId), ...sugBlockedMe.map(b => b.userId)];
-
-  const excludeIds = [userId, ...connectedIds, ...sugBlockedIds];
+  const excludeIds = [userId, ...connectedIds, ...blockedIds];
   const seen = new Set<string>();
   const results: Array<Record<string, unknown>> = [];
 

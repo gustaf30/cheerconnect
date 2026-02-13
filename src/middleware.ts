@@ -1,4 +1,5 @@
 import { withAuth } from "next-auth/middleware";
+import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 
 // --- Edge-compatible in-memory rate limiter ---
@@ -13,6 +14,13 @@ const RATE_LIMIT_RULES: { pattern: string; rule: RateLimitRule }[] = [
   { pattern: "/api/auth/register", rule: { maxRequests: 5, interval: 60_000 } },
   { pattern: "/api/posts", rule: { maxRequests: 10, interval: 60_000 } },
   { pattern: "/api/upload", rule: { maxRequests: 5, interval: 60_000 } },
+  { pattern: "/api/teams", rule: { maxRequests: 10, interval: 60_000 } },
+  { pattern: "/api/connections", rule: { maxRequests: 20, interval: 60_000 } },
+  { pattern: "/api/comments", rule: { maxRequests: 20, interval: 60_000 } },
+  { pattern: "/api/events", rule: { maxRequests: 10, interval: 60_000 } },
+  { pattern: "/api/conversations", rule: { maxRequests: 10, interval: 60_000 } },
+  { pattern: "/api/notifications", rule: { maxRequests: 30, interval: 60_000 } },
+  { pattern: "/api/settings", rule: { maxRequests: 10, interval: 60_000 } },
 ];
 
 // Match /api/conversations/*/messages
@@ -50,6 +58,7 @@ function checkRateLimit(
 }
 
 // Periodic cleanup of expired entries (best-effort, runs on each request)
+const MAX_RATE_LIMIT_ENTRIES = 10_000;
 let lastCleanup = Date.now();
 function cleanupRateLimitMap() {
   const now = Date.now();
@@ -58,10 +67,20 @@ function cleanupRateLimitMap() {
   for (const [key, value] of rateLimitMap) {
     if (now > value.resetTime) rateLimitMap.delete(key);
   }
+  // Cap map size to prevent memory leak
+  if (rateLimitMap.size > MAX_RATE_LIMIT_ENTRIES) {
+    const entriesToDelete = rateLimitMap.size - MAX_RATE_LIMIT_ENTRIES;
+    let deleted = 0;
+    for (const key of rateLimitMap.keys()) {
+      if (deleted >= entriesToDelete) break;
+      rateLimitMap.delete(key);
+      deleted++;
+    }
+  }
 }
 
 export default withAuth(
-  function middleware(request) {
+  async function middleware(request) {
     cleanupRateLimitMap();
 
     // Rate limiting — only POST requests to specific paths
@@ -84,7 +103,11 @@ export default withAuth(
       }
 
       if (rule) {
-        const key = `${ip}:${pathname}`;
+        // Use user ID from JWT when available, fall back to IP
+        const token = await getToken({ req: request });
+        const key = token?.sub
+          ? `user:${token.sub}:${pathname}`
+          : `ip:${ip}:${pathname}`;
         const result = checkRateLimit(key, rule);
         if (!result.success) {
           return NextResponse.json(
@@ -133,6 +156,23 @@ export const config = {
     "/search/:path*",
     "/messages/:path*",
     "/settings/:path*",
-    "/api/((?!auth).*)",
+    "/api/posts/:path*",
+    "/api/users/:path*",
+    "/api/connections/:path*",
+    "/api/conversations/:path*",
+    "/api/messages/:path*",
+    "/api/comments/:path*",
+    "/api/teams/:path*",
+    "/api/events/:path*",
+    "/api/achievements/:path*",
+    "/api/career/:path*",
+    "/api/upload/:path*",
+    "/api/notifications/:path*",
+    "/api/settings/:path*",
+    "/api/tags/:path*",
+    "/api/reports/:path*",
+    "/api/health/:path*",
+    "/api/docs/:path*",
+    "/api/cron/:path*",
   ],
 };

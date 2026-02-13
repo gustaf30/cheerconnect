@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useCallback, useRef } from "react";
-import { MessageSquare, Loader2 } from "lucide-react";
+import { MessageSquare, Loader2, RefreshCw } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { ConversationItem, Conversation } from "./conversation-item";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import {
@@ -35,6 +36,7 @@ export function ConversationList({ activeConversationId }: ConversationListProps
     items: conversations,
     isLoading,
     isLoadingMore,
+    error,
     sentinelRef,
     reset,
   } = useInfiniteScroll({ fetchFn: fetchConversations });
@@ -64,6 +66,18 @@ export function ConversationList({ activeConversationId }: ConversationListProps
             </div>
           </div>
         ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-8 text-sm text-muted-foreground">
+        <p>Erro ao carregar conversas.</p>
+        <Button variant="outline" size="sm" onClick={reset}>
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Tentar novamente
+        </Button>
       </div>
     );
   }

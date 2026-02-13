@@ -324,6 +324,7 @@ model Comment {
   @@index([parentId])
   @@index([postId, parentId])
   @@index([postId, createdAt])
+  @@index([authorId])
 }
 
 model CommentLike {
@@ -353,6 +354,7 @@ model Like {
 
   @@unique([userId, postId])
   @@index([postId])
+  @@index([userId])
 }
 
 // ============ EQUIPES ============
@@ -426,6 +428,7 @@ model TeamFollow {
   createdAt DateTime @default(now())
 
   @@unique([userId, teamId])
+  @@index([teamId])
 }
 
 model TeamAchievement {
@@ -528,6 +531,7 @@ model Notification {
 
   @@index([userId, isRead])
   @@index([userId, createdAt])
+  @@index([userId, isRead, createdAt])
 }
 
 // ============ MENSAGENS ============
@@ -561,6 +565,7 @@ model Message {
 
   @@index([conversationId, createdAt])
   @@index([senderId])
+  @@index([conversationId, senderId, isRead])
 }
 
 // ============ DENÚNCIAS ============

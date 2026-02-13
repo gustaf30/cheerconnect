@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mockSession } from "@/test/api-helpers";
+import { Prisma } from "@prisma/client";
 
 const { mockPrisma, mockGetServerSession } = vi.hoisted(() => {
   const fn = () => vi.fn();
@@ -55,7 +56,7 @@ describe("GET /api/conversations", () => {
         participant2: { id: "other-user-id", name: "Other", username: "other", avatar: null },
         lastMessageAt: new Date("2026-01-01"),
         lastMessagePreview: "Hello!",
-        messages: [{ id: "msg-1" }, { id: "msg-2" }],
+        _count: { messages: 2 },
         createdAt: new Date("2026-01-01"),
       },
     ];
@@ -84,7 +85,7 @@ describe("GET /api/conversations", () => {
       participant2: { id: `user-${i}`, name: `User ${i}`, username: `user${i}`, avatar: null },
       lastMessageAt: new Date(),
       lastMessagePreview: "msg",
-      messages: [],
+      _count: { messages: 0 },
       createdAt: new Date(),
     }));
     mockPrisma.conversation.findMany.mockResolvedValue(mockConversations);
@@ -110,7 +111,7 @@ describe("GET /api/conversations", () => {
         participant2: { id: "test-user-id", name: "Test", username: "test", avatar: null },
         lastMessageAt: null,
         lastMessagePreview: null,
-        messages: [],
+        _count: { messages: 0 },
         createdAt: new Date(),
       },
     ];
@@ -194,7 +195,7 @@ describe("POST /api/conversations", () => {
     expect(data.error).toBeDefined();
   });
 
-  it("returns existing conversation if one already exists", async () => {
+  it("returns existing conversation when P2002 on create", async () => {
     const session = mockSession();
     mockGetServerSession.mockResolvedValue(session);
 
@@ -203,6 +204,14 @@ describe("POST /api/conversations", () => {
       id: "conn-1", status: "ACCEPTED",
       senderId: "test-user-id", receiverId: "other-user",
     });
+
+    // Create throws P2002 (conversation already exists)
+    mockPrisma.conversation.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "5.0.0",
+      })
+    );
 
     const existingConv = {
       id: "existing-conv",
@@ -239,7 +248,6 @@ describe("POST /api/conversations", () => {
       id: "conn-1", status: "ACCEPTED",
       senderId: "test-user-id", receiverId: "other-user",
     });
-    mockPrisma.conversation.findFirst.mockResolvedValue(null);
 
     const newConv = {
       id: "new-conv",

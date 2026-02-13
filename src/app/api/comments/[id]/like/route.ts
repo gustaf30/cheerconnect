@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
@@ -26,33 +27,29 @@ export async function POST(
       );
     }
 
-    // Verificar se já curtiu
-    const existingLike = await prisma.commentLike.findUnique({
-      where: {
-        userId_commentId: {
-          userId: session.user.id,
-          commentId,
-        },
-      },
-    });
-
-    if (existingLike) {
-      // Descurtir
-      await prisma.commentLike.delete({
-        where: { id: existingLike.id },
-      });
-
-      return NextResponse.json({ liked: false });
-    } else {
-      // Curtir
+    // Try to create; if P2002 (already liked), delete instead
+    try {
       await prisma.commentLike.create({
         data: {
           userId: session.user.id,
           commentId,
         },
       });
-
       return NextResponse.json({ liked: true });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002"
+      ) {
+        await prisma.commentLike.deleteMany({
+          where: {
+            userId: session.user.id,
+            commentId,
+          },
+        });
+        return NextResponse.json({ liked: false });
+      }
+      throw err;
     }
   } catch (error) {
     return internalError("Erro ao alternar curtida do comentário", error);

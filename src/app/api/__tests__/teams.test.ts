@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mockSession } from "@/test/api-helpers";
+import { Prisma } from "@prisma/client";
 
 const { mockPrisma, mockGetServerSession } = vi.hoisted(() => {
   const fn = () => vi.fn();
@@ -100,8 +101,6 @@ describe("POST /api/teams", () => {
     const session = mockSession();
     mockGetServerSession.mockResolvedValue(session);
 
-    mockPrisma.team.findUnique.mockResolvedValue(null);
-
     const createdTeam = {
       id: "new-team-id",
       name: "New Team",
@@ -139,7 +138,6 @@ describe("POST /api/teams", () => {
     const session = mockSession();
     mockGetServerSession.mockResolvedValue(session);
 
-    mockPrisma.team.findUnique.mockResolvedValue(null);
     mockPrisma.team.create.mockResolvedValue({
       id: "team-id",
       name: "Stars & Stripes Team!",
@@ -165,19 +163,23 @@ describe("POST /api/teams", () => {
     const session = mockSession();
     mockGetServerSession.mockResolvedValue(session);
 
-    mockPrisma.team.findUnique
-      .mockResolvedValueOnce({ id: "existing", slug: "my-team" })
-      .mockResolvedValueOnce(null);
-
-    mockPrisma.team.create.mockResolvedValue({
-      id: "team-id",
-      name: "My Team",
-      slug: "my-team-1",
-      description: null,
-      location: null,
-      category: "ALLSTAR",
-      level: null,
-    });
+    // First create throws P2002 (slug conflict), second succeeds with counter
+    mockPrisma.team.create
+      .mockRejectedValueOnce(
+        new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+          code: "P2002",
+          clientVersion: "5.0.0",
+        })
+      )
+      .mockResolvedValueOnce({
+        id: "team-id",
+        name: "My Team",
+        slug: "my-team-1",
+        description: null,
+        location: null,
+        category: "ALLSTAR",
+        level: null,
+      });
 
     const request = new Request("http://localhost:3000/api/teams", {
       method: "POST",
@@ -186,8 +188,10 @@ describe("POST /api/teams", () => {
     });
     await POST(request);
 
-    const createCall = mockPrisma.team.create.mock.calls[0][0];
-    expect(createCall.data.slug).toBe("my-team-1");
+    // First attempt uses base slug, second attempt appends counter
+    expect(mockPrisma.team.create).toHaveBeenCalledTimes(2);
+    const secondCall = mockPrisma.team.create.mock.calls[1][0];
+    expect(secondCall.data.slug).toBe("my-team-1");
   });
 
   it("returns 400 for missing required fields", async () => {
@@ -222,7 +226,6 @@ describe("POST /api/teams", () => {
     const session = mockSession();
     mockGetServerSession.mockResolvedValue(session);
 
-    mockPrisma.team.findUnique.mockResolvedValue(null);
     mockPrisma.team.create.mockResolvedValue({
       id: "team-id",
       name: "Equipe Sao Paulo",

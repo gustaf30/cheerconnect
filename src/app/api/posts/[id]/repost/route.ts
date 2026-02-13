@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
@@ -54,21 +55,6 @@ export async function POST(
       );
     }
 
-    // Verificar se o usuário já repostou
-    const existingRepost = await prisma.post.findFirst({
-      where: {
-        authorId: session.user.id,
-        originalPostId: postId,
-      },
-    });
-
-    if (existingRepost) {
-      return NextResponse.json(
-        { error: "Você já repostou esta publicação" },
-        { status: 400 }
-      );
-    }
-
     const body = await request.json().catch(() => ({}));
     const { content } = repostSchema.parse(body);
 
@@ -76,7 +62,7 @@ export async function POST(
     const [currentUser, originalAuthorPrefs] = await Promise.all([
       prisma.user.findUnique({
         where: { id: session.user.id },
-        select: { name: true },
+        select: { name: true, username: true },
       }),
       prisma.user.findUnique({
         where: { id: originalPost.authorId },
@@ -84,68 +70,83 @@ export async function POST(
       }),
     ]);
 
-    // Criar o repost
-    const repost = await prisma.post.create({
-      data: {
-        content: content || "",
-        authorId: session.user.id,
-        originalPostId: postId,
-      },
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
-            avatar: true,
-            positions: true,
-          },
+    // Criar o repost — catch P2002 for unique constraint (authorId, originalPostId)
+    let repost;
+    try {
+      repost = await prisma.post.create({
+        data: {
+          content: content || "",
+          authorId: session.user.id,
+          originalPostId: postId,
         },
-        originalPost: {
-          include: {
-            author: {
-              select: {
-                id: true,
-                name: true,
-                username: true,
-                avatar: true,
-                positions: true,
-              },
-            },
-            team: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-                logo: true,
-              },
-            },
-            _count: {
-              select: {
-                likes: true,
-                comments: true,
-                reposts: true,
-              },
+        include: {
+          author: {
+            select: {
+              id: true,
+              name: true,
+              username: true,
+              avatar: true,
+              positions: true,
             },
           },
-        },
-        _count: {
-          select: {
-            likes: true,
-            comments: true,
-            reposts: true,
+          originalPost: {
+            include: {
+              author: {
+                select: {
+                  id: true,
+                  name: true,
+                  username: true,
+                  avatar: true,
+                  positions: true,
+                },
+              },
+              team: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                  logo: true,
+                },
+              },
+              _count: {
+                select: {
+                  likes: true,
+                  comments: true,
+                  reposts: true,
+                },
+              },
+            },
+          },
+          _count: {
+            select: {
+              likes: true,
+              comments: true,
+              reposts: true,
+            },
           },
         },
-      },
-    });
+      });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002"
+      ) {
+        return NextResponse.json(
+          { error: "Você já repostou esta publicação" },
+          { status: 400 }
+        );
+      }
+      throw err;
+    }
 
     // Criar notificação para o autor do post original (se habilitado)
     if (originalAuthorPrefs?.notifyPostReposted) {
+      const actorName = currentUser?.name ?? currentUser?.username ?? "Alguém";
       await prisma.notification.create({
         data: {
           userId: originalPost.authorId,
           type: "POST_REPOSTED",
-          message: `${currentUser?.name || "Alguém"} repostou sua publicação`,
+          message: `${actorName} repostou sua publicação`,
           actorId: session.user.id,
           relatedId: postId,
           relatedType: "post",

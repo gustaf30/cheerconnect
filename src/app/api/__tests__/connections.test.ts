@@ -116,6 +116,8 @@ describe("GET /api/connections", () => {
 describe("POST /api/connections", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // $transaction executes the callback with mockPrisma
+    mockPrisma.$transaction.mockImplementation((fn: (tx: typeof mockPrisma) => Promise<unknown>) => fn(mockPrisma));
   });
 
   it("returns 401 without auth", async () => {
@@ -188,9 +190,11 @@ describe("POST /api/connections", () => {
     const session = mockSession();
     mockGetServerSession.mockResolvedValue(session);
 
+    // First call: receiver exists check
+    // Then Promise.all: currentUser (name+username) and receiverPrefs (notifyConnectionRequest)
     mockPrisma.user.findUnique
       .mockResolvedValueOnce({ id: "other-user-id" })
-      .mockResolvedValueOnce({ name: "Test User" })
+      .mockResolvedValueOnce({ name: "Test User", username: "testuser" })
       .mockResolvedValueOnce({ notifyConnectionRequest: true });
 
     mockPrisma.connection.findFirst.mockResolvedValue(null);
@@ -232,7 +236,7 @@ describe("POST /api/connections", () => {
 
     mockPrisma.user.findUnique
       .mockResolvedValueOnce({ id: "other-user-id" })
-      .mockResolvedValueOnce({ name: "Test User" })
+      .mockResolvedValueOnce({ name: "Test User", username: "testuser" })
       .mockResolvedValueOnce({ notifyConnectionRequest: false });
 
     mockPrisma.connection.findFirst.mockResolvedValue(null);

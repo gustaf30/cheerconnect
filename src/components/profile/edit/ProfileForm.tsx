@@ -15,6 +15,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { CitySelector } from "@/components/ui/city-selector";
+import { positionOptions } from "@/lib/constants";
 
 interface ProfileFormData {
   name: string;
@@ -24,18 +25,6 @@ interface ProfileFormData {
   skills: string[];
   positions: string[];
 }
-
-const positionOptions = [
-  { value: "FLYER", label: "Flyer" },
-  { value: "BASE", label: "Base" },
-  { value: "BACKSPOT", label: "Backspot" },
-  { value: "FRONTSPOT", label: "Frontspot" },
-  { value: "TUMBLER", label: "Tumbler" },
-  { value: "COACH", label: "Técnico" },
-  { value: "CHOREOGRAPHER", label: "Coreógrafo" },
-  { value: "JUDGE", label: "Juiz" },
-  { value: "OTHER", label: "Outro" },
-];
 
 interface ProfileFormProps {
   form: UseFormReturn<ProfileFormData>;

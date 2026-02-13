@@ -51,6 +51,37 @@ export const eventTypes = [
   { value: "OTHER", label: "Outro" },
 ] as const;
 
+// Opções de posições de cheerleading (para selects/badges)
+export const positionOptions = [
+  { value: "FLYER", label: "Flyer" },
+  { value: "BASE", label: "Base" },
+  { value: "BACKSPOT", label: "Backspot" },
+  { value: "FRONTSPOT", label: "Frontspot" },
+  { value: "TUMBLER", label: "Tumbler" },
+  { value: "COACH", label: "Técnico" },
+  { value: "CHOREOGRAPHER", label: "Coreógrafo" },
+  { value: "JUDGE", label: "Juiz" },
+  { value: "OTHER", label: "Outro" },
+] as const;
+
+// Opções de categorias de conquistas (para selects)
+export const achievementCategoryOptions = [
+  { value: "COMPETITION", label: "Competição" },
+  { value: "CERTIFICATION", label: "Certificação" },
+  { value: "AWARD", label: "Prêmio" },
+  { value: "OTHER", label: "Outro" },
+] as const;
+
+// Limites de upload de mídia
+export const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
+export const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB
+export const MAX_IMAGES_PER_POST = 4;
+
+// Limites de paginação
+export const COMMENTS_PER_PAGE = 3;
+export const COMMENTS_EXPANDED_PER_PAGE = 10;
+export const REPLIES_LOAD_LIMIT = 10;
+
 // Opções de papéis em equipes (para selects de membros)
 export const teamRoleOptions = [
   "Atleta",

@@ -41,7 +41,6 @@ export async function GET() {
       select: {
         email: true,
         username: true,
-        password: true,
         notifyPostLiked: true,
         notifyPostCommented: true,
         notifyConnectionRequest: true,
@@ -62,6 +61,11 @@ export async function GET() {
       );
     }
 
+    // Check password existence without fetching the hash
+    const hasPassword = await prisma.user.count({
+      where: { id: session.user.id, password: { not: null } },
+    }) > 0;
+
     // Calcular disponibilidade de alteração do username
     const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
     const canChangeUsername = !user.usernameChangedAt ||
@@ -79,7 +83,7 @@ export async function GET() {
       settings: {
         email: user.email,
         username: user.username,
-        hasPassword: !!user.password,
+        hasPassword,
         notifications: {
           postLiked: user.notifyPostLiked,
           postCommented: user.notifyPostCommented,
@@ -199,7 +203,6 @@ export async function PATCH(request: Request) {
       select: {
         email: true,
         username: true,
-        password: true,
         notifyPostLiked: true,
         notifyPostCommented: true,
         notifyConnectionRequest: true,
@@ -216,7 +219,6 @@ export async function PATCH(request: Request) {
       settings: {
         email: user.email,
         username: user.username,
-        hasPassword: !!user.password,
         notifications: {
           postLiked: user.notifyPostLiked,
           postCommented: user.notifyPostCommented,

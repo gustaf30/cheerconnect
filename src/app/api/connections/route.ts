@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, getBlockedUserIds } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const createConnectionSchema = z.object({
@@ -18,12 +18,7 @@ export async function GET(request: Request) {
     const cursor = searchParams.get("cursor");
     const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
 
-    // Fetch blocked user IDs (bidirectional)
-    const [blockedByMe, blockedMe] = await Promise.all([
-      prisma.block.findMany({ where: { userId: session.user.id }, select: { blockedUserId: true } }),
-      prisma.block.findMany({ where: { blockedUserId: session.user.id }, select: { userId: true } }),
-    ]);
-    const blockedIds = [...blockedByMe.map(b => b.blockedUserId), ...blockedMe.map(b => b.userId)];
+    const blockedIds = await getBlockedUserIds(session.user.id);
 
     let connections = await prisma.connection.findMany({
       where: {
@@ -138,7 +133,7 @@ export async function POST(request: Request) {
     const [currentUser, receiverPrefs] = await Promise.all([
       prisma.user.findUnique({
         where: { id: session.user.id },
-        select: { name: true },
+        select: { name: true, username: true },
       }),
       prisma.user.findUnique({
         where: { id: receiverId },
@@ -146,26 +141,31 @@ export async function POST(request: Request) {
       }),
     ]);
 
-    const connection = await prisma.connection.create({
-      data: {
-        senderId: session.user.id,
-        receiverId,
-      },
-    });
-
-    // Criar notificação para o receptor (se habilitado)
-    if (receiverPrefs?.notifyConnectionRequest) {
-      await prisma.notification.create({
+    // Connection + notification in a single transaction
+    const connection = await prisma.$transaction(async (tx) => {
+      const conn = await tx.connection.create({
         data: {
-          userId: receiverId,
-          type: "CONNECTION_REQUEST",
-          message: `${currentUser?.name || "Alguém"} quer se conectar com você`,
-          actorId: session.user.id,
-          relatedId: connection.id,
-          relatedType: "connection",
+          senderId: session.user.id,
+          receiverId,
         },
       });
-    }
+
+      if (receiverPrefs?.notifyConnectionRequest) {
+        const actorName = currentUser?.name ?? currentUser?.username ?? "Alguém";
+        await tx.notification.create({
+          data: {
+            userId: receiverId,
+            type: "CONNECTION_REQUEST",
+            message: `${actorName} quer se conectar com você`,
+            actorId: session.user.id,
+            relatedId: conn.id,
+            relatedType: "connection",
+          },
+        });
+      }
+
+      return conn;
+    });
 
     return NextResponse.json({ connection }, { status: 201 });
   } catch (error) {

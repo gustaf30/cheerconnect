@@ -18,7 +18,7 @@ export function extractHashtags(content: string): string[] {
  * Retorna usernames sem o @.
  */
 export function extractMentions(content: string): string[] {
-  const regex = /@([a-zA-Z0-9_]+)/g;
+  const regex = /@([a-zA-Z0-9_\u00C0-\u024F]+)/g;
   const mentions = new Set<string>();
   let match;
   while ((match = regex.exec(content)) !== null) {

@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn, getInitials } from "@/lib/utils";
 
@@ -31,7 +32,7 @@ const formatTime = (dateString: string): string => {
   return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 };
 
-export function MessageBubble({ message, isOwn, showAvatar = true }: MessageBubbleProps) {
+export const MessageBubble = memo(function MessageBubble({ message, isOwn, showAvatar = true }: MessageBubbleProps) {
   return (
     <div
       className={cn(
@@ -76,4 +77,4 @@ export function MessageBubble({ message, isOwn, showAvatar = true }: MessageBubb
       </div>
     </div>
   );
-}
+});

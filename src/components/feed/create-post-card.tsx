@@ -8,6 +8,7 @@ import { scaleIn, noMotion } from "@/lib/animations";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { getInitials } from "@/lib/utils";
+import { MAX_IMAGE_SIZE, MAX_VIDEO_SIZE, MAX_IMAGES_PER_POST } from "@/lib/constants";
 import { UserProfile } from "@/types";
 import { toast } from "sonner";
 
@@ -69,9 +70,9 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
       return;
     }
 
-    const remainingSlots = 4 - mediaFiles.length;
+    const remainingSlots = MAX_IMAGES_PER_POST - mediaFiles.length;
     if (remainingSlots <= 0) {
-      toast.error("Máximo de 4 imagens por post");
+      toast.error(`Máximo de ${MAX_IMAGES_PER_POST} imagens por post`);
       return;
     }
 
@@ -79,8 +80,8 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
     for (let i = 0; i < Math.min(files.length, remainingSlots); i++) {
       const file = files[i];
       if (!file.type.startsWith("image/")) continue;
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error(`${file.name} é muito grande. Máximo: 10MB`);
+      if (file.size > MAX_IMAGE_SIZE) {
+        toast.error(`${file.name} é muito grande. Máximo: ${MAX_IMAGE_SIZE / (1024 * 1024)}MB`);
         continue;
       }
       newFiles.push({
@@ -108,8 +109,8 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
       toast.error("Selecione um arquivo de vídeo");
       return;
     }
-    if (file.size > 100 * 1024 * 1024) {
-      toast.error("Vídeo muito grande. Máximo: 100MB");
+    if (file.size > MAX_VIDEO_SIZE) {
+      toast.error(`Vídeo muito grande. Máximo: ${MAX_VIDEO_SIZE / (1024 * 1024)}MB`);
       return;
     }
 
@@ -207,7 +208,7 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
   const displayName = userProfile?.name || session.user.name || "";
   const displayAvatar = userProfile?.avatar || session.user.image || undefined;
   const hasVideo = mediaFiles.some((m) => m.type === "video");
-  const canAddImages = !hasVideo && mediaFiles.length < 4;
+  const canAddImages = !hasVideo && mediaFiles.length < MAX_IMAGES_PER_POST;
   const canAddVideo = mediaFiles.length === 0;
 
   return (

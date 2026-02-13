@@ -211,16 +211,10 @@ export async function POST(request: Request) {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
 
-    // Verificar se o slug existe e adicionar número se necessário
+    // Create with retry on slug conflict — no pre-check to avoid race condition
     let slug = baseSlug;
-    let counter = 1;
-    while (await prisma.team.findUnique({ where: { slug } })) {
-      slug = `${baseSlug}-${counter}`;
-      counter++;
-    }
-
-    // Tentar criar com retry em caso de race condition no slug
-    const MAX_RETRIES = 3;
+    let counter = 0;
+    const MAX_RETRIES = 5;
     let team;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {

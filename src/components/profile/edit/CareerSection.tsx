@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { CitySelector } from "@/components/ui/city-selector";
-import { careerRoleOptions } from "@/lib/constants";
+import { careerRoleOptions, positionOptions } from "@/lib/constants";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
 interface CareerEntry {
@@ -38,18 +38,6 @@ interface CareerEntry {
   description: string | null;
   location: string | null;
 }
-
-const positionOptions = [
-  { value: "FLYER", label: "Flyer" },
-  { value: "BASE", label: "Base" },
-  { value: "BACKSPOT", label: "Backspot" },
-  { value: "FRONTSPOT", label: "Frontspot" },
-  { value: "TUMBLER", label: "Tumbler" },
-  { value: "COACH", label: "Técnico" },
-  { value: "CHOREOGRAPHER", label: "Coreógrafo" },
-  { value: "JUDGE", label: "Juiz" },
-  { value: "OTHER", label: "Outro" },
-];
 
 interface CareerSectionProps {
   careerHistory: CareerEntry[];
