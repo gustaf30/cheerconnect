@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import logger from "@/lib/logger";
+import { prisma } from "@/lib/prisma";
 
 /**
  * Verifica autenticação e retorna a sessão do usuário.
@@ -30,7 +31,13 @@ export async function requireAuth() {
 export function handleZodError(error: unknown): NextResponse | null {
   if (error instanceof z.ZodError) {
     return NextResponse.json(
-      { error: error.issues[0].message },
+      {
+        error: error.issues[0].message,
+        errors: error.issues.map((i) => ({
+          path: i.path.join("."),
+          message: i.message,
+        })),
+      },
       { status: 400 }
     );
   }
@@ -64,4 +71,49 @@ export function apiSuccess<T>(
  */
 export function apiError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
+}
+
+/**
+ * Retorna IDs de usuários bloqueados (bidirecional).
+ */
+export async function getBlockedUserIds(userId: string): Promise<string[]> {
+  const [blockedByMe, blockedMe] = await Promise.all([
+    prisma.block.findMany({ where: { userId }, select: { blockedUserId: true } }),
+    prisma.block.findMany({ where: { blockedUserId: userId }, select: { userId: true } }),
+  ]);
+  return [
+    ...blockedByMe.map((b) => b.blockedUserId),
+    ...blockedMe.map((b) => b.userId),
+  ];
+}
+
+/**
+ * Retorna IDs de usuários conectados (conexões aceitas).
+ */
+export async function getConnectedUserIds(userId: string): Promise<string[]> {
+  const connections = await prisma.connection.findMany({
+    where: {
+      status: "ACCEPTED",
+      OR: [{ senderId: userId }, { receiverId: userId }],
+    },
+    select: { senderId: true, receiverId: true },
+  });
+  return connections.map((c) =>
+    c.senderId === userId ? c.receiverId : c.senderId
+  );
+}
+
+/**
+ * Helper para metadados de paginação por cursor.
+ */
+export function cursorPaginationMeta<T extends Record<string, unknown>>(
+  items: T[],
+  limit: number,
+  cursorField: keyof T = "id" as keyof T
+) {
+  const hasMore = items.length === limit;
+  const nextCursor = hasMore && items.length > 0
+    ? String(items[items.length - 1][cursorField])
+    : null;
+  return { hasMore, nextCursor };
 }

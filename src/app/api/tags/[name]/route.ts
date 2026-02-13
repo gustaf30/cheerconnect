@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAuth, internalError } from "@/lib/api-utils";
+import { requireAuth, internalError, getBlockedUserIds } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 // GET /api/tags/[name] - Buscar posts por tag
@@ -27,12 +27,7 @@ export async function GET(
       return NextResponse.json({ posts: [], nextCursor: null });
     }
 
-    // Fetch blocked user IDs (bidirectional)
-    const [blockedByMe, blockedMe] = await Promise.all([
-      prisma.block.findMany({ where: { userId: session.user.id }, select: { blockedUserId: true } }),
-      prisma.block.findMany({ where: { blockedUserId: session.user.id }, select: { userId: true } }),
-    ]);
-    const blockedIds = [...blockedByMe.map(b => b.blockedUserId), ...blockedMe.map(b => b.userId)];
+    const blockedIds = await getBlockedUserIds(session.user.id);
 
     const posts = await prisma.post.findMany({
       where: {
@@ -105,6 +100,7 @@ export async function GET(
         likes: {
           where: { userId: session.user.id },
           select: { id: true },
+          take: 1,
         },
       },
     });

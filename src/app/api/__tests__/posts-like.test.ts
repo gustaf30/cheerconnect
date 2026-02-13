@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mockSession } from "@/test/api-helpers";
+import { Prisma } from "@prisma/client";
 
 const { mockPrisma, mockGetServerSession } = vi.hoisted(() => {
   const fn = () => vi.fn();
@@ -14,6 +15,7 @@ const { mockPrisma, mockGetServerSession } = vi.hoisted(() => {
       post: model(),
       like: model(),
       notification: { create: fn(), findMany: fn() },
+      $transaction: fn(),
     },
     mockGetServerSession: fn(),
   };
@@ -35,6 +37,8 @@ function makeParams(id: string) {
 describe("POST /api/posts/[id]/like", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: $transaction executes the callback with mockPrisma
+    mockPrisma.$transaction.mockImplementation((fn: (tx: typeof mockPrisma) => Promise<unknown>) => fn(mockPrisma));
   });
 
   it("returns 401 without auth", async () => {
@@ -59,7 +63,7 @@ describe("POST /api/posts/[id]/like", () => {
     expect(data.error).toBeDefined();
   });
 
-  it("returns 400 when post is already liked", async () => {
+  it("unlikes when post is already liked (P2002 on create)", async () => {
     const session = mockSession();
     mockGetServerSession.mockResolvedValue(session);
 
@@ -68,17 +72,28 @@ describe("POST /api/posts/[id]/like", () => {
       authorId: "other-user",
       author: { id: "other-user" },
     });
-    mockPrisma.like.findUnique.mockResolvedValue({ id: "like-1", userId: "test-user-id", postId: "post-1" });
+
+    // Simulate P2002 unique constraint error when trying to create like
+    mockPrisma.$transaction.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "5.0.0",
+      })
+    );
+    mockPrisma.like.deleteMany.mockResolvedValue({ count: 1 });
 
     const request = new Request("http://localhost:3000/api/posts/post-1/like", { method: "POST" });
     const response = await POST(request, makeParams("post-1"));
     const data = await response.json();
 
-    expect(response.status).toBe(400);
-    expect(data.error).toBeDefined();
+    expect(response.status).toBe(200);
+    expect(data.liked).toBe(false);
+    expect(mockPrisma.like.deleteMany).toHaveBeenCalledWith({
+      where: { userId: "test-user-id", postId: "post-1" },
+    });
   });
 
-  it("creates like and returns success", async () => {
+  it("creates like and returns liked: true", async () => {
     const session = mockSession();
     mockGetServerSession.mockResolvedValue(session);
 
@@ -87,11 +102,10 @@ describe("POST /api/posts/[id]/like", () => {
       authorId: "other-user",
       author: { id: "other-user" },
     });
-    mockPrisma.like.findUnique.mockResolvedValue(null);
-    mockPrisma.user.findUnique
-      .mockResolvedValueOnce({ name: "Test User" })
-      .mockResolvedValueOnce({ notifyPostLiked: true });
     mockPrisma.like.create.mockResolvedValue({ id: "like-1", userId: "test-user-id", postId: "post-1" });
+    mockPrisma.user.findUnique
+      .mockResolvedValueOnce({ name: "Test User", username: "testuser" })
+      .mockResolvedValueOnce({ notifyPostLiked: true });
     mockPrisma.notification.create.mockResolvedValue({});
 
     const request = new Request("http://localhost:3000/api/posts/post-1/like", { method: "POST" });
@@ -99,7 +113,7 @@ describe("POST /api/posts/[id]/like", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.success).toBe(true);
+    expect(data.liked).toBe(true);
     expect(mockPrisma.like.create).toHaveBeenCalledWith({
       data: { userId: "test-user-id", postId: "post-1" },
     });
@@ -114,11 +128,10 @@ describe("POST /api/posts/[id]/like", () => {
       authorId: "author-user",
       author: { id: "author-user" },
     });
-    mockPrisma.like.findUnique.mockResolvedValue(null);
-    mockPrisma.user.findUnique
-      .mockResolvedValueOnce({ name: "Test User" })
-      .mockResolvedValueOnce({ notifyPostLiked: true });
     mockPrisma.like.create.mockResolvedValue({});
+    mockPrisma.user.findUnique
+      .mockResolvedValueOnce({ name: "Test User", username: "testuser" })
+      .mockResolvedValueOnce({ notifyPostLiked: true });
     mockPrisma.notification.create.mockResolvedValue({});
 
     const request = new Request("http://localhost:3000/api/posts/post-1/like", { method: "POST" });
@@ -144,10 +157,6 @@ describe("POST /api/posts/[id]/like", () => {
       authorId: "test-user-id",
       author: { id: "test-user-id" },
     });
-    mockPrisma.like.findUnique.mockResolvedValue(null);
-    mockPrisma.user.findUnique
-      .mockResolvedValueOnce({ name: "Test User" })
-      .mockResolvedValueOnce({ notifyPostLiked: true });
     mockPrisma.like.create.mockResolvedValue({});
 
     const request = new Request("http://localhost:3000/api/posts/post-1/like", { method: "POST" });
@@ -166,11 +175,10 @@ describe("POST /api/posts/[id]/like", () => {
       authorId: "author-user",
       author: { id: "author-user" },
     });
-    mockPrisma.like.findUnique.mockResolvedValue(null);
-    mockPrisma.user.findUnique
-      .mockResolvedValueOnce({ name: "Test User" })
-      .mockResolvedValueOnce({ notifyPostLiked: false });
     mockPrisma.like.create.mockResolvedValue({});
+    mockPrisma.user.findUnique
+      .mockResolvedValueOnce({ name: "Test User", username: "testuser" })
+      .mockResolvedValueOnce({ notifyPostLiked: false });
 
     const request = new Request("http://localhost:3000/api/posts/post-1/like", { method: "POST" });
     const response = await POST(request, makeParams("post-1"));
@@ -194,7 +202,7 @@ describe("DELETE /api/posts/[id]/like", () => {
     expect(response.status).toBe(401);
   });
 
-  it("removes like and returns success", async () => {
+  it("removes like and returns liked: false", async () => {
     const session = mockSession();
     mockGetServerSession.mockResolvedValue(session);
 
@@ -205,7 +213,7 @@ describe("DELETE /api/posts/[id]/like", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.success).toBe(true);
+    expect(data.liked).toBe(false);
     expect(mockPrisma.like.deleteMany).toHaveBeenCalledWith({
       where: { userId: "test-user-id", postId: "post-1" },
     });

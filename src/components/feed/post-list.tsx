@@ -6,6 +6,7 @@ import { PostCard } from "./post-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/shared/error-state";
 import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { PostData } from "@/types";
 
 interface PostListProps {
@@ -37,6 +38,7 @@ export function PostList({ filter = "following" }: PostListProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -63,6 +65,7 @@ export function PostList({ filter = "following" }: PostListProps) {
     if (isLoadingMore || !hasMore || !nextCursor) return;
 
     setIsLoadingMore(true);
+    setLoadMoreError(false);
     try {
       const response = await fetch(
         `/api/posts?filter=${filter}&cursor=${nextCursor}`
@@ -73,7 +76,7 @@ export function PostList({ filter = "following" }: PostListProps) {
       setNextCursor(data.nextCursor);
       setHasMore(!!data.nextCursor);
     } catch {
-      console.error("Erro ao carregar mais posts");
+      setLoadMoreError(true);
     } finally {
       setIsLoadingMore(false);
     }
@@ -158,6 +161,14 @@ export function PostList({ filter = "following" }: PostListProps) {
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         )}
+        {loadMoreError && (
+          <div className="flex flex-col items-center gap-2 py-4 text-sm text-muted-foreground">
+            <p>Erro ao carregar mais posts.</p>
+            <Button variant="outline" size="sm" onClick={loadMore}>
+              Tentar novamente
+            </Button>
+          </div>
+        )}
       </div>
     );
   }
@@ -178,6 +189,14 @@ export function PostList({ filter = "following" }: PostListProps) {
       {isLoadingMore && (
         <div className="flex justify-center py-4">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
+      {loadMoreError && (
+        <div className="flex flex-col items-center gap-2 py-4 text-sm text-muted-foreground">
+          <p>Erro ao carregar mais posts.</p>
+          <Button variant="outline" size="sm" onClick={loadMore}>
+            Tentar novamente
+          </Button>
         </div>
       )}
     </motion.div>

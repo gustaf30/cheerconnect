@@ -44,7 +44,6 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       notifications: data,
-      data,
       meta: { nextCursor },
     });
   } catch (error) {

@@ -19,10 +19,14 @@ const careerSchema = z.object({
 });
 
 // GET /api/career - Buscar histórico de carreira do usuário
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const { session, error } = await requireAuth();
     if (error) return error;
+
+    const { searchParams } = new URL(request.url);
+    const cursor = searchParams.get("cursor");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "20") || 20, 50);
 
     const careerHistory = await prisma.careerHistory.findMany({
       where: { userId: session.user.id },
@@ -40,9 +44,13 @@ export async function GET() {
         { isCurrent: "desc" },
         { startDate: "desc" },
       ],
+      take: limit,
+      ...(cursor && { skip: 1, cursor: { id: cursor } }),
     });
 
-    return NextResponse.json({ careerHistory });
+    const nextCursor = careerHistory.length === limit ? careerHistory[careerHistory.length - 1]?.id : null;
+
+    return NextResponse.json({ careerHistory, nextCursor });
   } catch (error) {
     return internalError("Erro ao buscar carreira", error);
   }

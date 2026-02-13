@@ -44,6 +44,7 @@ export async function GET(
             },
           },
           orderBy: [{ isAdmin: "desc" }, { hasPermission: "desc" }, { joinedAt: "asc" }],
+          take: 20, // Paginated endpoint at /api/teams/[slug]/members for full list
         },
         posts: {
           orderBy: { createdAt: "desc" },

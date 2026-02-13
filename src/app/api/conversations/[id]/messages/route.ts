@@ -55,7 +55,7 @@ export async function GET(
         cursor: { id: cursor },
         skip: 1,
       }),
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: "asc" },
       include: {
         sender: {
           select: {
@@ -68,17 +68,12 @@ export async function GET(
       },
     });
 
-    let nextCursor: string | null = null;
-    if (messages.length > limit) {
-      const nextItem = messages.pop();
-      nextCursor = nextItem?.id || null;
-    }
-
-    // Inverter para ordem cronológica (mais antigo primeiro)
-    const chronologicalMessages = messages.reverse();
+    const hasMore = messages.length > limit;
+    const resultMessages = hasMore ? messages.slice(0, limit) : messages;
+    const nextCursor = hasMore ? resultMessages[resultMessages.length - 1]?.id ?? null : null;
 
     return NextResponse.json({
-      messages: chronologicalMessages,
+      messages: resultMessages,
       nextCursor,
     });
   } catch (error) {

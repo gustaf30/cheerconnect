@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -45,7 +45,7 @@ interface CommentItemProps {
   showReplyButton?: boolean;
 }
 
-export function CommentItem({
+export const CommentItem = memo(function CommentItem({
   comment,
   currentUserId,
   onLikeToggle,
@@ -273,6 +273,7 @@ export function CommentItem({
             )}
             onClick={handleLike}
             disabled={isLoading}
+            aria-label={isLiked ? "Descurtir comentário" : "Curtir comentário"}
           >
             <Heart className={cn(
               "h-3 w-3 transition-fast",
@@ -305,4 +306,4 @@ export function CommentItem({
       />
     </div>
   );
-}
+});

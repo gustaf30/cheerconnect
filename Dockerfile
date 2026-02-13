@@ -36,6 +36,11 @@ RUN apk add --no-cache tini
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 
+# Copy Prisma CLI dependencies for runtime migrations
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+
 # Set the correct permission for prerender cache
 RUN mkdir .next
 RUN chown nextjs:nodejs .next
@@ -44,6 +49,9 @@ RUN chown nextjs:nodejs .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+COPY entrypoint.sh ./
+RUN chmod +x entrypoint.sh
+
 USER nextjs
 
 EXPOSE 3000
@@ -51,5 +59,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-ENTRYPOINT ["/sbin/tini", "--"]
+ENTRYPOINT ["/sbin/tini", "--", "./entrypoint.sh"]
 CMD ["node", "server.js"]

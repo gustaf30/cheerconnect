@@ -1,14 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useCallback, useState } from "react";
 import Image from "next/image";
-import { formatDistanceToNow } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { Heart, MessageCircle, MoreHorizontal, Trash2, X, Repeat2, ZoomIn } from "lucide-react";
+import { X, MoreHorizontal, Trash2 } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { motion, useAnimation, useReducedMotion } from "framer-motion";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAnimation, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -16,13 +12,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { cn, getInitials } from "@/lib/utils";
-import { positionLabels } from "@/lib/constants";
-import { PostAuthor, PostTeam, PostData } from "@/types";
+import { PostData } from "@/types";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { PostRepostInfo } from "./post-repost-info";
+import { PostHeader } from "./post-header";
+import { PostContent, renderContentWithLinks } from "./post-content";
+import { PostActions } from "./post-actions";
 import { CommentSection } from "./comment-section";
 
 interface PostProps {
@@ -36,7 +33,6 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
   const likeControls = useAnimation();
   const shouldReduceMotion = useReducedMotion();
 
-  // Para reposts, likes/comentários vão para o post original
   const targetPost = post.originalPost || post;
   const isRepost = !!post.originalPostId;
 
@@ -55,9 +51,8 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
   const isAuthor = session?.user?.id === post.author.id;
   const isTargetAuthor = session?.user?.id === targetPost.author.id;
 
-  const handleLike = async () => {
+  const handleLike = useCallback(async () => {
     try {
-      // Animação spring para botão de curtida
       if (!isLiked && !shouldReduceMotion) {
         likeControls.start({
           scale: [1, 1.3, 0.95, 1.1, 1],
@@ -82,9 +77,9 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
     } catch {
       toast.error("Erro ao curtir post");
     }
-  };
+  }, [isLiked, shouldReduceMotion, likeControls, targetPost.id, post.id, onLikeToggle]);
 
-  const handleRepost = async () => {
+  const handleRepost = useCallback(async () => {
     if (isTargetAuthor) {
       toast.error("Você não pode repostar sua própria publicação");
       return;
@@ -93,7 +88,6 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
     setIsReposting(true);
     try {
       if (hasReposted) {
-        // Remover repost
         const response = await fetch(`/api/posts/${targetPost.id}/repost`, {
           method: "DELETE",
         });
@@ -104,7 +98,6 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
         setRepostsCount((prev) => prev - 1);
         toast.success("Repost removido");
       } else {
-        // Criar repost
         const response = await fetch(`/api/posts/${targetPost.id}/repost`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -125,9 +118,9 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
     } finally {
       setIsReposting(false);
     }
-  };
+  }, [isTargetAuthor, hasReposted, targetPost.id]);
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     setIsDeleting(true);
     try {
       const response = await fetch(`/api/posts/${post.id}`, {
@@ -143,257 +136,54 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
     } finally {
       setIsDeleting(false);
     }
-  };
+  }, [post.id, onDelete]);
 
-  const renderAuthorHeader = (
-    author: PostAuthor,
-    team: PostTeam | null | undefined,
-    createdAt: string | Date,
-    showRepostIndicator: boolean = false,
-    isEdited: boolean = false
-  ) => (
-    <div className="flex items-start justify-between">
-      <div className="flex items-center gap-3">
-        {team ? (
-          // Post de equipe — mostrar equipe como autor
-          <>
-            <Link href={`/teams/${team.slug}`}>
-              <div>
-                <Avatar className="h-10 w-10 ring-2 ring-transparent hover:ring-primary/30 transition-base avatar-glow">
-                  <AvatarImage
-                    src={team.logo || undefined}
-                    alt={team.name}
-                    className="object-cover"
-                  />
-                  <AvatarFallback className="bg-primary text-primary-foreground font-display font-semibold">
-                    {getInitials(team.name)}
-                  </AvatarFallback>
-                </Avatar>
-              </div>
-            </Link>
-            <div>
-              <div className="flex items-center gap-2">
-                <Link
-                  href={`/teams/${team.slug}`}
-                  className="font-display font-semibold hover:underline animated-underline"
-                >
-                  {team.name}
-                </Link>
-                <Badge variant="subtle" className="text-xs">
-                  Equipe
-                </Badge>
-              </div>
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <time dateTime={new Date(createdAt).toISOString()}>
-                  {formatDistanceToNow(new Date(createdAt), {
-                    addSuffix: true,
-                    locale: ptBR,
-                  })}
-                </time>
-                {isEdited && (
-                  <><span>·</span><span className="text-xs text-muted-foreground">(editado)</span></>
-                )}
-              </div>
-            </div>
-          </>
-        ) : (
-          // Post de usuário — mostrar usuário como autor
-          <>
-            <Link href={`/profile/${author.username}`}>
-              <div>
-                <Avatar className="h-10 w-10 ring-2 ring-transparent hover:ring-primary/30 transition-base avatar-glow">
-                  <AvatarImage
-                    src={author.avatar || undefined}
-                    alt={author.name}
-                    className="object-cover"
-                  />
-                  <AvatarFallback className="bg-primary text-primary-foreground font-display font-semibold">
-                    {getInitials(author.name)}
-                  </AvatarFallback>
-                </Avatar>
-              </div>
-            </Link>
-            <div>
-              <div className="flex items-center gap-2">
-                <Link
-                  href={`/profile/${author.username}`}
-                  className="font-display font-semibold hover:underline animated-underline"
-                >
-                  {author.name}
-                </Link>
-                {author.positions.length > 0 && (
-                  <Badge variant="subtle" className="text-xs">
-                    {positionLabels[author.positions[0]] ||
-                      author.positions[0]}
-                  </Badge>
-                )}
-              </div>
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <Link
-                  href={`/profile/${author.username}`}
-                  className="hover:underline"
-                >
-                  @{author.username}
-                </Link>
-                <span>·</span>
-                <time dateTime={new Date(createdAt).toISOString()}>
-                  {formatDistanceToNow(new Date(createdAt), {
-                    addSuffix: true,
-                    locale: ptBR,
-                  })}
-                </time>
-                {isEdited && (
-                  <><span>·</span><span className="text-xs text-muted-foreground">(editado)</span></>
-                )}
-              </div>
-            </div>
-          </>
-        )}
-      </div>
+  const handleDeleteClick = useCallback(() => {
+    setShowDeleteConfirm(true);
+  }, []);
 
-      {showRepostIndicator && isAuthor && (
-        <DropdownMenu modal={false}>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent/80" aria-label="Mais opções">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="animate-scale-in">
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onClick={() => setShowDeleteConfirm(true)}
-              disabled={isDeleting}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Excluir
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
-    </div>
-  );
+  const handleToggleComments = useCallback(() => {
+    setShowCommentInput((prev) => !prev);
+  }, []);
 
-  const renderContentWithLinks = (text: string) => {
-    // Regex que captura #hashtags e @mentions
-    const regex = /(#[a-zA-Z0-9_\u00C0-\u024F]+)|(@[a-zA-Z0-9_]+)/g;
-    const parts: React.ReactNode[] = [];
-    let lastIndex = 0;
-    let match;
+  const handleImageClick = useCallback((image: string) => {
+    setSelectedImage(image);
+  }, []);
 
-    while ((match = regex.exec(text)) !== null) {
-      // Texto antes do match
-      if (match.index > lastIndex) {
-        parts.push(text.slice(lastIndex, match.index));
-      }
-
-      const token = match[0];
-      if (token.startsWith("#")) {
-        const tagName = token.slice(1).toLowerCase();
-        parts.push(
-          <Link
-            key={`tag-${match.index}`}
-            href={`/search?q=${encodeURIComponent("#" + tagName)}`}
-            className="text-primary hover:underline font-medium"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {token}
-          </Link>
-        );
-      } else if (token.startsWith("@")) {
-        const username = token.slice(1);
-        parts.push(
-          <Link
-            key={`mention-${match.index}`}
-            href={`/profile/${username}`}
-            className="text-primary hover:underline font-medium"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {token}
-          </Link>
-        );
-      }
-
-      lastIndex = match.index + token.length;
-    }
-
-    // Texto restante
-    if (lastIndex < text.length) {
-      parts.push(text.slice(lastIndex));
-    }
-
-    return parts.length > 0 ? parts : text;
-  };
-
-  const renderPostContent = (content: string, images: string[], videoUrl?: string | null, authorName?: string) => (
-    <>
-      {content && <p className="whitespace-pre-wrap">{renderContentWithLinks(content)}</p>}
-
-      {images.length > 0 && (
-        <div className={`mt-3 grid gap-1 ${images.length > 1 ? "grid-cols-2" : ""}`}>
-          {images.map((image, index) => (
-            <div
-              key={index}
-              className="relative group cursor-pointer overflow-hidden rounded-xl"
-              onClick={() => setSelectedImage(image)}
-            >
-              <Image
-                src={image}
-                alt={`Imagem ${index + 1} do post de ${authorName || "usuário"}`}
-                width={600}
-                height={400}
-                sizes="(max-width: 768px) 100vw, 600px"
-                className="max-h-80 w-full object-contain bg-muted"
-                unoptimized
-              />
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-base flex items-center justify-center">
-                <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-base drop-shadow-lg" />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {videoUrl && (
-        <div className="mt-3">
-          <video
-            src={videoUrl}
-            controls
-            className="rounded-lg max-h-96 w-full"
-          />
-        </div>
-      )}
-    </>
-  );
+  const handleCloseCommentInput = useCallback(() => {
+    setShowCommentInput(false);
+  }, []);
 
   return (
-    <div
-      className="bento-card-static relative"
-    >
+    <div className="bento-card-static relative">
       <div className="accent-bar" />
 
-      {/* Indicador de repost */}
       {isRepost && (
-        <div className="px-5 pt-3 flex items-center gap-2 text-sm text-muted-foreground">
-          <Repeat2 className="h-4 w-4" />
-          <Link href={`/profile/${post.author.username}`} className="hover:underline font-medium">
-            {post.author.name}
-          </Link>
-          <span>repostou</span>
-        </div>
+        <PostRepostInfo
+          authorName={post.author.name}
+          authorUsername={post.author.username}
+        />
       )}
 
       <div className="px-5 pt-4 pb-3">
         {isRepost && post.originalPost ? (
-          renderAuthorHeader(
-            post.originalPost.author,
-            post.originalPost.team,
-            post.originalPost.createdAt,
-            true,
-            !!post.originalPost.isEdited
-          )
+          <PostHeader
+            author={post.originalPost.author}
+            team={post.originalPost.team}
+            createdAt={post.originalPost.createdAt}
+            isEdited={!!post.originalPost.isEdited}
+            showMenu={isAuthor}
+            isDeleting={isDeleting}
+            onDeleteClick={handleDeleteClick}
+          />
         ) : (
           <>
-            {renderAuthorHeader(post.author, post.team, post.createdAt, false, !!post.isEdited)}
+            <PostHeader
+              author={post.author}
+              team={post.team}
+              createdAt={post.createdAt}
+              isEdited={!!post.isEdited}
+            />
             {isAuthor && !isRepost && (
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
@@ -404,7 +194,7 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
                 <DropdownMenuContent align="end" className="animate-scale-in">
                   <DropdownMenuItem
                     className="text-destructive focus:text-destructive"
-                    onClick={() => setShowDeleteConfirm(true)}
+                    onClick={handleDeleteClick}
                     disabled={isDeleting}
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
@@ -425,85 +215,47 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
         )}
 
         {isRepost && post.originalPost ? (
-          renderPostContent(
-            post.originalPost.content,
-            post.originalPost.images,
-            post.originalPost.videoUrl,
-            post.originalPost.author.name
-          )
+          <PostContent
+            content={post.originalPost.content}
+            images={post.originalPost.images}
+            videoUrl={post.originalPost.videoUrl}
+            authorName={post.originalPost.author.name}
+            onImageClick={handleImageClick}
+          />
         ) : (
-          renderPostContent(post.content, post.images, post.videoUrl, post.author.name)
+          <PostContent
+            content={post.content}
+            images={post.images}
+            videoUrl={post.videoUrl}
+            authorName={post.author.name}
+            onImageClick={handleImageClick}
+          />
         )}
       </div>
 
-      <div className="px-5 pb-0 flex gap-1">
-        <motion.div
-          animate={likeControls}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          <Button
-            variant="ghost"
-            size="sm"
-            className={cn(
-              "gap-2 transition-base like-btn-premium",
-              isLiked && "text-primary hover:text-primary",
-              justLiked && "liked"
-            )}
-            onClick={handleLike}
-          >
-            <Heart
-              className={cn(
-                "h-4 w-4 transition-fast",
-                isLiked && "fill-current animate-heart-pop"
-              )}
-            />
-            <span className="stat-number">{likesCount}</span>
-          </Button>
-        </motion.div>
-
-        {/* Botão de comentar */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className={cn(
-            "gap-2 transition-base",
-            showCommentInput && "text-primary hover:text-primary"
-          )}
-          onClick={() => setShowCommentInput((prev) => !prev)}
-        >
-          <MessageCircle className="h-4 w-4" />
-          <span className="stat-number">{commentsCount}</span>
-        </Button>
-
-        {/* Botão de repost — exibir apenas para não-reposts e posts de outros */}
-        {!isRepost && !isTargetAuthor && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className={cn(
-              "gap-2 transition-base",
-              hasReposted && "text-green-600 hover:text-green-600"
-            )}
-            onClick={handleRepost}
-            disabled={isReposting}
-          >
-            <Repeat2 className={cn(
-              "h-4 w-4 transition-base",
-              hasReposted && "scale-110",
-              isReposting && "animate-spin"
-            )} />
-            <span className="stat-number">{repostsCount}</span>
-          </Button>
-        )}
-      </div>
+      <PostActions
+        isLiked={isLiked}
+        likesCount={likesCount}
+        commentsCount={commentsCount}
+        repostsCount={repostsCount}
+        hasReposted={hasReposted}
+        justLiked={justLiked}
+        showCommentInput={showCommentInput}
+        isRepost={isRepost}
+        isTargetAuthor={isTargetAuthor}
+        isReposting={isReposting}
+        likeControls={likeControls}
+        onLike={handleLike}
+        onToggleComments={handleToggleComments}
+        onRepost={handleRepost}
+      />
 
       <CommentSection
         postId={targetPost.id}
         initialCommentsCount={targetPost._count.comments}
         showInput={showCommentInput}
         onCommentsCountChange={setCommentsCount}
-        onInputClose={() => setShowCommentInput(false)}
+        onInputClose={handleCloseCommentInput}
       />
 
       {/* Modal de visualização de imagem */}

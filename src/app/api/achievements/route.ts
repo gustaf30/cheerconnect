@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, getConnectedUserIds } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const achievementSchema = z.object({
@@ -19,7 +19,32 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId") || session.user.id;
     const cursor = searchParams.get("cursor");
-    const limit = parseInt(searchParams.get("limit") || "10");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "10") || 10, 50);
+
+    // Authorization: if viewing another user's achievements, check visibility
+    if (userId !== session.user.id) {
+      const targetUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { profileVisibility: true },
+      });
+
+      if (!targetUser) {
+        return NextResponse.json(
+          { error: "Usuário não encontrado" },
+          { status: 404 }
+        );
+      }
+
+      if (targetUser.profileVisibility !== "PUBLIC") {
+        const connectedIds = await getConnectedUserIds(session.user.id);
+        if (!connectedIds.includes(userId)) {
+          return NextResponse.json(
+            { error: "Você não tem permissão para ver as conquistas deste usuário" },
+            { status: 403 }
+          );
+        }
+      }
+    }
 
     const achievements = await prisma.achievement.findMany({
       where: { userId },

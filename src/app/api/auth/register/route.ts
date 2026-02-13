@@ -22,24 +22,19 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { name, email, username, password } = registerSchema.parse(body);
 
-    // Verificar se o email já existe
-    const existingEmail = await prisma.user.findUnique({
-      where: { email },
+    // Verificar se o email ou username já existem (single query)
+    const existingUser = await prisma.user.findFirst({
+      where: { OR: [{ email }, { username }] },
+      select: { email: true, username: true },
     });
 
-    if (existingEmail) {
-      return NextResponse.json(
-        { error: "Este email já está em uso" },
-        { status: 400 }
-      );
-    }
-
-    // Verificar se o username já existe
-    const existingUsername = await prisma.user.findUnique({
-      where: { username },
-    });
-
-    if (existingUsername) {
+    if (existingUser) {
+      if (existingUser.email === email) {
+        return NextResponse.json(
+          { error: "Este email já está em uso" },
+          { status: 400 }
+        );
+      }
       return NextResponse.json(
         { error: "Este username já está em uso" },
         { status: 400 }

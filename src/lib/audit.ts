@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import logger from "@/lib/logger";
 
 interface LogActivityParams {
   action: string;
@@ -22,6 +23,6 @@ export function logActivity(params: LogActivityParams): void {
       },
     })
     .catch((err) => {
-      console.error("[audit] Failed to log activity:", err);
+      logger.error({ err }, "[audit] Failed to log activity");
     });
 }

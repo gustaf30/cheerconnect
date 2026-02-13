@@ -1,8 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
 
-// Mock @/lib/auth to avoid Prisma/DATABASE_URL dependency chain
+// Mock @/lib/auth and @/lib/prisma to avoid DATABASE_URL dependency chain
 vi.mock('@/lib/auth', () => ({
   authOptions: {},
+}));
+
+vi.mock('@/lib/prisma', () => ({
+  prisma: {},
 }));
 
 import { apiError, apiSuccess } from '../api-utils';

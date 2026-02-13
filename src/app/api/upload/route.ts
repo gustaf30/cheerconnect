@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, internalError } from "@/lib/api-utils";
 import { cloudinary } from "@/lib/cloudinary";
+import { Readable } from "stream";
+import type { UploadApiResponse } from "cloudinary";
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,15 +36,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Converter arquivo para base64 para upload no Cloudinary
+    // Upload via stream to avoid base64 memory overhead (~33% larger)
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const base64 = `data:${file.type};base64,${buffer.toString("base64")}`;
 
-    // Fazer upload no Cloudinary
-    const result = await cloudinary.uploader.upload(base64, {
-      folder: "cheerconnect/posts",
-      resource_type: isVideo ? "video" : "image",
+    const result = await new Promise<UploadApiResponse>((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: "cheerconnect/posts",
+          resource_type: isVideo ? "video" : "image",
+        },
+        (error, result) => {
+          if (error || !result) return reject(error ?? new Error("Upload failed"));
+          resolve(result);
+        }
+      );
+      Readable.from(buffer).pipe(uploadStream);
     });
 
     return NextResponse.json({

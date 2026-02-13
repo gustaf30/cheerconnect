@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
-// POST /api/posts/[id]/like - Curtir um post
+// POST /api/posts/[id]/like - Curtir/descurtir um post (toggle)
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -16,7 +17,7 @@ export async function POST(
     // Verificar se o post existe e obter info do autor
     const post = await prisma.post.findUnique({
       where: { id: postId },
-      include: {
+      select: {
         author: {
           select: { id: true },
         },
@@ -30,57 +31,62 @@ export async function POST(
       );
     }
 
-    // Verificar se já curtiu
-    const existingLike = await prisma.like.findUnique({
-      where: {
-        userId_postId: {
-          userId: session.user.id,
-          postId,
-        },
-      },
-    });
+    // Try to create the like; if unique constraint fails (P2002), it already exists — delete instead
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.like.create({
+          data: {
+            userId: session.user.id,
+            postId,
+          },
+        });
 
-    if (existingLike) {
-      return NextResponse.json(
-        { error: "Você já curtiu este post" },
-        { status: 400 }
-      );
-    }
+        // Criar notificação para o autor do post (não para si mesmo)
+        if (post.author.id !== session.user.id) {
+          const [currentUser, postAuthor] = await Promise.all([
+            tx.user.findUnique({
+              where: { id: session.user.id },
+              select: { name: true, username: true },
+            }),
+            tx.user.findUnique({
+              where: { id: post.author.id },
+              select: { notifyPostLiked: true },
+            }),
+          ]);
 
-    // Buscar usuário atual e preferências do autor do post
-    const [currentUser, postAuthor] = await Promise.all([
-      prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { name: true },
-      }),
-      prisma.user.findUnique({
-        where: { id: post.author.id },
-        select: { notifyPostLiked: true },
-      }),
-    ]);
-
-    await prisma.like.create({
-      data: {
-        userId: session.user.id,
-        postId,
-      },
-    });
-
-    // Criar notificação para o autor do post (não para si mesmo, se habilitado)
-    if (post.author.id !== session.user.id && postAuthor?.notifyPostLiked) {
-      await prisma.notification.create({
-        data: {
-          userId: post.author.id,
-          type: "POST_LIKED",
-          message: `${currentUser?.name || "Alguém"} curtiu sua publicação`,
-          actorId: session.user.id,
-          relatedId: postId,
-          relatedType: "post",
-        },
+          if (postAuthor?.notifyPostLiked) {
+            const actorName = currentUser?.name ?? currentUser?.username ?? "Alguém";
+            await tx.notification.create({
+              data: {
+                userId: post.author.id,
+                type: "POST_LIKED",
+                message: `${actorName} curtiu sua publicação`,
+                actorId: session.user.id,
+                relatedId: postId,
+                relatedType: "post",
+              },
+            });
+          }
+        }
       });
-    }
 
-    return NextResponse.json({ success: true });
+      return NextResponse.json({ liked: true });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002"
+      ) {
+        // Already liked — toggle off
+        await prisma.like.deleteMany({
+          where: {
+            userId: session.user.id,
+            postId,
+          },
+        });
+        return NextResponse.json({ liked: false });
+      }
+      throw err;
+    }
   } catch (error) {
     return internalError("Erro ao curtir post", error);
   }
@@ -111,7 +117,7 @@ export async function DELETE(
       );
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ liked: false });
   } catch (error) {
     return internalError("Erro ao descurtir post", error);
   }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search, MessageSquare, Loader2, Users } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, getInitials } from "@/lib/utils";
@@ -42,9 +43,12 @@ export function ConnectionSearch() {
   const [conversations, setConversations] = useState<ExistingConversation[]>([]);
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [startingConversation, setStartingConversation] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
+    setError(false);
+    setIsLoading(true);
     try {
       const [connectionsRes, conversationsRes] = await Promise.all([
         fetch("/api/connections?status=ACCEPTED"),
@@ -61,7 +65,7 @@ export function ConnectionSearch() {
       setConnections(connectionsData.connections);
       setConversations(conversationsData.conversations);
     } catch {
-      toast.error("Erro ao carregar conexões");
+      setError(true);
     } finally {
       setIsLoading(false);
     }
@@ -138,6 +142,17 @@ export function ConnectionSearch() {
             </div>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-8 px-4 text-sm text-muted-foreground">
+        <p>Erro ao carregar conexões.</p>
+        <Button variant="outline" size="sm" onClick={fetchData}>
+          Tentar novamente
+        </Button>
       </div>
     );
   }

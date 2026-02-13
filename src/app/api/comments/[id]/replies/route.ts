@@ -51,9 +51,9 @@ export async function GET(
           },
         },
         likes: {
-          select: {
-            userId: true,
-          },
+          where: { userId: session.user.id },
+          select: { id: true },
+          take: 1,
         },
         _count: {
           select: {
@@ -74,7 +74,7 @@ export async function GET(
       updatedAt: reply.updatedAt,
       author: reply.author,
       likesCount: reply._count.likes,
-      isLiked: reply.likes.some((like) => like.userId === session.user.id),
+      isLiked: reply.likes.length > 0,
       parentId: reply.parentId,
     }));
 

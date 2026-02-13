@@ -38,7 +38,7 @@ describe("POST /api/auth/register", () => {
   });
 
   it("returns 201 with user data on valid registration", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.user.findFirst.mockResolvedValue(null);
     mockPrisma.user.create.mockResolvedValue({
       id: "new-user-id",
       name: "New User",
@@ -72,9 +72,9 @@ describe("POST /api/auth/register", () => {
   });
 
   it("returns 400 when email already exists", async () => {
-    mockPrisma.user.findUnique.mockResolvedValueOnce({
-      id: "existing-id",
+    mockPrisma.user.findFirst.mockResolvedValueOnce({
       email: "existing@example.com",
+      username: "otheruser",
     });
 
     const request = new Request("http://localhost:3000/api/auth/register", {
@@ -96,9 +96,8 @@ describe("POST /api/auth/register", () => {
   });
 
   it("returns 400 when username already exists", async () => {
-    mockPrisma.user.findUnique.mockResolvedValueOnce(null);
-    mockPrisma.user.findUnique.mockResolvedValueOnce({
-      id: "existing-id",
+    mockPrisma.user.findFirst.mockResolvedValueOnce({
+      email: "different@example.com",
       username: "takenuser",
     });
 
@@ -164,7 +163,7 @@ describe("POST /api/auth/register", () => {
   });
 
   it("hashes the password before storing", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.user.findFirst.mockResolvedValue(null);
     mockPrisma.user.create.mockResolvedValue({
       id: "new-user-id",
       name: "User",

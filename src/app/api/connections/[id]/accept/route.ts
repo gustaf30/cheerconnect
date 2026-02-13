@@ -41,18 +41,32 @@ export async function POST(
       }),
     ]);
 
+    const userSelect = {
+      id: true,
+      name: true,
+      username: true,
+      avatar: true,
+      positions: true,
+      location: true,
+    } as const;
+
     const updatedConnection = await prisma.connection.update({
       where: { id: connection.id },
       data: { status: "ACCEPTED" },
+      include: {
+        sender: { select: userSelect },
+        receiver: { select: userSelect },
+      },
     });
 
     // Criar notificação para o remetente original (se habilitado)
     if (senderPrefs?.notifyConnectionAccepted) {
+      const actorName = currentUser?.name ?? "Alguém";
       await prisma.notification.create({
         data: {
           userId: senderId,
           type: "CONNECTION_ACCEPTED",
-          message: `${currentUser?.name || "Alguém"} aceitou sua conexão`,
+          message: `${actorName} aceitou sua conexão`,
           actorId: session.user.id,
           relatedId: connection.id,
           relatedType: "connection",

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
@@ -42,12 +43,15 @@ export async function GET(request: Request) {
             avatar: true,
           },
         },
-        messages: {
-          where: {
-            isRead: false,
-            senderId: { not: userId },
+        _count: {
+          select: {
+            messages: {
+              where: {
+                isRead: false,
+                senderId: { not: userId },
+              },
+            },
           },
-          select: { id: true },
         },
       },
       orderBy: {
@@ -67,7 +71,7 @@ export async function GET(request: Request) {
         otherParticipant,
         lastMessageAt: conv.lastMessageAt,
         lastMessagePreview: conv.lastMessagePreview,
-        unreadCount: conv.messages.length,
+        unreadCount: conv._count.messages,
         createdAt: conv.createdAt,
       };
     });
@@ -130,77 +134,58 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verificar se a conversa já existe (em ambas as direções)
-    const existingConversation = await prisma.conversation.findFirst({
-      where: {
-        OR: [
-          { participant1Id: userId, participant2Id: participantId },
-          { participant1Id: participantId, participant2Id: userId },
-        ],
-      },
-      include: {
-        participant1: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
-            avatar: true,
-          },
-        },
-        participant2: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
-            avatar: true,
-          },
-        },
-      },
-    });
+    const participantSelect = {
+      id: true,
+      name: true,
+      username: true,
+      avatar: true,
+    } as const;
 
-    if (existingConversation) {
-      const otherParticipant =
-        existingConversation.participant1Id === userId
-          ? existingConversation.participant2
-          : existingConversation.participant1;
+    // Try to create; catch P2002 (unique constraint) and return existing
+    let conversation;
+    let isNew = true;
 
-      return NextResponse.json({
-        conversation: {
-          id: existingConversation.id,
-          otherParticipant,
-          lastMessageAt: existingConversation.lastMessageAt,
-          lastMessagePreview: existingConversation.lastMessagePreview,
-          createdAt: existingConversation.createdAt,
+    try {
+      conversation = await prisma.conversation.create({
+        data: {
+          participant1Id: userId,
+          participant2Id: participantId,
         },
-        isNew: false,
+        include: {
+          participant1: { select: participantSelect },
+          participant2: { select: participantSelect },
+        },
       });
-    }
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002"
+      ) {
+        // Conversation already exists — find and return it
+        conversation = await prisma.conversation.findFirst({
+          where: {
+            OR: [
+              { participant1Id: userId, participant2Id: participantId },
+              { participant1Id: participantId, participant2Id: userId },
+            ],
+          },
+          include: {
+            participant1: { select: participantSelect },
+            participant2: { select: participantSelect },
+          },
+        });
 
-    // Criar nova conversa
-    const conversation = await prisma.conversation.create({
-      data: {
-        participant1Id: userId,
-        participant2Id: participantId,
-      },
-      include: {
-        participant1: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
-            avatar: true,
-          },
-        },
-        participant2: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
-            avatar: true,
-          },
-        },
-      },
-    });
+        if (!conversation) {
+          return NextResponse.json(
+            { error: "Erro ao buscar conversa existente" },
+            { status: 500 }
+          );
+        }
+        isNew = false;
+      } else {
+        throw err;
+      }
+    }
 
     const otherParticipant =
       conversation.participant1Id === userId
@@ -216,9 +201,9 @@ export async function POST(request: Request) {
           lastMessagePreview: conversation.lastMessagePreview,
           createdAt: conversation.createdAt,
         },
-        isNew: true,
+        isNew,
       },
-      { status: 201 }
+      { status: isNew ? 201 : 200 }
     );
   } catch (error) {
     return handleZodError(error) ?? internalError("Erro ao criar conversa", error);

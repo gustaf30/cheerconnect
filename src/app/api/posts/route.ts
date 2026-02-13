@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, getBlockedUserIds, getConnectedUserIds } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { extractHashtags, extractMentions } from "@/lib/parsers";
 
@@ -23,12 +23,7 @@ export async function GET(request: Request) {
     const filter = searchParams.get("filter") || "following";
     const query = searchParams.get("q")?.slice(0, 200);
 
-    // Fetch blocked user IDs (bidirectional)
-    const [blockedByMe, blockedMe] = await Promise.all([
-      prisma.block.findMany({ where: { userId: session.user.id }, select: { blockedUserId: true } }),
-      prisma.block.findMany({ where: { blockedUserId: session.user.id }, select: { userId: true } }),
-    ]);
-    const blockedIds = [...blockedByMe.map(b => b.blockedUserId), ...blockedMe.map(b => b.userId)];
+    const blockedIds = await getBlockedUserIds(session.user.id);
 
     // Montar cláusula where baseada no filtro
     // NOTE: Full-text search (PostgreSQL tsvector) would improve performance here — deferred to post-launch.
@@ -46,29 +41,14 @@ export async function GET(request: Request) {
 
     if (filter === "following") {
       // Buscar conexões e equipes seguidas em paralelo (evita N+1 sequencial)
-      const [connections, followedTeams] = await Promise.all([
-        prisma.connection.findMany({
-          where: {
-            status: "ACCEPTED",
-            OR: [
-              { senderId: session.user.id },
-              { receiverId: session.user.id },
-            ],
-          },
-          select: {
-            senderId: true,
-            receiverId: true,
-          },
-        }),
+      const [connectionIds, followedTeams] = await Promise.all([
+        getConnectedUserIds(session.user.id),
         prisma.teamFollow.findMany({
           where: { userId: session.user.id },
           select: { teamId: true },
         }),
       ]);
 
-      const connectionIds = connections.map((c) =>
-        c.senderId === session.user.id ? c.receiverId : c.senderId
-      );
       const followedTeamIds = followedTeams.map((f) => f.teamId);
 
       // Incluir posts próprios, das conexões e das equipes seguidas
@@ -153,6 +133,7 @@ export async function GET(request: Request) {
         likes: {
           where: { userId: session.user.id },
           select: { id: true },
+          take: 1,
         },
       },
     });
@@ -253,7 +234,7 @@ export async function POST(request: Request) {
                 data: {
                   userId: mentionedUser.id,
                   type: "MENTION",
-                  message: `${post.author.name} mencionou você em uma publicação`,
+                  message: `${post.author.name ?? post.author.username ?? "Alguém"} mencionou você em uma publicação`,
                   actorId: session.user.id,
                   relatedId: post.id,
                   relatedType: "post",

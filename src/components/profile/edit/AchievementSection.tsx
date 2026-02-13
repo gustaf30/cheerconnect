@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { achievementCategoryOptions } from "@/lib/constants";
 
 interface Achievement {
   id: string;
@@ -32,13 +33,6 @@ interface Achievement {
   date: string;
   category: string | null;
 }
-
-const categoryOptions = [
-  { value: "COMPETITION", label: "Competição" },
-  { value: "CERTIFICATION", label: "Certificação" },
-  { value: "AWARD", label: "Prêmio" },
-  { value: "OTHER", label: "Outro" },
-];
 
 interface AchievementSectionProps {
   achievements: Achievement[];
@@ -109,7 +103,7 @@ export function AchievementSection({ achievements, fetchAchievements }: Achievem
       fetchAchievements();
 
       if (isNewAchievement) {
-        const categoryLabel = categoryOptions.find((c) => c.value === achievementForm.category)?.label;
+        const categoryLabel = achievementCategoryOptions.find((c) => c.value === achievementForm.category)?.label;
         const dateFormatted = new Date(achievementForm.date).toLocaleDateString("pt-BR", {
           month: "long",
           year: "numeric",
@@ -201,7 +195,7 @@ export function AchievementSection({ achievements, fetchAchievements }: Achievem
                       <span className="font-medium">{achievement.title}</span>
                       {achievement.category && (
                         <Badge variant="secondary" className="text-xs">
-                          {categoryOptions.find((c) => c.value === achievement.category)?.label ||
+                          {achievementCategoryOptions.find((c) => c.value === achievement.category)?.label ||
                             achievement.category}
                         </Badge>
                       )}
@@ -270,7 +264,7 @@ export function AchievementSection({ achievements, fetchAchievements }: Achievem
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {categoryOptions.map((cat) => (
+                  {achievementCategoryOptions.map((cat) => (
                     <SelectItem key={cat.value} value={cat.value}>
                       {cat.label}
                     </SelectItem>

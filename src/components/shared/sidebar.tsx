@@ -14,6 +14,7 @@ import {
   Settings,
   LogOut,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn, getInitials } from "@/lib/utils";
 import { UserProfile } from "@/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -65,9 +66,11 @@ export function Sidebar() {
   const { data: session } = useSession();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [stats, setStats] = useState<Stats>({ connections: 0, achievements: 0 });
+  const [profileError, setProfileError] = useState(false);
   const { messageCount } = useRealtime();
 
   const fetchUserProfile = useCallback(async () => {
+    setProfileError(false);
     try {
       const response = await fetch("/api/users/me");
       if (response.ok) {
@@ -77,9 +80,11 @@ export function Sidebar() {
           username: data.user.username,
           avatar: data.user.avatar,
         });
+      } else {
+        setProfileError(true);
       }
     } catch {
-      console.error("Erro ao buscar perfil do usuário");
+      setProfileError(true);
     }
   }, []);
 
@@ -142,7 +147,18 @@ export function Sidebar() {
         </div>
 
         {/* Profile Card */}
-        {session?.user && (
+        {session?.user && profileError && (
+          <div className="bento-card-static">
+            <div className="accent-bar" />
+            <div className="flex flex-col items-center gap-2 p-6 text-sm text-muted-foreground">
+              <p>Erro ao carregar perfil.</p>
+              <Button variant="outline" size="sm" onClick={() => { fetchUserProfile(); fetchStats(); }}>
+                Tentar novamente
+              </Button>
+            </div>
+          </div>
+        )}
+        {session?.user && !profileError && (
           <div className="bento-card-static">
             <div className="accent-bar" />
             <div className="p-6">

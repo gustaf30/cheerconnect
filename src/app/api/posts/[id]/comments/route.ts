@@ -57,9 +57,9 @@ export async function GET(
           },
         },
         likes: {
-          select: {
-            userId: true,
-          },
+          where: { userId: session.user.id },
+          select: { id: true },
+          take: 1,
         },
         _count: {
           select: {
@@ -80,9 +80,9 @@ export async function GET(
               },
             },
             likes: {
-              select: {
-                userId: true,
-              },
+              where: { userId: session.user.id },
+              select: { id: true },
+              take: 1,
             },
             _count: {
               select: {
@@ -116,7 +116,7 @@ export async function GET(
       author: comment.author,
       likesCount: comment._count.likes,
       repliesCount: comment._count.replies,
-      isLiked: comment.likes.some((like) => like.userId === session.user.id),
+      isLiked: comment.likes.length > 0,
       replies: comment.replies.map((reply) => ({
         id: reply.id,
         content: reply.content,
@@ -124,7 +124,7 @@ export async function GET(
         updatedAt: reply.updatedAt,
         author: reply.author,
         likesCount: reply._count.likes,
-        isLiked: reply.likes.some((like) => like.userId === session.user.id),
+        isLiked: reply.likes.length > 0,
         parentId: comment.id,
       })),
     }));
