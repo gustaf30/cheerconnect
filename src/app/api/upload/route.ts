@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, internalError } from "@/lib/api-utils";
+import { validateFileType } from "@/lib/file-validation";
 import { cloudinary } from "@/lib/cloudinary";
 import { Readable } from "stream";
 import type { UploadApiResponse } from "cloudinary";
@@ -16,16 +17,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Arquivo não enviado" }, { status: 400 });
     }
 
-    // Validar tipo do arquivo
-    const isImage = file.type.startsWith("image/");
-    const isVideo = file.type.startsWith("video/");
+    // Read buffer and validate via magic bytes (blocks SVG + spoofed MIME types)
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
 
-    if (!isImage && !isVideo) {
+    const validation = validateFileType(buffer);
+    if (!validation.valid) {
       return NextResponse.json(
-        { error: "Tipo de arquivo não suportado. Use imagens ou vídeos." },
+        { error: "Tipo de arquivo não suportado. Use imagens (JPEG, PNG, GIF, WebP) ou vídeos (MP4, WebM)." },
         { status: 400 }
       );
     }
+
+    const isVideo = validation.detectedType === "video";
 
     // Validar tamanho do arquivo (10MB para imagens, 100MB para vídeos)
     const maxSize = isVideo ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
@@ -37,9 +41,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Upload via stream to avoid base64 memory overhead (~33% larger)
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
     const result = await new Promise<UploadApiResponse>((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {

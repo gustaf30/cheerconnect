@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, getBlockedUserIds } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 
@@ -177,6 +177,15 @@ export async function POST(
       return NextResponse.json(
         { error: "Post não encontrado" },
         { status: 404 }
+      );
+    }
+
+    // Block comments between blocked users
+    const blockedIds = await getBlockedUserIds(session.user.id);
+    if (blockedIds.includes(post.author.id)) {
+      return NextResponse.json(
+        { error: "Você não pode comentar neste post" },
+        { status: 403 }
       );
     }
 

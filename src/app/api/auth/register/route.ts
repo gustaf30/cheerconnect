@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { PASSWORD_MIN_LENGTH, PASSWORD_REGEX, PASSWORD_ERROR } from "@/lib/constants";
+import { sendVerificationEmail } from "@/lib/email";
 
 const registerSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -14,7 +16,10 @@ const registerSchema = z.object({
       /^[a-zA-Z0-9_]+$/,
       "Username pode conter apenas letras, números e underline"
     ),
-  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+  password: z
+    .string()
+    .min(PASSWORD_MIN_LENGTH, PASSWORD_ERROR)
+    .regex(PASSWORD_REGEX, PASSWORD_ERROR),
 });
 
 export async function POST(request: Request) {
@@ -25,19 +30,13 @@ export async function POST(request: Request) {
     // Verificar se o email ou username já existem (single query)
     const existingUser = await prisma.user.findFirst({
       where: { OR: [{ email }, { username }] },
-      select: { email: true, username: true },
+      select: { id: true },
     });
 
     if (existingUser) {
-      if (existingUser.email === email) {
-        return NextResponse.json(
-          { error: "Este email já está em uso" },
-          { status: 400 }
-        );
-      }
       return NextResponse.json(
-        { error: "Este username já está em uso" },
-        { status: 400 }
+        { error: "Uma conta com este email ou username já existe" },
+        { status: 409 }
       );
     }
 
@@ -54,15 +53,21 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json(
-      {
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          username: user.username,
-        },
+    // Gerar token de verificação de email
+    const token = crypto.randomUUID();
+    await prisma.verificationToken.create({
+      data: {
+        identifier: email,
+        token,
+        expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
       },
+    });
+
+    // Enviar email de verificação
+    await sendVerificationEmail(email, token);
+
+    return NextResponse.json(
+      { message: "Verifique seu email para ativar sua conta", userId: user.id },
       { status: 201 }
     );
   } catch (error) {

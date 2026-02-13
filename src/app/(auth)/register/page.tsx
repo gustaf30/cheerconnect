@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,6 +10,7 @@ import { Loader2, ArrowRight } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { staggerContainer, fadeSlideUp, noMotion, noMotionContainer, stagger } from "@/lib/animations";
 import { toast } from "sonner";
+import { PASSWORD_MIN_LENGTH, PASSWORD_REGEX, PASSWORD_ERROR } from "@/lib/constants";
 
 const registerSchema = z
   .object({
@@ -23,7 +23,10 @@ const registerSchema = z
         /^[a-zA-Z0-9_]+$/,
         "Username pode conter apenas letras, números e underline"
       ),
-    password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+    password: z
+      .string()
+      .min(PASSWORD_MIN_LENGTH, PASSWORD_ERROR)
+      .regex(PASSWORD_REGEX, PASSWORD_ERROR),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -70,17 +73,8 @@ export default function RegisterPage() {
         return;
       }
 
-      toast.success("Conta criada com sucesso!");
-
-      // Auto login after registration
-      await signIn("credentials", {
-        email: data.email,
-        password: data.password,
-        redirect: false,
-      });
-
-      router.push("/feed");
-      router.refresh();
+      toast.success("Conta criada! Verifique seu email para ativar.");
+      router.push("/verify-email");
     } catch {
       toast.error("Erro ao criar conta. Tente novamente.");
     } finally {

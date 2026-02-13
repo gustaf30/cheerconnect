@@ -1,5 +1,11 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
+//
+// Deletion strategy:
+//   - TeamMember: soft-delete via isActive=false (preserves history, team rosters)
+//   - Post, Comment, User, Conversation, Message: hard-delete (CASCADE)
+//   - Rationale: team membership is historical data; content is user-owned and
+//     LGPD/GDPR deletion requests require actual removal of personal content.
 
 generator client {
   provider = "prisma-client-js"
@@ -76,6 +82,10 @@ model User {
 
   // Controle de alteração de username
   usernameChangedAt       DateTime?
+
+  // Segurança
+  tokenVersion      Int       @default(0)
+  emailVerified     DateTime?
 
   // Convites de time
   teamInvites   TeamInvite[]

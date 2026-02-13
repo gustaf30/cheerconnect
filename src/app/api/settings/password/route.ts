@@ -3,11 +3,15 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { PASSWORD_MIN_LENGTH, PASSWORD_REGEX, PASSWORD_ERROR } from "@/lib/constants";
 
 const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, "Senha atual é obrigatória"),
-    newPassword: z.string().min(6, "Nova senha deve ter pelo menos 6 caracteres"),
+    newPassword: z
+      .string()
+      .min(PASSWORD_MIN_LENGTH, PASSWORD_ERROR)
+      .regex(PASSWORD_REGEX, PASSWORD_ERROR),
     confirmPassword: z.string().min(1, "Confirmação de senha é obrigatória"),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
@@ -60,7 +64,7 @@ export async function POST(request: Request) {
     // Atualizar senha
     await prisma.user.update({
       where: { id: session.user.id },
-      data: { password: hashedPassword },
+      data: { password: hashedPassword, tokenVersion: { increment: 1 } },
     });
 
     return NextResponse.json({ success: true });
