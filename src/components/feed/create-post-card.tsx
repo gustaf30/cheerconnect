@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { getInitials } from "@/lib/utils";
 import { MAX_IMAGE_SIZE, MAX_VIDEO_SIZE, MAX_IMAGES_PER_POST } from "@/lib/constants";
+import { POST_PLACEHOLDERS } from "@/lib/placeholders";
 import { UserProfile } from "@/types";
 import { toast } from "sonner";
 
@@ -227,7 +228,7 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
           </Avatar>
           <div className="flex-1 space-y-3">
             <textarea
-              placeholder="Começar uma publicação..."
+              placeholder={POST_PLACEHOLDERS[Math.floor(Math.random() * POST_PLACEHOLDERS.length)]}
               value={content}
               onChange={(e) => setContent(e.target.value)}
               onFocus={() => setIsFocused(true)}

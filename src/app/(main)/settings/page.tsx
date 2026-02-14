@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { signOut } from "next-auth/react";
-import { Loader2, ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { Loader2, ArrowLeft, Eye, EyeOff, Sun, Moon } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { useTheme } from "next-themes";
 import { PASSWORD_MIN_LENGTH, PASSWORD_REGEX, PASSWORD_ERROR } from "@/lib/constants";
 
 interface Settings {
@@ -82,6 +83,11 @@ export default function SettingsPage() {
   // Estado de verificação de disponibilidade de username
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+
+  // Tema
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const fetchSettings = useCallback(async () => {
     try {
@@ -393,6 +399,37 @@ export default function SettingsPage() {
               Excluir conta
             </Button>
           </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Card de Aparência */}
+      <div className="bento-card-static">
+        <div className="accent-bar" />
+        <div className="p-6">
+          <h2 className="heading-card mb-1">Aparência</h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            Personalize a aparência do aplicativo
+          </p>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Modo escuro</Label>
+              <p className="text-sm text-muted-foreground">
+                Alterne entre tema claro e escuro
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Sun className="h-4 w-4 text-muted-foreground" />
+              {mounted ? (
+                <Switch
+                  checked={theme === "dark"}
+                  onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
+                />
+              ) : (
+                <Switch checked={false} disabled />
+              )}
+              <Moon className="h-4 w-4 text-muted-foreground" />
+            </div>
           </div>
         </div>
       </div>

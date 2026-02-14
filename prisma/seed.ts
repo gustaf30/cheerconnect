@@ -190,7 +190,7 @@ async function main() {
   ];
 
   const users = await Promise.all(
-    usersData.map((data) => prisma.user.create({ data }))
+    usersData.map((data) => prisma.user.create({ data: { ...data, emailVerified: new Date() } }))
   );
 
   const [gustavo, maria, joao, ana, lucas, julia, pedro, carla, rafael, fernanda] = users;
