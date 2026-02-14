@@ -62,7 +62,11 @@ interface Stats {
   achievements: number;
 }
 
-export function Sidebar() {
+interface SidebarProps {
+  onNavigate?: () => void;
+}
+
+export function Sidebar({ onNavigate }: SidebarProps = {}) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -148,7 +152,7 @@ export function Sidebar() {
             <div className="h-14 bg-gradient-to-r from-primary to-primary-hover" />
             <div className="px-4 pb-4">
               <div className="-mt-8 mb-3">
-                <Link href={profileUrl}>
+                <Link href={profileUrl} onClick={onNavigate}>
                   <Avatar className="h-16 w-16 rounded-xl border-4 border-white shadow-depth-1 avatar-glow shrink-0 mx-auto">
                     <AvatarImage
                       src={displayAvatar}
@@ -162,7 +166,7 @@ export function Sidebar() {
                 </Link>
               </div>
               <div className="text-center mb-4">
-                <Link href={profileUrl} className="font-display font-bold text-lg hover:underline transition-fast">
+                <Link href={profileUrl} onClick={onNavigate} className="font-display font-bold text-lg hover:underline transition-fast">
                   {displayName}
                 </Link>
                 {displayUsername && (
@@ -192,6 +196,7 @@ export function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={onNavigate}
                 className={cn(
                   "nav-indicator flex items-center gap-3 px-4 py-3 text-sm font-medium transition-base",
                   isActive
@@ -220,6 +225,7 @@ export function Sidebar() {
           {/* Configurações */}
           <Link
             href="/settings"
+            onClick={onNavigate}
             className={cn(
               "nav-indicator flex items-center gap-3 px-4 py-3 text-sm font-medium transition-base",
               pathname === "/settings" || pathname?.startsWith("/settings/")
@@ -254,6 +260,7 @@ export function Sidebar() {
         <div className="text-center">
           <Link
             href="/feed"
+            onClick={onNavigate}
             className="flex items-center justify-center gap-0.5 font-display font-extrabold text-xl tracking-tight opacity-40"
           >
             <span className="text-primary">Cheer</span>
