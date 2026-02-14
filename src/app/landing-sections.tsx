@@ -146,7 +146,7 @@ export function LandingCTA() {
   return (
     <div
       ref={ref}
-      className={`bento-card-static bg-primary text-white overflow-hidden relative ${isInView ? "landing-scale-in" : ""}`}
+      className={`rounded-xl border border-border bg-primary text-white overflow-hidden relative ${isInView ? "landing-scale-in" : ""}`}
       style={isInView ? undefined : { opacity: 0 }}
     >
       <div className="absolute inset-0 split-pattern" />
