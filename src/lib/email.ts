@@ -14,7 +14,7 @@ export async function sendVerificationEmail(email: string, token: string) {
     return;
   }
 
-  await resend.emails.send({
+  const { data, error } = await resend.emails.send({
     from: "CheerConnect <onboarding@resend.dev>",
     to: email,
     subject: "Verifique seu email - CheerConnect",
@@ -31,4 +31,11 @@ export async function sendVerificationEmail(email: string, token: string) {
       </div>
     `,
   });
+
+  if (error) {
+    console.error("[email] Resend error:", error);
+    throw new Error(`Falha ao enviar email: ${error.message}`);
+  }
+
+  console.log(`[email] Verification email sent to ${email} (id: ${data?.id})`);
 }
