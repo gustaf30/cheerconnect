@@ -79,6 +79,12 @@ export default function VerifyEmailPage() {
         </Link>
         .
       </p>
+      <Link
+        href="/login"
+        className="inline-block py-3 px-8 bg-primary hover:bg-primary-hover text-primary-foreground font-bold rounded-xl transition-base shadow-depth-2"
+      >
+        Voltar para Login
+      </Link>
     </div>
   );
 }
