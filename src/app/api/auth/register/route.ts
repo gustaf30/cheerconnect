@@ -63,8 +63,12 @@ export async function POST(request: Request) {
       },
     });
 
-    // Enviar email de verificação
-    await sendVerificationEmail(email, token);
+    // Enviar email de verificação (não falhar o registro se o email falhar)
+    try {
+      await sendVerificationEmail(email, token);
+    } catch (emailError) {
+      console.error("[register] Falha ao enviar email de verificação:", emailError);
+    }
 
     return NextResponse.json(
       { message: "Verifique seu email para ativar sua conta", userId: user.id },

@@ -10,6 +10,7 @@ type RateLimitRule = { maxRequests: number; interval: number };
 const RATE_LIMIT_RULES: { pattern: string; rule: RateLimitRule }[] = [
   { pattern: "/api/auth/callback/credentials", rule: { maxRequests: 15, interval: 60_000 } },
   { pattern: "/api/auth/register", rule: { maxRequests: 10, interval: 60_000 } },
+  { pattern: "/api/auth/resend-verification", rule: { maxRequests: 3, interval: 60_000 } },
   { pattern: "/api/posts", rule: { maxRequests: 10, interval: 60_000 } },
   { pattern: "/api/upload", rule: { maxRequests: 5, interval: 60_000 } },
   { pattern: "/api/teams", rule: { maxRequests: 10, interval: 60_000 } },
