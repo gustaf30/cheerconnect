@@ -937,7 +937,7 @@ a,
 
 /* Bento card - main card pattern for the redesign */
 .bento-card {
-  background: white;
+  background-color: white;
   border-radius: 0.75rem;
   border: 1px solid var(--border);
   overflow: hidden;
@@ -966,7 +966,7 @@ a,
 }
 
 .bento-card-static {
-  background: white;
+  background-color: white;
   border-radius: 0.75rem;
   border: 1px solid var(--border);
   overflow: hidden;
@@ -974,7 +974,7 @@ a,
 
 .dark .bento-card,
 .dark .bento-card-static {
-  background: var(--card);
+  background-color: var(--card);
 }
 
 .dark .bento-card:hover {
