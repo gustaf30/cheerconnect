@@ -5,7 +5,8 @@ const resend = process.env.RESEND_API_KEY
   : null;
 
 export async function sendVerificationEmail(email: string, token: string) {
-  const verificationUrl = `${process.env.NEXTAUTH_URL}/api/auth/verify-email?token=${token}`;
+  const baseUrl = process.env.NEXTAUTH_URL ?? `https://${process.env.VERCEL_URL}`;
+  const verificationUrl = `${baseUrl}/api/auth/verify-email?token=${token}`;
 
   if (!resend) {
     console.log("[email] RESEND_API_KEY not set — dev fallback");
