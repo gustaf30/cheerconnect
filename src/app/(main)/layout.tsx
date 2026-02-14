@@ -37,9 +37,9 @@ export default function MainLayout({
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-72">
+            <SheetContent side="left" className="p-0 w-72" showCloseButton={false}>
               <SheetTitle className="sr-only">Menu de navegação</SheetTitle>
-              <Sidebar />
+              <Sidebar onNavigate={() => setOpen(false)} />
             </SheetContent>
           </Sheet>
         ) : (
