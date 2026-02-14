@@ -31,7 +31,8 @@ function matchesConversationMessages(pathname: string): boolean {
 // Prefer request.ip (reliable on Vercel), then last x-forwarded-for value
 // (closest trusted proxy), then "anonymous"
 function getIp(request: NextRequest): string {
-  if (request.ip) return request.ip;
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp) return realIp;
 
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) {

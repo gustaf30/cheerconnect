@@ -55,7 +55,7 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
     try {
       if (!isLiked && !shouldReduceMotion) {
         likeControls.start({
-          scale: [1, 1.3, 0.95, 1.1, 1],
+          scale: [1, 1.04, 0.99, 1.01, 1],
           transition: { duration: 0.4, ease: "easeOut" }
         });
       }
