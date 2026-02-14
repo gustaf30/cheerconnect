@@ -152,7 +152,7 @@ export function LandingCTA() {
       <div className="absolute inset-0 split-pattern" />
       <div className="absolute -top-24 -right-24 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
       <div className="relative z-10 p-12 md:p-16 text-center">
-        <h2 className="text-3xl md:text-4xl font-display font-extrabold mb-4">
+        <h2 className="text-3xl md:text-4xl font-display font-extrabold mb-4 text-white">
           Pronto para fazer parte da comunidade?
         </h2>
         <p className="text-white/70 mb-8 max-w-md mx-auto font-light text-lg">
