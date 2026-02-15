@@ -138,7 +138,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
   const animatedAchievements = useAnimatedNumber(stats.achievements);
 
   return (
-    <ScrollArea className="flex-1">
+    <ScrollArea className="h-full">
       <div className="flex flex-col gap-4 stagger-children py-2">
         {/* Profile Card */}
         {session?.user && profileError && (
