@@ -87,7 +87,7 @@ export default function RootLayout({
         <ThemeProvider>
           <SessionProvider>
             {children}
-            <Toaster position="top-center" richColors />
+            <Toaster position="bottom-right" richColors />
           </SessionProvider>
         </ThemeProvider>
         <Analytics />
