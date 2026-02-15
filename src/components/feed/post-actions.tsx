@@ -47,7 +47,7 @@ export function PostActions({
       >
         <button
           className={cn(
-            "w-full flex items-center justify-center gap-3 px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent/50 rounded-lg transition-base like-btn-premium",
+            "w-full flex items-center justify-center gap-1.5 px-2 py-3 sm:gap-3 sm:px-4 text-sm font-medium text-muted-foreground hover:bg-accent/50 rounded-lg transition-base like-btn-premium",
             isLiked && "text-primary hover:text-primary",
             justLiked && "liked"
           )}
@@ -60,7 +60,7 @@ export function PostActions({
               isLiked && "fill-current animate-heart-pop"
             )}
           />
-          <span className="leading-none">Curtir</span>
+          <span className="hidden sm:inline leading-none">Curtir</span>
           {likesCount > 0 && <span className="stat-number text-xs">{likesCount}</span>}
         </button>
       </motion.div>
@@ -70,14 +70,14 @@ export function PostActions({
       <div className="flex-1">
         <button
           className={cn(
-            "w-full flex items-center justify-center gap-3 px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent/50 rounded-lg transition-base",
+            "w-full flex items-center justify-center gap-1.5 px-2 py-3 sm:gap-3 sm:px-4 text-sm font-medium text-muted-foreground hover:bg-accent/50 rounded-lg transition-base",
             showCommentInput && "text-primary hover:text-primary"
           )}
           onClick={onToggleComments}
           aria-label="Comentar"
         >
           <MessageCircle className="h-[18px] w-[18px]" />
-          <span className="leading-none">Comentar</span>
+          <span className="hidden sm:inline leading-none">Comentar</span>
           {commentsCount > 0 && <span className="stat-number text-xs">{commentsCount}</span>}
         </button>
       </div>
@@ -88,7 +88,7 @@ export function PostActions({
           <div className="flex-1">
             <button
               className={cn(
-                "w-full flex items-center justify-center gap-3 px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent/50 rounded-lg transition-base",
+                "w-full flex items-center justify-center gap-1.5 px-2 py-3 sm:gap-3 sm:px-4 text-sm font-medium text-muted-foreground hover:bg-accent/50 rounded-lg transition-base",
                 hasReposted && "text-green-600 hover:text-green-600"
               )}
               onClick={onRepost}
@@ -100,7 +100,7 @@ export function PostActions({
                 hasReposted && "scale-110",
                 isReposting && "animate-spin"
               )} />
-              <span className="leading-none">Repostar</span>
+              <span className="hidden sm:inline leading-none">Repostar</span>
               {repostsCount > 0 && <span className="stat-number text-xs">{repostsCount}</span>}
             </button>
           </div>
