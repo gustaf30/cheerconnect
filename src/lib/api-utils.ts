@@ -104,6 +104,38 @@ export async function getConnectedUserIds(userId: string): Promise<string[]> {
 }
 
 /**
+ * Verifica se o usuário é participante de uma conversa.
+ * Retorna a conversa com participant IDs, ou null se não encontrada/sem acesso.
+ */
+export async function getConversationWithAccessCheck(
+  conversationId: string,
+  userId: string
+) {
+  const conversation = await prisma.conversation.findUnique({
+    where: { id: conversationId },
+    select: {
+      id: true,
+      participant1Id: true,
+      participant2Id: true,
+      lastMessageAt: true,
+      lastMessagePreview: true,
+      createdAt: true,
+      participant1: {
+        select: { id: true, name: true, username: true, avatar: true },
+      },
+      participant2: {
+        select: { id: true, name: true, username: true, avatar: true },
+      },
+    },
+  });
+
+  if (!conversation) return null;
+  if (conversation.participant1Id !== userId && conversation.participant2Id !== userId) return null;
+
+  return conversation;
+}
+
+/**
  * Helper para metadados de paginação por cursor.
  */
 export function cursorPaginationMeta<T extends Record<string, unknown>>(

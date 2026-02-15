@@ -69,7 +69,7 @@ export function PostContent({ content, images, videoUrl, authorName, onImageClic
       {content && <p className="whitespace-pre-wrap">{renderContentWithLinks(content)}</p>}
 
       {images.length > 0 && (
-        <div className={`mt-3 grid gap-1 ${images.length > 1 ? "grid-cols-2" : ""}`}>
+        <div className={`mt-3 grid gap-1 ${images.length > 1 ? "grid-cols-1 sm:grid-cols-2" : ""}`}>
           {images.map((image, index) => (
             <div
               key={index}

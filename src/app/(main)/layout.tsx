@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Sidebar } from "@/components/shared/sidebar";
+import { useIsMounted } from "@/hooks/use-is-mounted";
 import { RightSidebar } from "@/components/feed/right-sidebar";
 import { PageTransitionProvider } from "@/components/providers/page-transition-provider";
 import { RealtimeProvider } from "@/hooks/use-realtime";
+import { OfflineBanner } from "@/components/shared/offline-banner";
 
 export default function MainLayout({
   children,
@@ -16,12 +18,11 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => { setIsMounted(true); }, []);
+  const isMounted = useIsMounted();
 
   return (
     <RealtimeProvider>
+    <OfflineBanner />
     <div className="min-h-screen flex flex-col">
       {/* Mobile top bar — visible only below lg */}
       <div className="sticky top-0 z-50 flex items-center h-14 px-4 glass lg:hidden">
@@ -37,7 +38,7 @@ export default function MainLayout({
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-72" showCloseButton={false}>
+            <SheetContent side="left" className="p-0 max-w-[85vw] w-72" showCloseButton={false}>
               <SheetTitle className="sr-only">Menu de navegação</SheetTitle>
               <Sidebar onNavigate={() => setOpen(false)} />
             </SheetContent>

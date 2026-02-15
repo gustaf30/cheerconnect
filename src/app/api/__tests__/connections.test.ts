@@ -169,10 +169,10 @@ describe("POST /api/connections", () => {
     mockGetServerSession.mockResolvedValue(session);
 
     mockPrisma.user.findUnique.mockResolvedValue({ id: "other-user-id" });
-    mockPrisma.connection.findFirst.mockResolvedValue({
+    mockPrisma.connection.findUnique.mockResolvedValue({
       id: "existing-conn",
-      senderId: "test-user-id",
-      receiverId: "other-user-id",
+      senderId: "other-user-id",
+      receiverId: "test-user-id",
       status: "PENDING",
     });
 
@@ -197,7 +197,8 @@ describe("POST /api/connections", () => {
       .mockResolvedValueOnce({ name: "Test User", username: "testuser" })
       .mockResolvedValueOnce({ notifyConnectionRequest: true });
 
-    mockPrisma.connection.findFirst.mockResolvedValue(null);
+    // Reverse connection check
+    mockPrisma.connection.findUnique.mockResolvedValue(null);
 
     const newConnection = {
       id: "new-conn-id",
@@ -205,8 +206,13 @@ describe("POST /api/connections", () => {
       receiverId: "other-user-id",
       status: "PENDING",
     };
-    mockPrisma.connection.create.mockResolvedValue(newConnection);
-    mockPrisma.notification.create.mockResolvedValue({});
+
+    // Mock $transaction to invoke the callback with a tx that has the needed methods
+    const mockTx = {
+      connection: { create: vi.fn().mockResolvedValue(newConnection) },
+      notification: { create: vi.fn().mockResolvedValue({}) },
+    };
+    mockPrisma.$transaction.mockImplementation((cb: (tx: typeof mockTx) => Promise<unknown>) => cb(mockTx));
 
     const request = new Request("http://localhost:3000/api/connections", {
       method: "POST",
@@ -219,7 +225,7 @@ describe("POST /api/connections", () => {
     expect(response.status).toBe(201);
     expect(data.connection.id).toBe("new-conn-id");
 
-    expect(mockPrisma.notification.create).toHaveBeenCalledWith(
+    expect(mockTx.notification.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           userId: "other-user-id",
@@ -239,13 +245,21 @@ describe("POST /api/connections", () => {
       .mockResolvedValueOnce({ name: "Test User", username: "testuser" })
       .mockResolvedValueOnce({ notifyConnectionRequest: false });
 
-    mockPrisma.connection.findFirst.mockResolvedValue(null);
-    mockPrisma.connection.create.mockResolvedValue({
+    // Reverse connection check
+    mockPrisma.connection.findUnique.mockResolvedValue(null);
+
+    const newConnection = {
       id: "new-conn-id",
       senderId: "test-user-id",
       receiverId: "other-user-id",
       status: "PENDING",
-    });
+    };
+
+    const mockTx = {
+      connection: { create: vi.fn().mockResolvedValue(newConnection) },
+      notification: { create: vi.fn().mockResolvedValue({}) },
+    };
+    mockPrisma.$transaction.mockImplementation((cb: (tx: typeof mockTx) => Promise<unknown>) => cb(mockTx));
 
     const request = new Request("http://localhost:3000/api/connections", {
       method: "POST",
@@ -255,6 +269,6 @@ describe("POST /api/connections", () => {
     const response = await POST(request);
 
     expect(response.status).toBe(201);
-    expect(mockPrisma.notification.create).not.toHaveBeenCalled();
+    expect(mockTx.notification.create).not.toHaveBeenCalled();
   });
 });

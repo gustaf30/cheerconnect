@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAuth, internalError } from "@/lib/api-utils";
+import { requireAuth, internalError, getConversationWithAccessCheck } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 // POST /api/conversations/[id]/messages/read - Marcar mensagens como lidas
@@ -15,28 +15,12 @@ export async function POST(
     const userId = session.user.id;
 
     // Verificar se o usuário faz parte da conversa
-    const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId },
-      select: {
-        participant1Id: true,
-        participant2Id: true,
-      },
-    });
+    const conversation = await getConversationWithAccessCheck(conversationId, userId);
 
     if (!conversation) {
       return NextResponse.json(
         { error: "Conversa não encontrada" },
         { status: 404 }
-      );
-    }
-
-    if (
-      conversation.participant1Id !== userId &&
-      conversation.participant2Id !== userId
-    ) {
-      return NextResponse.json(
-        { error: "Você não tem acesso a esta conversa" },
-        { status: 403 }
       );
     }
 

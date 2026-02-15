@@ -15,6 +15,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { reportError } from "@/lib/error-reporter";
 import { cn, getInitials } from "@/lib/utils";
 import { UserProfile } from "@/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -113,13 +114,14 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
           achievements: achievementsData.achievements?.length || 0,
         });
       }
-    } catch {
-      console.error("Erro ao buscar estatísticas");
+    } catch (error) {
+      reportError(error, "Sidebar.fetchStats");
     }
   }, []);
 
   useEffect(() => {
     if (session?.user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- setState is inside async callbacks, not synchronous
       fetchUserProfile();
       fetchStats();
     }

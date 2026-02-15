@@ -2,20 +2,20 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 
 export default function ProfilePage() {
   const { status } = useSession();
   const router = useRouter();
-  const [fetching, setFetching] = useState(false);
+  const fetchingRef = useRef(false);
 
   useEffect(() => {
     if (status === "unauthenticated") {
       router.replace("/login");
       return;
     }
-    if (status === "authenticated" && !fetching) {
-      setFetching(true);
+    if (status === "authenticated" && !fetchingRef.current) {
+      fetchingRef.current = true;
       fetch("/api/users/me")
         .then((res) => res.json())
         .then((data) => {
@@ -25,7 +25,7 @@ export default function ProfilePage() {
         })
         .catch(() => router.replace("/login"));
     }
-  }, [status, router, fetching]);
+  }, [status, router]);
 
   return null;
 }

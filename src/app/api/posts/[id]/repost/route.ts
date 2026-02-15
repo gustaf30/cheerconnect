@@ -55,7 +55,21 @@ export async function POST(
       );
     }
 
-    const body = await request.json().catch(() => ({}));
+    let body: unknown;
+    const rawText = await request.text();
+    if (rawText.trim().length === 0) {
+      // Corpo vazio é válido (repost sem comentário)
+      body = {};
+    } else {
+      try {
+        body = JSON.parse(rawText);
+      } catch {
+        return NextResponse.json(
+          { error: "JSON malformado no corpo da requisição" },
+          { status: 400 }
+        );
+      }
+    }
     const { content } = repostSchema.parse(body);
 
     // Buscar info do usuário atual e preferências do autor original

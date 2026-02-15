@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAuth, internalError } from "@/lib/api-utils";
+import { requireAuth, internalError, getConversationWithAccessCheck } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 // GET /api/conversations/[id] - Buscar detalhes da conversa
@@ -14,43 +14,12 @@ export async function GET(
     const { id } = await params;
     const userId = session.user.id;
 
-    const conversation = await prisma.conversation.findUnique({
-      where: { id },
-      include: {
-        participant1: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
-            avatar: true,
-          },
-        },
-        participant2: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
-            avatar: true,
-          },
-        },
-      },
-    });
+    const conversation = await getConversationWithAccessCheck(id, userId);
 
     if (!conversation) {
       return NextResponse.json(
         { error: "Conversa não encontrada" },
         { status: 404 }
-      );
-    }
-
-    // Verificar se o usuário faz parte da conversa
-    if (
-      conversation.participant1Id !== userId &&
-      conversation.participant2Id !== userId
-    ) {
-      return NextResponse.json(
-        { error: "Você não tem acesso a esta conversa" },
-        { status: 403 }
       );
     }
 
@@ -85,29 +54,12 @@ export async function DELETE(
     const { id } = await params;
     const userId = session.user.id;
 
-    const conversation = await prisma.conversation.findUnique({
-      where: { id },
-      select: {
-        participant1Id: true,
-        participant2Id: true,
-      },
-    });
+    const conversation = await getConversationWithAccessCheck(id, userId);
 
     if (!conversation) {
       return NextResponse.json(
         { error: "Conversa não encontrada" },
         { status: 404 }
-      );
-    }
-
-    // Verificar se o usuário faz parte da conversa
-    if (
-      conversation.participant1Id !== userId &&
-      conversation.participant2Id !== userId
-    ) {
-      return NextResponse.json(
-        { error: "Você não tem acesso a esta conversa" },
-        { status: 403 }
       );
     }
 

@@ -966,14 +966,13 @@ a,
 }
 
 .bento-card-static {
-  background-color: white;
+  background-color: var(--card);
   border-radius: 0.75rem;
   border: 1px solid var(--border);
   overflow: hidden;
 }
 
-.dark .bento-card,
-.dark .bento-card-static {
+.dark .bento-card {
   background-color: var(--card);
 }
 
@@ -1090,4 +1089,14 @@ a,
     transform: none;
   }
 
+}
+
+/* Safe area insets for notched mobile devices */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
 }

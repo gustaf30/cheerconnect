@@ -11,6 +11,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { Skeleton } from "@/components/ui/skeleton";
+import { reportError } from "@/lib/error-reporter";
 import { toast } from "sonner";
 import { AvatarBannerSection } from "@/components/profile/edit/AvatarBannerSection";
 import { ProfileForm } from "@/components/profile/edit/ProfileForm";
@@ -105,8 +106,8 @@ export default function EditProfilePage() {
       if (!response.ok) throw new Error();
       const data = await response.json();
       setCareerHistory(data.careerHistory);
-    } catch {
-      console.error("Erro ao buscar histórico de carreira");
+    } catch (error) {
+      reportError(error, "EditProfilePage.fetchCareerHistory");
     }
   }, []);
 
@@ -116,8 +117,8 @@ export default function EditProfilePage() {
       if (!response.ok) throw new Error();
       const data = await response.json();
       setAchievements(data.achievements);
-    } catch {
-      console.error("Erro ao buscar conquistas");
+    } catch (error) {
+      reportError(error, "EditProfilePage.fetchAchievements");
     }
   }, []);
 

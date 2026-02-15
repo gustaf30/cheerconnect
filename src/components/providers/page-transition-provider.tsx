@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { usePathname } from "next/navigation";
+import { useIsMounted } from "@/hooks/use-is-mounted";
 
 const pageVariants = {
   initial: {
@@ -38,11 +38,7 @@ const reducedMotionVariants = {
 export function PageTransitionProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const shouldReduceMotion = useReducedMotion();
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  const isMounted = useIsMounted();
 
   // Skip animation on initial SSR render to avoid hydration mismatch
   // Use initial={false} on first mount, then enable animations for navigation

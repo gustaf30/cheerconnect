@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { requireAuth, handleZodError, internalError, getBlockedUserIds } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
@@ -112,17 +113,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verificar se a conexão já existe
-    const existingConnection = await prisma.connection.findFirst({
+    // Verificar se já existe conexão na direção inversa (receiverId -> senderId)
+    const reverseConnection = await prisma.connection.findUnique({
       where: {
-        OR: [
-          { senderId: session.user.id, receiverId },
-          { senderId: receiverId, receiverId: session.user.id },
-        ],
+        senderId_receiverId: { senderId: receiverId, receiverId: session.user.id },
       },
     });
 
-    if (existingConnection) {
+    if (reverseConnection) {
       return NextResponse.json(
         { error: "Já existe uma conexão ou solicitação pendente" },
         { status: 400 }
@@ -141,31 +139,45 @@ export async function POST(request: Request) {
       }),
     ]);
 
-    // Connection + notification in a single transaction
-    const connection = await prisma.$transaction(async (tx) => {
-      const conn = await tx.connection.create({
-        data: {
-          senderId: session.user.id,
-          receiverId,
-        },
-      });
-
-      if (receiverPrefs?.notifyConnectionRequest) {
-        const actorName = currentUser?.name ?? currentUser?.username ?? "Alguém";
-        await tx.notification.create({
+    // Tentar criar diretamente — catch P2002 para unique constraint (senderId, receiverId)
+    let connection;
+    try {
+      connection = await prisma.$transaction(async (tx) => {
+        const conn = await tx.connection.create({
           data: {
-            userId: receiverId,
-            type: "CONNECTION_REQUEST",
-            message: `${actorName} quer se conectar com você`,
-            actorId: session.user.id,
-            relatedId: conn.id,
-            relatedType: "connection",
+            senderId: session.user.id,
+            receiverId,
           },
         });
-      }
 
-      return conn;
-    });
+        if (receiverPrefs?.notifyConnectionRequest) {
+          const actorName = currentUser?.name ?? currentUser?.username ?? "Alguém";
+          await tx.notification.create({
+            data: {
+              userId: receiverId,
+              type: "CONNECTION_REQUEST",
+              message: `${actorName} quer se conectar com você`,
+              actorId: session.user.id,
+              relatedId: conn.id,
+              relatedType: "connection",
+            },
+          });
+        }
+
+        return conn;
+      });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002"
+      ) {
+        return NextResponse.json(
+          { error: "Já existe uma conexão ou solicitação pendente" },
+          { status: 400 }
+        );
+      }
+      throw err;
+    }
 
     return NextResponse.json({ connection }, { status: 201 });
   } catch (error) {

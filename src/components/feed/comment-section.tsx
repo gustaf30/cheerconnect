@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { isDuplicateSubmission } from "@/lib/dedup";
 import { springs, scaleIn, noMotion } from "@/lib/animations";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -182,6 +183,8 @@ export function CommentSection({ postId, initialCommentsCount, showInput = false
 
   const handleSubmit = useCallback(async () => {
     if (!newComment.trim() || isSending) return;
+
+    if (isDuplicateSubmission(newComment)) return;
 
     setIsSending(true);
     try {

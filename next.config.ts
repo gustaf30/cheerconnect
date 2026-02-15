@@ -5,8 +5,14 @@ const isDev = process.env.NODE_ENV === "development";
 
 const cspDirectives = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+
+  // 'unsafe-inline': Required by Next.js for inline scripts
+  // 'unsafe-eval': Required in dev for Fast Refresh / hot-reload
+  `script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com${isDev ? " 'unsafe-eval'" : ""}`,
+
+  // 'unsafe-inline': Required for Tailwind/CSS-in-JS
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+
   "font-src 'self' https://fonts.gstatic.com",
   [
     "img-src 'self'",
@@ -16,11 +22,15 @@ const cspDirectives = [
     "https://fastly.picsum.photos",
     "https://api.dicebear.com",
     "https://lh3.googleusercontent.com",
+    // blob: Used for image previews before upload
     "data: blob:",
   ].join(" "),
   "media-src 'self' https://res.cloudinary.com",
-  "connect-src 'self' https://res.cloudinary.com https://api.cloudinary.com https://servicodados.ibge.gov.br",
-  "frame-ancestors 'none'",
+  "connect-src 'self' https://res.cloudinary.com https://api.cloudinary.com https://servicodados.ibge.gov.br https://vitals.vercel-analytics.com https://va.vercel-scripts.com",
+
+  // Prevents clickjacking by restricting who can embed this site in an iframe
+  "frame-ancestors 'self'",
+
   "base-uri 'self'",
   "form-action 'self'",
 ];
@@ -68,7 +78,7 @@ const nextConfig: NextConfig = {
           { key: "X-DNS-Prefetch-Control", value: "on" },
           {
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=()",
+            value: "camera=(self), microphone=(self), geolocation=()",
           },
           {
             key: "Content-Security-Policy",

@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useRef, KeyboardEvent } from "react";
+import { isDuplicateSubmission } from "@/lib/dedup";
 import { Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { useKeyboardHeight } from "@/hooks/use-keyboard-height";
 
 interface MessageInputProps {
   conversationId: string;
@@ -15,10 +17,13 @@ export function MessageInput({ conversationId, onMessageSent }: MessageInputProp
   const [content, setContent] = useState("");
   const [isSending, setIsSending] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const keyboardHeight = useKeyboardHeight();
 
   const handleSend = async () => {
     const trimmedContent = content.trim();
     if (!trimmedContent || isSending) return;
+
+    if (isDuplicateSubmission(trimmedContent)) return;
 
     setIsSending(true);
     try {
@@ -51,7 +56,10 @@ export function MessageInput({ conversationId, onMessageSent }: MessageInputProp
   };
 
   return (
-    <div className="flex items-end gap-2 p-4 border-t bg-background">
+    <div
+      className="flex items-end gap-2 p-4 border-t bg-background"
+      style={{ paddingBottom: keyboardHeight > 0 ? keyboardHeight : undefined }}
+    >
       <Textarea
         ref={textareaRef}
         value={content}

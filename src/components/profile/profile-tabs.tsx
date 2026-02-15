@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Trophy, Briefcase, Building2 } from "lucide-react";
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { PostCard } from "@/components/feed/post-card";
 import { positionLabels, careerRoleLabels } from "@/lib/constants";
 import { PostData } from "@/types";
+import { useIsMounted } from "@/hooks/use-is-mounted";
 import { AchievementList } from "./achievement-list";
 
 interface Achievement {
@@ -54,11 +55,9 @@ interface ProfileTabsProps {
 
 export function ProfileTabs({ user, posts, isOwnProfile, achievementLimit = 10 }: ProfileTabsProps) {
   const [activeTab, setActiveTab] = useState("posts");
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useIsMounted();
   const shouldReduceMotion = useReducedMotion();
   const variants = shouldReduceMotion ? noMotion : tabContent;
-
-  useEffect(() => { setIsMounted(true); }, []);
 
   const tabPanels = (
     <>

@@ -10,6 +10,11 @@ export async function GET(request: Request) {
 
     const userId = session.user.id;
 
+    // Modo idle (aba invisível) usa intervalo maior para economizar bateria
+    const url = new URL(request.url);
+    const isIdle = url.searchParams.get("idle") === "true";
+    const pollInterval = isIdle ? 15000 : 5000;
+
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
@@ -88,7 +93,7 @@ export async function GET(request: Request) {
         // Send initial data immediately
         await poll();
 
-        const intervalId = setInterval(poll, 5000);
+        const intervalId = setInterval(poll, pollInterval);
 
         request.signal.addEventListener("abort", () => {
           clearInterval(intervalId);

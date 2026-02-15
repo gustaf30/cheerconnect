@@ -27,7 +27,7 @@ export function useAnimatedNumber(target: number, duration = 400): number {
   useEffect(() => {
     // If reduced motion or duration is 0, snap immediately
     if (prefersReducedMotion.current || duration <= 0) {
-      setDisplay(target);
+      setDisplay(target); // eslint-disable-line react-hooks/set-state-in-effect -- intentional sync snap for a11y
       prevTarget.current = target;
       return;
     }

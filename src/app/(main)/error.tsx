@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
+import { reportError } from "@/lib/error-reporter";
 import { scaleIn, noMotion, springs } from "@/lib/animations";
 
 export default function MainError({
@@ -16,7 +17,7 @@ export default function MainError({
   const variants = shouldReduceMotion ? noMotion : scaleIn;
 
   useEffect(() => {
-    console.error("Main layout error:", error);
+    reportError(error, "MainError");
   }, [error]);
 
   return (

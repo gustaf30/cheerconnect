@@ -7,6 +7,15 @@ import type { UploadApiResponse } from "cloudinary";
 
 export async function POST(request: NextRequest) {
   try {
+    const contentLength = parseInt(request.headers.get("content-length") || "0");
+    const MAX_REQUEST_SIZE = 100 * 1024 * 1024; // 100MB
+    if (contentLength > MAX_REQUEST_SIZE) {
+      return NextResponse.json(
+        { error: "File too large. Maximum size is 100MB." },
+        { status: 413 }
+      );
+    }
+
     const { error } = await requireAuth();
     if (error) return error;
 

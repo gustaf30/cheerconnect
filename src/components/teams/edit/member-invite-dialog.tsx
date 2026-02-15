@@ -20,6 +20,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { reportError } from "@/lib/error-reporter";
 import { toast } from "sonner";
 import { getInitials } from "@/lib/utils";
 import { teamRoleOptions } from "@/lib/constants";
@@ -102,8 +103,8 @@ export function MemberInviteDialog({
 
         setConnectedUsers(filtered.slice(0, 10));
       }
-    } catch {
-      console.error("Erro ao buscar conexões");
+    } catch (error) {
+      reportError(error, "MemberInviteDialog.searchConnections");
     } finally {
       setIsSearching(false);
     }

@@ -73,8 +73,8 @@ export default function RegisterPage() {
         return;
       }
 
-      toast.success("Conta criada! Verifique seu email para ativar.");
-      router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
+      toast.success("Conta criada! Faça login para começar.");
+      router.push("/login");
     } catch {
       toast.error("Erro ao criar conta. Tente novamente.");
     } finally {

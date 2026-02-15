@@ -1,4 +1,4 @@
-import { requireAuth, internalError } from "@/lib/api-utils";
+import { requireAuth, internalError, getConversationWithAccessCheck } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -15,21 +15,16 @@ export async function GET(
     const userId = session.user.id;
 
     // Verify user is a participant
-    const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId },
-      select: { participant1Id: true, participant2Id: true },
-    });
+    const conversation = await getConversationWithAccessCheck(conversationId, userId);
 
     if (!conversation) {
       return new Response("Conversation not found", { status: 404 });
     }
 
-    if (
-      conversation.participant1Id !== userId &&
-      conversation.participant2Id !== userId
-    ) {
-      return new Response("Forbidden", { status: 403 });
-    }
+    // Modo idle (aba invisível) usa intervalo maior para economizar bateria
+    const url = new URL(request.url);
+    const isIdle = url.searchParams.get("idle") === "true";
+    const pollInterval = isIdle ? 10000 : 3000;
 
     let lastTimestamp = new Date();
 
@@ -72,6 +67,22 @@ export async function GET(
 
             if (newMessages.length > 0) {
               lastTimestamp = newMessages[newMessages.length - 1].createdAt;
+
+              // Marcar mensagens do outro participante como lidas (conversa aberta)
+              const hasUnreadFromOther = newMessages.some(
+                (m) => m.senderId !== userId && !m.isRead
+              );
+              if (hasUnreadFromOther) {
+                await prisma.message.updateMany({
+                  where: {
+                    conversationId,
+                    senderId: { not: userId },
+                    isRead: false,
+                  },
+                  data: { isRead: true },
+                });
+              }
+
               const data = JSON.stringify({
                 type: "new_messages",
                 messages: newMessages,
@@ -83,7 +94,7 @@ export async function GET(
           }
         };
 
-        const intervalId = setInterval(poll, 3000);
+        const intervalId = setInterval(poll, pollInterval);
 
         // Cleanup on abort
         request.signal.addEventListener("abort", () => {
