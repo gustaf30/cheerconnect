@@ -11,6 +11,7 @@ import { PostData } from "@/types";
 
 interface PostListProps {
   filter?: "following" | "all";
+  refreshKey?: number;
 }
 
 const containerVariants = {
@@ -33,7 +34,7 @@ const itemVariants = {
   }
 } as const;
 
-export function PostList({ filter = "following" }: PostListProps) {
+export function PostList({ filter = "following", refreshKey }: PostListProps) {
   const [posts, setPosts] = useState<PostData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +43,7 @@ export function PostList({ filter = "following" }: PostListProps) {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const isInitialMount = useRef(true);
   const shouldReduceMotion = useReducedMotion();
 
   const fetchPosts = useCallback(async () => {
@@ -59,6 +61,17 @@ export function PostList({ filter = "following" }: PostListProps) {
     } finally {
       setIsLoading(false);
     }
+  }, [filter]);
+
+  const refreshPosts = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/posts?filter=${filter}`);
+      if (!response.ok) return;
+      const data = await response.json();
+      setPosts(data.posts);
+      setNextCursor(data.nextCursor);
+      setHasMore(!!data.nextCursor);
+    } catch { /* silent */ }
   }, [filter]);
 
   const loadMore = useCallback(async () => {
@@ -83,8 +96,14 @@ export function PostList({ filter = "following" }: PostListProps) {
   }, [filter, nextCursor, hasMore, isLoadingMore]);
 
   useEffect(() => {
-    fetchPosts();
-  }, [fetchPosts]);
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      fetchPosts();
+    } else {
+      refreshPosts();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchPosts, refreshKey]);
 
   // IntersectionObserver para scroll infinito
   useEffect(() => {

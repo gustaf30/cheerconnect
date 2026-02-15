@@ -34,7 +34,7 @@ export const ConversationItem = memo(function ConversationItem({ conversation, i
     <Link
       href={`/messages/${conversation.id}`}
       className={cn(
-        "flex items-center gap-3 p-3 hover:bg-muted/50 transition-base border-b hover:translate-x-1 hover-flash",
+        "flex items-center gap-3 p-3 hover:bg-muted/50 transition-base border-b hover-flash",
         isActive && "bg-muted border-l-2 border-l-primary",
         unreadCount > 0 && "bg-primary/5"
       )}
