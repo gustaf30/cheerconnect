@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import {
   LayoutGrid,
@@ -13,6 +13,7 @@ import {
   MessageCircle,
   Settings,
   LogOut,
+  SquarePen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { reportError } from "@/lib/error-reporter";
@@ -69,6 +70,7 @@ interface SidebarProps {
 
 export function Sidebar({ onNavigate }: SidebarProps = {}) {
   const pathname = usePathname();
+  const router = useRouter();
   const { data: session } = useSession();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [stats, setStats] = useState<Stats>({ connections: 0, achievements: 0 });
@@ -187,6 +189,24 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
               </div>
             </div>
           </div>
+        )}
+
+        {/* New Post Button */}
+        {session?.user && (
+          <Button
+            className="w-full gap-2"
+            onClick={() => {
+              onNavigate?.();
+              if (pathname === "/feed") {
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              } else {
+                router.push("/feed");
+              }
+            }}
+          >
+            <SquarePen className="h-4 w-4" />
+            Novo Post
+          </Button>
         )}
 
         {/* Navigation */}
