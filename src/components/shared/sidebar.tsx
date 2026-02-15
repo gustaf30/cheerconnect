@@ -15,6 +15,7 @@ import {
   Settings,
   LogOut,
   SquarePen,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { reportError } from "@/lib/error-reporter";
@@ -25,8 +26,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { NotificationDropdown } from "./notification-dropdown";
 import { useAnimatedNumber } from "@/hooks/use-animated-number";
 import { useRealtime } from "@/hooks/use-realtime";
-import { TrendingTags } from "@/components/feed/widgets/trending-tags";
-
 const mainNavItems = [
   {
     title: "Feed",
@@ -242,6 +241,21 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
             );
           })}
 
+          {/* Em Alta — only visible when right sidebar is hidden (mobile/tablet) */}
+          <Link
+            href="/trending"
+            onClick={onNavigate}
+            className={cn(
+              "xl:hidden nav-indicator flex items-center gap-3 px-4 py-3 text-sm font-medium transition-base",
+              pathname === "/trending"
+                ? "active text-primary bg-primary/5 font-semibold"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+            )}
+          >
+            <TrendingUp className="h-5 w-5" />
+            <span>Em Alta</span>
+          </Link>
+
           {/* Notifications */}
           {session?.user && (
             onNavigate ? (
@@ -300,11 +314,6 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
             </div>
           )}
         </nav>
-
-        {/* Trending Tags — visible only when right sidebar is hidden */}
-        <div className="xl:hidden">
-          <TrendingTags />
-        </div>
 
         {/* Logo */}
         <div className="text-center">
