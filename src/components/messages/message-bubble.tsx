@@ -67,7 +67,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, showA
         <time
           dateTime={new Date(message.createdAt).toISOString()}
           className={cn(
-            "text-[10px] mt-1 block",
+            "text-[11px] mt-1 block",
             isOwn ? "text-primary-foreground/70" : "text-muted-foreground"
           )}
         >

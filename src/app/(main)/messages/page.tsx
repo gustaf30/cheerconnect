@@ -9,7 +9,7 @@ export default function MessagesPage() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <h1 className="sr-only">Mensagens</h1>
       {/* Lista de Conversas */}
-      <div className="bento-card-static lg:col-span-1 h-fit lg:h-[calc(100vh-8rem)] flex flex-col">
+      <div className="bento-card-static lg:col-span-1 h-fit lg:h-[calc(100dvh-8rem)] flex flex-col">
         <div className="border-b border-border/50 p-4">
           <h2 className="flex items-center gap-2 font-display font-bold">
             <MessageSquare className="h-5 w-5 text-primary" />
@@ -28,7 +28,7 @@ export default function MessagesPage() {
       </div>
 
       {/* Estado Vazio - Desktop */}
-      <div className="hidden lg:flex lg:col-span-2 bento-card-static h-[calc(100vh-8rem)] items-center justify-center">
+      <div className="hidden lg:flex lg:col-span-2 bento-card-static h-[calc(100dvh-8rem)] items-center justify-center">
         <div className="text-center animate-fade-in">
           <div className="rounded-2xl bg-primary/10 p-6 mx-auto w-fit mb-4">
             <MessageSquare className="h-12 w-12 text-primary" />
