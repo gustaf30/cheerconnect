@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { CreatePostCard } from "@/components/feed/create-post-card";
 import { PostList } from "@/components/feed/post-list";
@@ -12,6 +12,7 @@ function FeedContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const feedFilter = (searchParams.get("filter") as "following" | "all") || "following";
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const setFeedFilter = (filter: "following" | "all") => {
     router.replace(`/feed?filter=${filter}`, { scroll: false });
@@ -20,7 +21,7 @@ function FeedContent() {
   return (
     <div className="space-y-4">
       <h1 className="sr-only">Feed</h1>
-      <CreatePostCard />
+      <CreatePostCard onPostCreated={() => setRefreshKey((k) => k + 1)} />
 
       {/* Feed filter with line separator */}
       <div className="flex items-center gap-2 px-1">
@@ -53,7 +54,7 @@ function FeedContent() {
         </div>
       </div>
 
-      <PostList filter={feedFilter} />
+      <PostList filter={feedFilter} refreshKey={refreshKey} />
     </div>
   );
 }

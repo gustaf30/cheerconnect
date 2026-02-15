@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { reportError } from "@/lib/error-reporter";
 import { toast } from "sonner";
 import { AvatarBannerSection } from "@/components/profile/edit/AvatarBannerSection";
+import { ImageCropDialog } from "@/components/shared/image-crop-dialog";
 import { ProfileForm } from "@/components/profile/edit/ProfileForm";
 import { CareerSection } from "@/components/profile/edit/CareerSection";
 import { AchievementSection } from "@/components/profile/edit/AchievementSection";
@@ -61,6 +62,10 @@ export default function EditProfilePage() {
   const [isDeletingBanner, setIsDeletingBanner] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
+
+  const [cropDialogOpen, setCropDialogOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [cropMode, setCropMode] = useState<"avatar" | "banner">("avatar");
 
   const [careerHistory, setCareerHistory] = useState<CareerEntry[]>([]);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
@@ -149,9 +154,70 @@ export default function EditProfilePage() {
     }
   };
 
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const openCropDialog = (file: File, mode: "avatar" | "banner") => {
+    const objectUrl = URL.createObjectURL(file);
+    setCropImageSrc(objectUrl);
+    setCropMode(mode);
+    setCropDialogOpen(true);
+  };
+
+  const handleCropDialogClose = (open: boolean) => {
+    if (!open && cropImageSrc) {
+      URL.revokeObjectURL(cropImageSrc);
+      setCropImageSrc(null);
+    }
+    setCropDialogOpen(open);
+  };
+
+  const handleCropComplete = async (blob: Blob) => {
+    setCropDialogOpen(false);
+    if (cropImageSrc) {
+      URL.revokeObjectURL(cropImageSrc);
+      setCropImageSrc(null);
+    }
+
+    const formData = new FormData();
+    formData.append("file", blob, "cropped.jpg");
+
+    if (cropMode === "avatar") {
+      setIsUploadingAvatar(true);
+      try {
+        const response = await fetch("/api/users/me/avatar", {
+          method: "POST",
+          body: formData,
+        });
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        setAvatarUrl(data.user.avatar);
+        toast.success("Foto atualizada!");
+      } catch {
+        toast.error("Erro ao atualizar foto");
+      } finally {
+        setIsUploadingAvatar(false);
+      }
+    } else {
+      setIsUploadingBanner(true);
+      try {
+        const response = await fetch("/api/users/me/banner", {
+          method: "POST",
+          body: formData,
+        });
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        setBannerUrl(data.user.banner);
+        toast.success("Capa atualizada!");
+      } catch {
+        toast.error("Erro ao atualizar capa");
+      } finally {
+        setIsUploadingBanner(false);
+      }
+    }
+  };
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = "";
 
     if (file.size > 5 * 1024 * 1024) {
       toast.error("Imagem muito grande. Máximo: 5MB");
@@ -163,26 +229,7 @@ export default function EditProfilePage() {
       return;
     }
 
-    setIsUploadingAvatar(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const response = await fetch("/api/users/me/avatar", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) throw new Error();
-
-      const data = await response.json();
-      setAvatarUrl(data.user.avatar);
-      toast.success("Foto atualizada!");
-    } catch {
-      toast.error("Erro ao atualizar foto");
-    } finally {
-      setIsUploadingAvatar(false);
-    }
+    openCropDialog(file, "avatar");
   };
 
   const handleDeleteAvatar = async () => {
@@ -205,9 +252,10 @@ export default function EditProfilePage() {
     }
   };
 
-  const handleBannerChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = "";
 
     if (file.size > 5 * 1024 * 1024) {
       toast.error("Imagem muito grande. Máximo: 5MB");
@@ -219,26 +267,7 @@ export default function EditProfilePage() {
       return;
     }
 
-    setIsUploadingBanner(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const response = await fetch("/api/users/me/banner", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) throw new Error();
-
-      const data = await response.json();
-      setBannerUrl(data.user.banner);
-      toast.success("Capa atualizada!");
-    } catch {
-      toast.error("Erro ao atualizar capa");
-    } finally {
-      setIsUploadingBanner(false);
-    }
+    openCropDialog(file, "banner");
   };
 
   const handleDeleteBanner = async () => {
@@ -331,6 +360,27 @@ export default function EditProfilePage() {
           </div>
         </form>
       </Form>
+
+      {cropImageSrc && (
+        <ImageCropDialog
+          open={cropDialogOpen}
+          onOpenChange={handleCropDialogClose}
+          imageSrc={cropImageSrc}
+          aspect={cropMode === "avatar" ? 1 : 4}
+          cropShape={cropMode === "avatar" ? "round" : "rect"}
+          title={
+            cropMode === "avatar"
+              ? "Recortar foto de perfil"
+              : "Recortar foto de capa"
+          }
+          outputSize={
+            cropMode === "avatar"
+              ? { width: 512, height: 512 }
+              : { width: 1200, height: 300 }
+          }
+          onCropComplete={handleCropComplete}
+        />
+      )}
     </div>
   );
 }
