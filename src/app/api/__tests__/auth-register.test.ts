@@ -20,6 +20,7 @@ const { mockPrisma } = vi.hoisted(() => {
       postTag: { create: fn(), deleteMany: fn() },
       mention: { create: fn(), deleteMany: fn() },
       block: { findFirst: fn(), findMany: fn() },
+      verificationToken: { create: fn(), deleteMany: fn() },
       $transaction: fn(),
     },
   };
@@ -29,15 +30,21 @@ vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/logger", () => ({
   default: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
+vi.mock("@/lib/email", () => ({
+  sendVerificationEmail: vi.fn(),
+}));
 
 import { POST } from "@/app/api/auth/register/route";
+
+// Valid password: 8+ chars, uppercase, lowercase, number
+const VALID_PASSWORD = "Password123";
 
 describe("POST /api/auth/register", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("returns 201 with user data on valid registration", async () => {
+  it("returns 201 on valid registration", async () => {
     mockPrisma.user.findFirst.mockResolvedValue(null);
     mockPrisma.user.create.mockResolvedValue({
       id: "new-user-id",
@@ -46,6 +53,7 @@ describe("POST /api/auth/register", () => {
       username: "newuser",
       password: "$2a$12$hashedpassword",
     });
+    mockPrisma.verificationToken.create.mockResolvedValue({});
 
     const request = new Request("http://localhost:3000/api/auth/register", {
       method: "POST",
@@ -54,7 +62,7 @@ describe("POST /api/auth/register", () => {
         name: "New User",
         email: "new@example.com",
         username: "newuser",
-        password: "password123",
+        password: VALID_PASSWORD,
       }),
     });
 
@@ -62,20 +70,12 @@ describe("POST /api/auth/register", () => {
     const data = await response.json();
 
     expect(response.status).toBe(201);
-    expect(data.user).toEqual({
-      id: "new-user-id",
-      name: "New User",
-      email: "new@example.com",
-      username: "newuser",
-    });
-    expect(data.user.password).toBeUndefined();
+    expect(data.success).toBe(true);
+    expect(data.userId).toBe("new-user-id");
   });
 
-  it("returns 400 when email already exists", async () => {
-    mockPrisma.user.findFirst.mockResolvedValueOnce({
-      email: "existing@example.com",
-      username: "otheruser",
-    });
+  it("returns 409 when email already exists", async () => {
+    mockPrisma.user.findFirst.mockResolvedValueOnce({ id: "existing-id" });
 
     const request = new Request("http://localhost:3000/api/auth/register", {
       method: "POST",
@@ -84,22 +84,19 @@ describe("POST /api/auth/register", () => {
         name: "User",
         email: "existing@example.com",
         username: "newuser",
-        password: "password123",
+        password: VALID_PASSWORD,
       }),
     });
 
     const response = await POST(request);
     const data = await response.json();
 
-    expect(response.status).toBe(400);
-    expect(data.error).toContain("email");
+    expect(response.status).toBe(409);
+    expect(data.error).toContain("já existe");
   });
 
-  it("returns 400 when username already exists", async () => {
-    mockPrisma.user.findFirst.mockResolvedValueOnce({
-      email: "different@example.com",
-      username: "takenuser",
-    });
+  it("returns 409 when username already exists", async () => {
+    mockPrisma.user.findFirst.mockResolvedValueOnce({ id: "existing-id" });
 
     const request = new Request("http://localhost:3000/api/auth/register", {
       method: "POST",
@@ -108,15 +105,15 @@ describe("POST /api/auth/register", () => {
         name: "User",
         email: "new@example.com",
         username: "takenuser",
-        password: "password123",
+        password: VALID_PASSWORD,
       }),
     });
 
     const response = await POST(request);
     const data = await response.json();
 
-    expect(response.status).toBe(400);
-    expect(data.error).toContain("username");
+    expect(response.status).toBe(409);
+    expect(data.error).toContain("já existe");
   });
 
   it("returns 400 when required fields are missing", async () => {
@@ -138,7 +135,7 @@ describe("POST /api/auth/register", () => {
         name: "User",
         email: "not-an-email",
         username: "validuser",
-        password: "password123",
+        password: VALID_PASSWORD,
       }),
     });
 
@@ -146,7 +143,7 @@ describe("POST /api/auth/register", () => {
     expect(response.status).toBe(400);
   });
 
-  it("returns 400 for short password (less than 6 chars)", async () => {
+  it("returns 400 for weak password", async () => {
     const request = new Request("http://localhost:3000/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -171,6 +168,7 @@ describe("POST /api/auth/register", () => {
       username: "user",
       password: "$2a$12$hashedvalue",
     });
+    mockPrisma.verificationToken.create.mockResolvedValue({});
 
     const request = new Request("http://localhost:3000/api/auth/register", {
       method: "POST",
@@ -179,14 +177,14 @@ describe("POST /api/auth/register", () => {
         name: "User",
         email: "user@example.com",
         username: "user",
-        password: "plainpassword",
+        password: VALID_PASSWORD,
       }),
     });
 
     await POST(request);
 
     const createCall = mockPrisma.user.create.mock.calls[0][0];
-    expect(createCall.data.password).not.toBe("plainpassword");
+    expect(createCall.data.password).not.toBe(VALID_PASSWORD);
     expect(createCall.data.password).toMatch(/^\$2[ab]\$/);
   });
 });

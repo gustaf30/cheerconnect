@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
     // Mensagem genérica para não revelar se o email existe
     const genericResponse = NextResponse.json(
-      { message: "Se o email estiver cadastrado, enviaremos um link de verificação." },
+      { success: true },
       { status: 200 }
     );
 

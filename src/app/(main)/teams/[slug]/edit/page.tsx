@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { reportError } from "@/lib/error-reporter";
 import { toast } from "sonner";
 import { CitySelector } from "@/components/ui/city-selector";
 import { eventTypes } from "@/lib/constants";
@@ -184,8 +185,8 @@ export default function TeamEditPage({ params }: PageProps) {
         const data = await response.json();
         setAchievements(data.achievements);
       }
-    } catch {
-      console.error("Erro ao buscar conquistas");
+    } catch (error) {
+      reportError(error, "TeamEditPage.fetchAchievements");
     }
   }, [slug]);
 
@@ -198,8 +199,8 @@ export default function TeamEditPage({ params }: PageProps) {
         setMembers(data.members);
         setCurrentUserIsAdmin(data.isAdmin);
       }
-    } catch {
-      console.error("Erro ao buscar membros");
+    } catch (error) {
+      reportError(error, "TeamEditPage.fetchMembers");
     } finally {
       setIsLoadingMembers(false);
     }
@@ -212,8 +213,8 @@ export default function TeamEditPage({ params }: PageProps) {
         const data = await response.json();
         setInvites(data.invites);
       }
-    } catch {
-      console.error("Erro ao buscar convites");
+    } catch (error) {
+      reportError(error, "TeamEditPage.fetchInvites");
     }
   }, [slug]);
 

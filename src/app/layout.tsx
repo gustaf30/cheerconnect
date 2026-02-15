@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Source_Sans_3, JetBrains_Mono, Newsreader } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "@/components/providers/session-provider";
@@ -10,7 +10,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
   variable: "--font-display",
-  weight: ["200", "400", "700", "800"],
+  weight: ["400", "700", "800"],
 });
 
 const sourceSans = Source_Sans_3({
@@ -28,7 +28,7 @@ const jetbrains = JetBrains_Mono({
 const newsreader = Newsreader({
   subsets: ["latin"],
   variable: "--font-editorial",
-  weight: ["300", "400", "500", "600"],
+  weight: ["400", "500", "600"],
   style: ["normal", "italic"],
 });
 
@@ -60,6 +60,20 @@ export const metadata: Metadata = {
     icon: "/favicon.ico",
     apple: "/apple-icon",
   },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "CheerConnect",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
+  themeColor: "#c41e3a",
 };
 
 export default function RootLayout({

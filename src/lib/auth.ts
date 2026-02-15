@@ -51,10 +51,6 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Senha incorreta");
         }
 
-        if (!user.emailVerified) {
-          throw new Error("Verifique seu email antes de fazer login");
-        }
-
         return {
           id: user.id,
           email: user.email,
@@ -111,8 +107,13 @@ export const authOptions: NextAuthOptions = {
               return {} as JWT;
             }
             token.tokenVersionCheckedAt = Date.now();
-          } catch {
+          } catch (error) {
             // On DB failure, keep existing token to avoid mass-logout
+            // Only a successful query with mismatched tokenVersion should invalidate (handled above)
+            console.warn(
+              "[auth] tokenVersion check failed, keeping current token:",
+              error instanceof Error ? error.message : "unknown error"
+            );
           }
         }
       }

@@ -1,0 +1,19 @@
+{
+  "name": "CheerConnect",
+  "short_name": "Cheer",
+  "description": "Rede social da comunidade cheerleading",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#c41e3a",
+  "background_color": "#ffffff",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["social"]
+}

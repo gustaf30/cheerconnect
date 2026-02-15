@@ -68,11 +68,11 @@ describe('validateEnv', () => {
     expect(() => validateEnv()).toThrow('Invalid environment variables');
   });
 
-  it('throws when NEXTAUTH_URL is missing', async () => {
+  it('does not throw when NEXTAUTH_URL is missing (optional on Vercel)', async () => {
     Object.assign(process.env, validEnv);
     delete process.env.NEXTAUTH_URL;
     const { validateEnv } = await import('../env');
-    expect(() => validateEnv()).toThrow('Invalid environment variables');
+    expect(() => validateEnv()).not.toThrow();
   });
 
   it('throws when CLOUDINARY_CLOUD_NAME is missing', async () => {

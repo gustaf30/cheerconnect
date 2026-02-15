@@ -19,6 +19,7 @@ import {
   staggerContainer,
   stagger,
 } from "@/lib/animations";
+import { reportError } from "@/lib/error-reporter";
 import { cn } from "@/lib/utils";
 import { useRealtime } from "@/hooks/use-realtime";
 
@@ -59,8 +60,8 @@ export function NotificationDropdown({ variant = "icon" }: NotificationDropdownP
         const data = await response.json();
         setNotifications(data.notifications);
       }
-    } catch {
-      console.error("Erro ao buscar notificações");
+    } catch (error) {
+      reportError(error, "NotificationDropdown.fetchNotifications");
     } finally {
       setIsLoading(false);
     }
@@ -85,8 +86,8 @@ export function NotificationDropdown({ variant = "icon" }: NotificationDropdownP
         prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
       );
       setLocalCountOffset((prev) => prev + 1);
-    } catch {
-      console.error("Erro ao marcar notificação como lida");
+    } catch (error) {
+      reportError(error, "NotificationDropdown.markAsRead");
     }
   };
 
@@ -100,8 +101,8 @@ export function NotificationDropdown({ variant = "icon" }: NotificationDropdownP
 
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       setLocalCountOffset(notificationCount);
-    } catch {
-      console.error("Erro ao marcar todas notificações como lidas");
+    } catch (error) {
+      reportError(error, "NotificationDropdown.markAllAsRead");
     }
   };
 

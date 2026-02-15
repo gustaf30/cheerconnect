@@ -15,13 +15,16 @@ function createPrismaClient() {
 
   const pool = new Pool({
     connectionString,
-    max: 5,
+    max: 10,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
   });
   const adapter = new PrismaPg(pool);
 
-  return new PrismaClient({ adapter });
+  return new PrismaClient({
+    adapter,
+    ...(process.env.NODE_ENV !== "production" && { log: ["warn" as const] }),
+  });
 }
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();

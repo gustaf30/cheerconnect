@@ -64,7 +64,7 @@ export async function POST(
 
     // NOTE: Blocking filters for feed, search, and connections — tracked for post-launch implementation.
 
-    return NextResponse.json({ message: "Usuário bloqueado" });
+    return NextResponse.json({ success: true });
   } catch (err) {
     return internalError("block-user", err);
   }
@@ -95,7 +95,7 @@ export async function DELETE(
 
     await prisma.block.delete({ where: { id: block.id } });
 
-    return NextResponse.json({ message: "Usuário desbloqueado" });
+    return NextResponse.json({ success: true });
   } catch (err) {
     return internalError("unblock-user", err);
   }

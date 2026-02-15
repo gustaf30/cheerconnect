@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const cursor = searchParams.get("cursor");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
+    const limit = Math.min(parseInt(searchParams.get("limit") || "20") || 20, 50);
     const filter = searchParams.get("filter") || "following";
     const query = searchParams.get("q")?.slice(0, 200);
 
@@ -92,7 +92,13 @@ export async function GET(request: Request) {
           },
         },
         originalPost: {
-          include: {
+          select: {
+            id: true,
+            content: true,
+            images: true,
+            videoUrl: true,
+            createdAt: true,
+            isEdited: true,
             author: {
               select: {
                 id: true,

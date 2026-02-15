@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(
-      { message: "Verifique seu email para ativar sua conta", userId: user.id },
+      { success: true, userId: user.id },
       { status: 201 }
     );
   } catch (error) {

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Check, ChevronsUpDown, Loader2, X } from "lucide-react";
 
+import { reportError } from "@/lib/error-reporter";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -114,7 +115,7 @@ export function CitySelector({
           setCities(data);
         }
       } catch (error) {
-        console.error("Error fetching cities:", error);
+        reportError(error, "CitySelector.fetchCities");
         setCities([]);
       } finally {
         setLoadingCities(false);

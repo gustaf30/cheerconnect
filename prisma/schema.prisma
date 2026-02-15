@@ -267,6 +267,7 @@ model Post {
   @@index([createdAt])
   @@index([authorId, createdAt])
   @@index([teamId, createdAt])
+  @@index([originalPostId, authorId])
 }
 
 // ============ HISTÓRICO DE EDIÇÃO ============
@@ -543,6 +544,7 @@ model Notification {
   @@index([userId, isRead])
   @@index([userId, createdAt])
   @@index([userId, isRead, createdAt])
+  @@index([userId, type])
 }
 
 // ============ MENSAGENS ============

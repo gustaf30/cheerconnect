@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, getConversationWithAccessCheck } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const sendMessageSchema = z.object({
@@ -23,28 +23,12 @@ export async function GET(
     const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100);
 
     // Verificar se o usuário faz parte da conversa
-    const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId },
-      select: {
-        participant1Id: true,
-        participant2Id: true,
-      },
-    });
+    const conversation = await getConversationWithAccessCheck(conversationId, userId);
 
     if (!conversation) {
       return NextResponse.json(
         { error: "Conversa não encontrada" },
         { status: 404 }
-      );
-    }
-
-    if (
-      conversation.participant1Id !== userId &&
-      conversation.participant2Id !== userId
-    ) {
-      return NextResponse.json(
-        { error: "Você não tem acesso a esta conversa" },
-        { status: 403 }
       );
     }
 
@@ -96,28 +80,12 @@ export async function POST(
     const { content } = sendMessageSchema.parse(body);
 
     // Verificar se o usuário faz parte da conversa
-    const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId },
-      select: {
-        participant1Id: true,
-        participant2Id: true,
-      },
-    });
+    const conversation = await getConversationWithAccessCheck(conversationId, userId);
 
     if (!conversation) {
       return NextResponse.json(
         { error: "Conversa não encontrada" },
         { status: 404 }
-      );
-    }
-
-    if (
-      conversation.participant1Id !== userId &&
-      conversation.participant2Id !== userId
-    ) {
-      return NextResponse.json(
-        { error: "Você não tem acesso a esta conversa" },
-        { status: 403 }
       );
     }
 

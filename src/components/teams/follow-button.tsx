@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { UserPlus, UserMinus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { reportError } from "@/lib/error-reporter";
 import { toast } from "sonner";
 
 interface FollowButtonProps {
@@ -26,8 +27,8 @@ export function FollowButton({ teamSlug, isMember }: FollowButtonProps) {
         const data = await response.json();
         setIsFollowing(data.isFollowing);
       }
-    } catch {
-      console.error("Error checking follow status");
+    } catch (error) {
+      reportError(error, "FollowButton.checkFollowStatus");
     } finally {
       setIsLoading(false);
     }
