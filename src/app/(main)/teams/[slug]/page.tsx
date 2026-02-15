@@ -132,6 +132,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
       <div className="bento-card-static">
         <div className="h-32 sm:h-48 bg-gradient-to-r from-primary/30 to-primary/10 relative rounded-t-xl">
           {team.banner && (
+            /* eslint-disable-next-line @next/next/no-img-element */
             <img
               src={team.banner}
               alt=""

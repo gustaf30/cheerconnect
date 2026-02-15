@@ -5,6 +5,9 @@ import { cloudinary } from "@/lib/cloudinary";
 import { Readable } from "stream";
 import type { UploadApiResponse } from "cloudinary";
 
+/** Minimum bytes needed for magic byte validation (RIFF+WEBP = 12 bytes) */
+const HEADER_SIZE = 12;
+
 export async function POST(request: NextRequest) {
   try {
     const contentLength = parseInt(request.headers.get("content-length") || "0");
@@ -26,11 +29,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Arquivo não enviado" }, { status: 400 });
     }
 
-    // Read buffer and validate via magic bytes (blocks SVG + spoofed MIME types)
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    // Read only the header bytes for magic byte validation (not the entire file)
+    const headerSlice = await file.slice(0, HEADER_SIZE).arrayBuffer();
+    const headerBuffer = Buffer.from(headerSlice);
 
-    const validation = validateFileType(buffer);
+    const validation = validateFileType(headerBuffer);
     if (!validation.valid) {
       return NextResponse.json(
         { error: "Tipo de arquivo não suportado. Use imagens (JPEG, PNG, GIF, WebP) ou vídeos (MP4, WebM)." },
@@ -49,7 +52,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Upload via stream to avoid base64 memory overhead (~33% larger)
+    // Stream the file to Cloudinary without buffering entirely in memory
     const result = await new Promise<UploadApiResponse>((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
@@ -61,7 +64,7 @@ export async function POST(request: NextRequest) {
           resolve(result);
         }
       );
-      Readable.from(buffer).pipe(uploadStream);
+      Readable.fromWeb(file.stream() as import("stream/web").ReadableStream).pipe(uploadStream);
     });
 
     return NextResponse.json({

@@ -112,6 +112,7 @@ export function AvatarBannerSection({
           <div className="space-y-4">
             <div className="relative w-full h-32 bg-muted rounded-lg overflow-hidden">
               {bannerUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={bannerUrl}
                   alt="Banner"
