@@ -185,13 +185,30 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
     });
   };
 
-  /** Upload com XMLHttpRequest para progresso, AbortController para timeout, e retry com backoff */
+  /** Get signed upload params from server (lightweight, no file body) */
+  const getUploadSignature = useCallback(async (): Promise<{
+    signature: string;
+    timestamp: number;
+    apiKey: string;
+    cloudName: string;
+    folder: string;
+  }> => {
+    const res = await fetch("/api/upload/sign", { method: "POST" });
+    if (!res.ok) throw new Error("Erro ao obter assinatura de upload");
+    return res.json();
+  }, []);
+
+  /** Upload direto ao Cloudinary com progresso, timeout e retry com backoff */
   const uploadMedia = useCallback(
     async (
       media: MediaFile,
       onProgress?: (loaded: number, total: number) => void,
     ): Promise<{ url: string; type: "image" | "video" }> => {
       const timeout = media.type === "video" ? VIDEO_UPLOAD_TIMEOUT : IMAGE_UPLOAD_TIMEOUT;
+
+      // Get signed params once per upload attempt group
+      const signData = await getUploadSignature();
+      const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${signData.cloudName}/auto/upload`;
 
       let lastError: Error | null = null;
 
@@ -215,16 +232,14 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
                 clearTimeout(timer);
                 if (xhr.status >= 200 && xhr.status < 300) {
                   try {
-                    resolve(JSON.parse(xhr.responseText));
+                    const data = JSON.parse(xhr.responseText);
+                    const type: "image" | "video" = data.resource_type === "video" ? "video" : "image";
+                    resolve({ url: data.secure_url, type });
                   } catch {
                     reject(new Error("Resposta inválida do servidor"));
                   }
                 } else {
-                  const err = new Error(
-                    xhr.status === 413
-                      ? "Arquivo muito grande para o servidor"
-                      : `Erro no upload (${xhr.status})`,
-                  );
+                  const err = new Error(`Erro no upload (${xhr.status})`);
                   (err as UploadError).status = xhr.status;
                   reject(err);
                 }
@@ -237,13 +252,16 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
 
               xhr.addEventListener("abort", () => {
                 clearTimeout(timer);
-                // Abort via timeout já rejeita acima
               });
 
               const formData = new FormData();
               formData.append("file", media.file);
+              formData.append("api_key", signData.apiKey);
+              formData.append("timestamp", String(signData.timestamp));
+              formData.append("signature", signData.signature);
+              formData.append("folder", signData.folder);
 
-              xhr.open("POST", "/api/upload");
+              xhr.open("POST", cloudinaryUrl);
               xhr.send(formData);
             },
           );
@@ -268,7 +286,7 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
 
       throw lastError ?? new Error("Erro no upload após múltiplas tentativas");
     },
-    [],
+    [getUploadSignature],
   );
 
   /** Upload paralelo com limite de concorrência */

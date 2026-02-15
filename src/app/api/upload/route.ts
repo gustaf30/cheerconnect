@@ -5,16 +5,18 @@ import { cloudinary } from "@/lib/cloudinary";
 import { Readable } from "stream";
 import type { UploadApiResponse } from "cloudinary";
 
-/** Minimum bytes needed for magic byte validation (RIFF+WEBP = 12 bytes) */
-const HEADER_SIZE = 12;
-
+/**
+ * POST /api/upload
+ * Server-side upload route for small files (avatars, team logos, etc.).
+ * Post media (images/videos) now use direct Cloudinary upload via /api/upload/sign.
+ */
 export async function POST(request: NextRequest) {
   try {
     const contentLength = parseInt(request.headers.get("content-length") || "0");
-    const MAX_REQUEST_SIZE = 100 * 1024 * 1024; // 100MB
+    const MAX_REQUEST_SIZE = 10 * 1024 * 1024; // 10MB (small files only)
     if (contentLength > MAX_REQUEST_SIZE) {
       return NextResponse.json(
-        { error: "File too large. Maximum size is 100MB." },
+        { error: "File too large. Maximum size is 10MB." },
         { status: 413 }
       );
     }
@@ -29,11 +31,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Arquivo não enviado" }, { status: 400 });
     }
 
-    // Read only the header bytes for magic byte validation (not the entire file)
-    const headerSlice = await file.slice(0, HEADER_SIZE).arrayBuffer();
-    const headerBuffer = Buffer.from(headerSlice);
+    // Read buffer and validate via magic bytes (blocks SVG + spoofed MIME types)
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
 
-    const validation = validateFileType(headerBuffer);
+    const validation = validateFileType(buffer);
     if (!validation.valid) {
       return NextResponse.json(
         { error: "Tipo de arquivo não suportado. Use imagens (JPEG, PNG, GIF, WebP) ou vídeos (MP4, WebM)." },
@@ -52,7 +54,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Stream the file to Cloudinary without buffering entirely in memory
+    // Upload via stream to avoid base64 memory overhead (~33% larger)
     const result = await new Promise<UploadApiResponse>((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
@@ -64,7 +66,7 @@ export async function POST(request: NextRequest) {
           resolve(result);
         }
       );
-      Readable.fromWeb(file.stream() as import("stream/web").ReadableStream).pipe(uploadStream);
+      Readable.from(buffer).pipe(uploadStream);
     });
 
     return NextResponse.json({

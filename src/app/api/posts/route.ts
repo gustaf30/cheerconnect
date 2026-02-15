@@ -4,10 +4,16 @@ import { requireAuth, handleZodError, internalError, getBlockedUserIds, getConne
 import { prisma } from "@/lib/prisma";
 import { extractHashtags, extractMentions } from "@/lib/parsers";
 
+const CLOUDINARY_URL_PREFIX = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/`;
+const cloudinaryUrl = z.string().url("URL inválida").refine(
+  (url) => url.startsWith(CLOUDINARY_URL_PREFIX),
+  "URL deve ser do Cloudinary"
+);
+
 const createPostSchema = z.object({
   content: z.string().min(1, "Conteúdo é obrigatório").max(5000),
-  images: z.array(z.string().url("URL de imagem inválida")).max(4).optional(),
-  videoUrl: z.string().url("URL de vídeo inválida").optional(),
+  images: z.array(cloudinaryUrl).max(4).optional(),
+  videoUrl: cloudinaryUrl.optional(),
   teamId: z.string().optional(),
 });
 
