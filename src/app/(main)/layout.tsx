@@ -11,7 +11,6 @@ import { RightSidebar } from "@/components/feed/right-sidebar";
 import { PageTransitionProvider } from "@/components/providers/page-transition-provider";
 import { RealtimeProvider } from "@/hooks/use-realtime";
 import { OfflineBanner } from "@/components/shared/offline-banner";
-import { MobileBottomNav } from "@/components/shared/mobile-bottom-nav";
 
 export default function MainLayout({
   children,
@@ -67,7 +66,7 @@ export default function MainLayout({
         </Link>
       </div>
 
-      <div className="flex-1 flex max-w-[1440px] mx-auto w-full px-4 md:px-8 py-6 pb-[calc(1.5rem+3.5rem+env(safe-area-inset-bottom))] lg:pb-6 gap-6">
+      <div className="flex-1 flex max-w-[1440px] mx-auto w-full px-4 md:px-8 py-6 gap-6">
         {/* Desktop Sidebar — always visible on lg+ */}
         <aside className="hidden lg:flex w-64 flex-col gap-4 sticky top-6 h-fit shrink-0">
           <Sidebar />
@@ -85,9 +84,6 @@ export default function MainLayout({
           <RightSidebar />
         </aside>
       </div>
-
-      {/* Mobile bottom navigation */}
-      <MobileBottomNav />
     </div>
     </RealtimeProvider>
   );
