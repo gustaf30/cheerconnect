@@ -494,7 +494,7 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
                   className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-accent/50 transition-base disabled:opacity-40"
                 >
                   <ImagePlus className="h-[18px] w-[18px] text-blue-500" />
-                  Foto
+                  <span className="hidden sm:inline">Foto</span>
                 </button>
 
                 <input
@@ -510,7 +510,7 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
                   className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-accent/50 transition-base disabled:opacity-40"
                 >
                   <Video className="h-[18px] w-[18px] text-emerald-500" />
-                  Vídeo
+                  <span className="hidden sm:inline">Vídeo</span>
                 </button>
               </div>
               <Button
@@ -521,13 +521,13 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    {isUploading ? "Enviando..." : "Publicando..."}
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="hidden sm:inline ml-1">{isUploading ? "Enviando..." : "Publicando..."}</span>
                   </>
                 ) : (
                   <>
-                    <Send className="h-4 w-4 mr-1" />
-                    Publicar
+                    <Send className="h-4 w-4" />
+                    <span className="ml-1">Publicar</span>
                   </>
                 )}
               </Button>

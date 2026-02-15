@@ -37,8 +37,8 @@ export function CommentInput({
   return (
     <div className="mb-4">
       {replyingToAuthor && (
-        <div className="flex items-center gap-2 mb-2 text-sm text-muted-foreground">
-          <span>Respondendo a <span className="font-medium text-foreground">@{replyingToAuthor}</span></span>
+        <div className="flex items-center gap-2 mb-2 text-sm text-muted-foreground min-w-0">
+          <span className="truncate">Respondendo a <span className="font-medium text-foreground">@{replyingToAuthor}</span></span>
           <Button
             variant="ghost"
             size="icon"
@@ -63,7 +63,7 @@ export function CommentInput({
         </Avatar>
         <div className="flex-1 flex gap-2">
           <Textarea
-            placeholder={replyingToAuthor ? "Escreva uma resposta..." : "Escreva um comentário..."}
+            placeholder={replyingToAuthor ? "Responder..." : "Comentar..."}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={handleKeyDown}
