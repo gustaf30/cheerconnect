@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { UserPlus, UserMinus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { reportError } from "@/lib/error-reporter";
@@ -16,11 +16,7 @@ export function FollowButton({ teamSlug, isMember }: FollowButtonProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  useEffect(() => {
-    checkFollowStatus();
-  }, [teamSlug]);
-
-  const checkFollowStatus = async () => {
+  const checkFollowStatus = useCallback(async () => {
     try {
       const response = await fetch(`/api/teams/${teamSlug}/follow`);
       if (response.ok) {
@@ -32,7 +28,11 @@ export function FollowButton({ teamSlug, isMember }: FollowButtonProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [teamSlug]);
+
+  useEffect(() => {
+    checkFollowStatus();
+  }, [checkFollowStatus]);
 
   const handleFollow = async () => {
     setIsUpdating(true);

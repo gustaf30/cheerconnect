@@ -413,6 +413,7 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
                       className="relative group"
                     >
                       {media.type === "image" ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
                         <img
                           src={media.preview}
                           alt={`Prévia da imagem ${index + 1}`}
@@ -465,7 +466,6 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
                   ref={imageInputRef}
                   type="file"
                   accept="image/*"
-                  capture="environment"
                   multiple
                   onChange={handleImageSelect}
                   className="hidden"
@@ -483,7 +483,6 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
                   ref={videoInputRef}
                   type="file"
                   accept="video/*"
-                  capture="environment"
                   onChange={handleVideoSelect}
                   className="hidden"
                 />

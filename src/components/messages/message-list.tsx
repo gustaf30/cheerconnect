@@ -100,7 +100,7 @@ export function MessageList({ conversationId, currentUserId, onNewMessage }: Mes
     if (!isLoading && messages.length > 0) {
       scrollToBottom("instant");
     }
-  }, [isLoading]);
+  }, [isLoading, messages.length]);
 
   // Real-time via SSE
   useEffect(() => {
