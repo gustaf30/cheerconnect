@@ -73,7 +73,7 @@ export default function ConversationPage({
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bento-card-static hidden lg:block lg:col-span-1 h-[calc(100vh-8rem)]">
+        <div className="bento-card-static hidden lg:block lg:col-span-1 h-[calc(100dvh-8rem)]">
           <div className="p-6 pb-2 border-b pb-3">
             <h2 className="heading-card font-display flex items-center gap-2">
               <MessageSquare className="h-5 w-5" />
@@ -86,7 +86,7 @@ export default function ConversationPage({
               <ConnectionSearch />
             </div>
             {/* Conversations List Section */}
-            <div className="overflow-y-auto max-h-[calc(100vh-24rem)]">
+            <div className="overflow-y-auto max-h-[calc(100dvh-24rem)]">
               <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-2">
                 Conversas Recentes
               </div>
@@ -95,7 +95,7 @@ export default function ConversationPage({
           </div>
         </div>
 
-        <div className="bento-card-static lg:col-span-2 h-[calc(100vh-8rem)] flex items-center justify-center">
+        <div className="bento-card-static lg:col-span-2 h-[calc(100dvh-8rem)] flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       </div>
@@ -109,7 +109,7 @@ export default function ConversationPage({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Conversations List - Desktop */}
-      <div className="bento-card-static hidden lg:block lg:col-span-1 h-[calc(100vh-8rem)]">
+      <div className="bento-card-static hidden lg:block lg:col-span-1 h-[calc(100dvh-8rem)]">
         <div className="p-6 pb-2 border-b pb-3">
           <h2 className="heading-card font-display flex items-center gap-2">
             <MessageSquare className="h-5 w-5" />
@@ -122,7 +122,7 @@ export default function ConversationPage({
             <ConnectionSearch />
           </div>
           {/* Conversations List Section */}
-          <div className="overflow-y-auto max-h-[calc(100vh-24rem)]">
+          <div className="overflow-y-auto max-h-[calc(100dvh-24rem)]">
             <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-2">
               Conversas Recentes
             </div>
@@ -132,7 +132,7 @@ export default function ConversationPage({
       </div>
 
       {/* Conversation View */}
-      <div className="bento-card-static lg:col-span-2 h-[calc(100vh-8rem)] flex flex-col">
+      <div className="bento-card-static lg:col-span-2 h-[calc(100dvh-8rem)] flex flex-col">
         {/* Header */}
         <div className="p-6 pb-2 border-b shrink-0 py-3">
           <div className="flex items-center gap-3">

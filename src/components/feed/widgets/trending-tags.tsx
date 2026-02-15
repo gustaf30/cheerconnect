@@ -49,9 +49,10 @@ export function TrendingTags() {
           ))}
         </div>
       ) : tags.length === 0 ? (
-        <p className="text-xs text-muted-foreground py-2">
-          Nenhuma hashtag em alta
-        </p>
+        <div className="flex flex-col items-center gap-2 py-4 text-center">
+          <TrendingUp className="h-8 w-8 text-muted-foreground/40" />
+          <p className="text-xs text-muted-foreground">Nenhuma hashtag em alta ainda</p>
+        </div>
       ) : (
         <div className="space-y-1">
           {tags.map((tag) => (

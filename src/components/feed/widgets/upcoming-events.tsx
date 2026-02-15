@@ -84,9 +84,10 @@ export function UpcomingEvents() {
           ))}
         </div>
       ) : events.length === 0 ? (
-        <p className="text-xs text-muted-foreground py-2">
-          Nenhum evento próximo
-        </p>
+        <div className="flex flex-col items-center gap-2 py-4 text-center">
+          <CalendarDays className="h-8 w-8 text-muted-foreground/40" />
+          <p className="text-xs text-muted-foreground">Nenhum evento próximo</p>
+        </div>
       ) : (
         <div className="space-y-2.5">
           {events.map((event) => {

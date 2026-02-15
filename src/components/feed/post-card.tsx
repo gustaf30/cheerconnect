@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import Image from "next/image";
-import { X, MoreHorizontal, Trash2 } from "lucide-react";
+import { X, MoreHorizontal, Trash2, Pencil, Loader2 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useAnimation, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { PostData } from "@/types";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -47,6 +48,11 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCommentInput, setShowCommentInput] = useState(false);
   const [commentsCount, setCommentsCount] = useState(targetPost._count.comments);
+  const [displayContent, setDisplayContent] = useState(post.content);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [isEdited, setIsEdited] = useState(!!post.isEdited);
 
   const isAuthor = session?.user?.id === post.author.id;
   const isTargetAuthor = session?.user?.id === targetPost.author.id;
@@ -142,6 +148,37 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
     setShowDeleteConfirm(true);
   }, []);
 
+  const handleEdit = useCallback(async () => {
+    const trimmed = editContent.trim();
+    if (!trimmed || trimmed === displayContent) {
+      setIsEditing(false);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const response = await fetch(`/api/posts/${post.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: trimmed }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Erro ao editar post");
+      }
+
+      setDisplayContent(trimmed);
+      setIsEdited(true);
+      setIsEditing(false);
+      toast.success("Post editado");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao editar post");
+    } finally {
+      setIsSaving(false);
+    }
+  }, [editContent, displayContent, post.id]);
+
   const handleToggleComments = useCallback(() => {
     setShowCommentInput((prev) => !prev);
   }, []);
@@ -180,16 +217,25 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
               author={post.author}
               team={post.team}
               createdAt={post.createdAt}
-              isEdited={!!post.isEdited}
+              isEdited={isEdited}
             />
             {isAuthor && !isRepost && (
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 absolute top-3 right-3 hover:bg-accent/80" aria-label="Mais opções">
+                  <Button variant="ghost" size="icon" className="h-10 w-10 absolute top-2 right-2 hover:bg-accent/80" aria-label="Mais opções">
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="animate-scale-in">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setEditContent(displayContent);
+                      setIsEditing(true);
+                    }}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Editar
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     className="text-destructive focus:text-destructive"
                     onClick={handleDeleteClick}
@@ -222,7 +268,7 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
           />
         ) : (
           <PostContent
-            content={post.content}
+            content={displayContent}
             images={post.images}
             videoUrl={post.videoUrl}
             authorName={post.author.name}
@@ -288,6 +334,47 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
         isLoading={isDeleting}
         onConfirm={handleDelete}
       />
+
+      {/* Modal de edição */}
+      <Dialog open={isEditing} onOpenChange={setIsEditing} modal={false}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar post</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              className="min-h-[120px]"
+              placeholder="O que você está pensando?"
+              maxLength={5000}
+            />
+            <p className="text-xs text-muted-foreground mt-1.5 text-right">
+              {editContent.length}/5000
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsEditing(false)}
+              disabled={isSaving}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleEdit}
+              disabled={!editContent.trim() || editContent.trim() === displayContent || isSaving}
+            >
+              {isSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Pencil className="h-4 w-4 mr-2" />
+              )}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

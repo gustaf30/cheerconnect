@@ -5,7 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { PostCard } from "./post-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/shared/error-state";
-import { Loader2 } from "lucide-react";
+import { Loader2, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PostData } from "@/types";
 
@@ -158,8 +158,12 @@ export function PostList({ filter = "following", refreshKey }: PostListProps) {
     return (
       <div className="bento-card-static shadow-depth-1">
         <div className="p-8 text-center">
+          <LayoutGrid className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
           <p className="text-muted-foreground">
-            Nenhuma publicação ainda. Seja o primeiro a compartilhar algo!
+            Nenhuma publicação ainda
+          </p>
+          <p className="text-sm text-muted-foreground/70 mt-1">
+            Seja o primeiro a compartilhar algo!
           </p>
         </div>
       </div>
