@@ -38,7 +38,7 @@ export default function MainLayout({
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="p-0 max-w-[85vw] w-72 overflow-hidden" showCloseButton={false}>
+            <SheetContent side="left" className="p-0 max-w-[85vw] w-72 overflow-y-auto" showCloseButton={false}>
               <SheetTitle className="sr-only">Menu de navegação</SheetTitle>
               <Sidebar onNavigate={() => setOpen(false)} />
             </SheetContent>
