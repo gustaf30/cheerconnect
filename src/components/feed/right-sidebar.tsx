@@ -3,6 +3,7 @@
 import { UpcomingEvents } from "./widgets/upcoming-events";
 import { TrendingTags } from "./widgets/trending-tags";
 import { PeopleSuggestions } from "./widgets/people-suggestions";
+import { FeedbackWidget } from "./widgets/feedback-widget";
 
 export function RightSidebar() {
   return (
@@ -10,6 +11,7 @@ export function RightSidebar() {
       <UpcomingEvents />
       <TrendingTags />
       <PeopleSuggestions />
+      <FeedbackWidget />
     </div>
   );
 }
