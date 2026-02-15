@@ -383,7 +383,7 @@ export function CommentSection({ postId, initialCommentsCount, showInput = false
         onSortChange={handleSortChange}
       />
 
-      {(showInput || replyingTo) && session?.user && (
+      {showInput && !replyingTo && session?.user && (
         <CommentInput
           userName={session.user.name || ""}
           userAvatar={currentUserAvatar}
@@ -460,6 +460,21 @@ export function CommentSection({ postId, initialCommentsCount, showInput = false
                         Ver mais {(comment.repliesCount || 0) - (comment.replies?.length || 0)} resposta(s)
                       </Button>
                     )}
+                  </div>
+                )}
+
+                {replyingTo === comment.id && session?.user && (
+                  <div className="ml-8 pl-4 mt-1">
+                    <CommentInput
+                      userName={session.user.name || ""}
+                      userAvatar={currentUserAvatar}
+                      value={newComment}
+                      onChange={setNewComment}
+                      onSubmit={handleSubmit}
+                      isSending={isSending}
+                      replyingToAuthor={replyingToAuthor}
+                      onCancelReply={handleCancelReply}
+                    />
                   </div>
                 )}
               </motion.div>
