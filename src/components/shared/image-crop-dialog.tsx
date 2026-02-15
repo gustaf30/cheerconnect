@@ -80,8 +80,10 @@ export function ImageCropDialog({
             image={imageSrc}
             crop={crop}
             zoom={zoom}
+            minZoom={0.5}
             aspect={aspect}
             cropShape={cropShape}
+            restrictPosition={false}
             onCropChange={setCrop}
             onZoomChange={setZoom}
             onCropComplete={handleCropComplete}
@@ -92,7 +94,7 @@ export function ImageCropDialog({
           <ZoomOut className="h-4 w-4 shrink-0 text-muted-foreground" />
           <input
             type="range"
-            min={1}
+            min={0.5}
             max={3}
             step={0.01}
             value={zoom}

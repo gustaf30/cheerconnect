@@ -37,20 +37,29 @@ export async function getCroppedImageBlob(
   canvas.width = outW;
   canvas.height = outH;
 
-  // White background (handles transparent PNGs)
-  ctx.fillStyle = "#ffffff";
+  // Black background for areas outside the image bounds
+  ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, outW, outH);
+
+  // Map the full image onto the canvas accounting for crop offset/scale.
+  // Handles negative cropArea coords (image doesn't fill crop area).
+  const scaleX = outW / cropArea.width;
+  const scaleY = outH / cropArea.height;
+  const destX = -cropArea.x * scaleX;
+  const destY = -cropArea.y * scaleY;
+  const destW = image.naturalWidth * scaleX;
+  const destH = image.naturalHeight * scaleY;
 
   ctx.drawImage(
     image,
-    cropArea.x,
-    cropArea.y,
-    cropArea.width,
-    cropArea.height,
     0,
     0,
-    outW,
-    outH
+    image.naturalWidth,
+    image.naturalHeight,
+    destX,
+    destY,
+    destW,
+    destH
   );
 
   return new Promise((resolve, reject) => {
