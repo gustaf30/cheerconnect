@@ -58,32 +58,38 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
   const isTargetAuthor = session?.user?.id === targetPost.author.id;
 
   const handleLike = useCallback(async () => {
-    try {
-      if (!isLiked && !shouldReduceMotion) {
+    const wasLiked = isLiked;
+    const prevCount = likesCount;
+
+    // Optimistic update — atualiza UI imediatamente
+    setIsLiked(!wasLiked);
+    setLikesCount(wasLiked ? prevCount - 1 : prevCount + 1);
+    onLikeToggle?.(post.id);
+
+    if (!wasLiked) {
+      setJustLiked(true);
+      setTimeout(() => setJustLiked(false), 400);
+      if (!shouldReduceMotion) {
         likeControls.start({
           scale: [1, 1.04, 0.99, 1.01, 1],
           transition: { duration: 0.4, ease: "easeOut" }
         });
       }
+    }
 
+    try {
       const response = await fetch(`/api/posts/${targetPost.id}/like`, {
-        method: isLiked ? "DELETE" : "POST",
+        method: wasLiked ? "DELETE" : "POST",
       });
 
       if (!response.ok) throw new Error();
-
-      if (!isLiked) {
-        setJustLiked(true);
-        setTimeout(() => setJustLiked(false), 400);
-      }
-
-      setIsLiked(!isLiked);
-      setLikesCount((prev) => (isLiked ? prev - 1 : prev + 1));
-      onLikeToggle?.(post.id);
     } catch {
+      // Rollback em caso de erro
+      setIsLiked(wasLiked);
+      setLikesCount(prevCount);
       toast.error("Erro ao curtir post");
     }
-  }, [isLiked, shouldReduceMotion, likeControls, targetPost.id, post.id, onLikeToggle]);
+  }, [isLiked, likesCount, shouldReduceMotion, likeControls, targetPost.id, post.id, onLikeToggle]);
 
   const handleRepost = useCallback(async () => {
     if (isTargetAuthor) {

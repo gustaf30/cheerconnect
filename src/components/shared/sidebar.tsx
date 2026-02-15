@@ -11,6 +11,7 @@ import {
   Castle,
   UserSearch,
   MessageCircle,
+  Bell,
   Settings,
   LogOut,
   SquarePen,
@@ -75,7 +76,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [stats, setStats] = useState<Stats>({ connections: 0, achievements: 0 });
   const [profileError, setProfileError] = useState(false);
-  const { messageCount } = useRealtime();
+  const { messageCount, notificationCount } = useRealtime();
 
   const fetchUserProfile = useCallback(async () => {
     setProfileError(false);
@@ -242,7 +243,34 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
           })}
 
           {/* Notifications */}
-          {session?.user && <NotificationDropdown variant="sidebar" />}
+          {session?.user && (
+            onNavigate ? (
+              <Link
+                href="/notifications"
+                onClick={onNavigate}
+                className={cn(
+                  "nav-indicator flex items-center gap-3 px-4 py-3 text-sm font-medium transition-base",
+                  (pathname === "/notifications" || pathname?.startsWith("/notifications/"))
+                    ? "active text-primary bg-primary/5 font-semibold"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                )}
+              >
+                <div className="relative">
+                  <Bell className="h-5 w-5" />
+                  <span aria-live="polite" aria-atomic="true">
+                    {notificationCount > 0 && (
+                      <span className="absolute -top-2 -right-3 h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shadow-sm">
+                        {notificationCount > 9 ? "9+" : notificationCount}
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <span>Notificações</span>
+              </Link>
+            ) : (
+              <NotificationDropdown variant="sidebar" />
+            )
+          )}
 
           {/* Configurações */}
           <Link

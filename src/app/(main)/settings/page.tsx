@@ -38,6 +38,7 @@ import {
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
 import { PASSWORD_MIN_LENGTH, PASSWORD_REGEX, PASSWORD_ERROR } from "@/lib/constants";
+import { FeedbackWidget } from "@/components/feed/widgets/feedback-widget";
 
 interface Settings {
   email: string;
@@ -566,6 +567,9 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Feedback */}
+      <FeedbackWidget />
 
       {/* Botão Salvar */}
       <div className="flex justify-end gap-3">
