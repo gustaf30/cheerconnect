@@ -200,6 +200,24 @@ export async function POST(request: Request) {
     const body = await request.json();
     const data = createEventSchema.parse(body);
 
+    // Verify user has permission to create events for this team
+    if (data.teamId) {
+      const membership = await prisma.teamMember.findFirst({
+        where: {
+          teamId: data.teamId,
+          userId: session.user.id,
+          isActive: true,
+          OR: [{ hasPermission: true }, { isAdmin: true }],
+        },
+      });
+      if (!membership) {
+        return NextResponse.json(
+          { error: "Você não tem permissão para criar eventos para esta equipe" },
+          { status: 403 }
+        );
+      }
+    }
+
     const event = await prisma.event.create({
       data: {
         name: data.name,

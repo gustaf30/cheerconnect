@@ -21,7 +21,7 @@ export async function DELETE(
           where: {
             userId: session.user.id,
             isActive: true,
-            role: { in: ["OWNER", "ADMIN"] },
+            OR: [{ hasPermission: true }, { isAdmin: true }],
           },
         },
       },

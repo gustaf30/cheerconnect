@@ -66,7 +66,7 @@ export async function POST(request: Request, { params }: RouteParams) {
           where: {
             userId: session.user.id,
             isActive: true,
-            role: { in: ["OWNER", "ADMIN"] },
+            OR: [{ hasPermission: true }, { isAdmin: true }],
           },
         },
       },
