@@ -17,6 +17,15 @@ const feedbackSchema = z.object({
 
 const FEEDBACK_EMAIL = "gustavoferraz405@gmail.com";
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { session, error } = await requireAuth();
@@ -60,13 +69,13 @@ export async function POST(request: NextRequest) {
     const { error: sendError } = await resend.emails.send({
       from: "CheerConnect <onboarding@resend.dev>",
       to: FEEDBACK_EMAIL,
-      subject: `[Feedback] CheerConnect - ${userName}`,
+      subject: `[Feedback] CheerConnect - ${escapeHtml(userName)}`,
       html: `
         <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto;">
           <h2 style="color: #e11d48;">Novo Feedback - CheerConnect</h2>
-          <p><strong>De:</strong> ${userName} (${userEmail})</p>
+          <p><strong>De:</strong> ${escapeHtml(userName)} (${escapeHtml(userEmail)})</p>
           <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 16px 0;" />
-          <p style="white-space: pre-wrap; line-height: 1.6;">${message}</p>
+          <p style="white-space: pre-wrap; line-height: 1.6;">${escapeHtml(message)}</p>
         </div>
       `,
     });

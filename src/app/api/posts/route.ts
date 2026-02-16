@@ -183,6 +183,19 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { content, images, videoUrl, teamId } = createPostSchema.parse(body);
 
+    // Verify the user has permission to post on behalf of this team
+    if (teamId) {
+      const membership = await prisma.teamMember.findFirst({
+        where: { userId: session.user.id, teamId, isActive: true, hasPermission: true },
+      });
+      if (!membership) {
+        return NextResponse.json(
+          { error: "Você não tem permissão para postar nesta equipe" },
+          { status: 403 }
+        );
+      }
+    }
+
     const post = await prisma.post.create({
       data: {
         content,

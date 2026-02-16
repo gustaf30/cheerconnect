@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { cloudinary, deleteCloudinaryAsset } from "@/lib/cloudinary";
+import { validateFileType } from "@/lib/file-validation";
 import logger from "@/lib/logger";
 
 // POST /api/users/me/avatar - Upload de avatar para o Cloudinary
@@ -20,16 +21,20 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!file.type.startsWith("image/")) {
+    if (file.size > 5 * 1024 * 1024) {
       return NextResponse.json(
-        { error: "Arquivo deve ser uma imagem" },
+        { error: "Imagem muito grande. Máximo: 5MB" },
         { status: 400 }
       );
     }
 
-    if (file.size > 5 * 1024 * 1024) {
+    // Validate file type using magic bytes (not spoofable MIME type)
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    const validation = validateFileType(buffer);
+    if (!validation.valid || validation.detectedType !== "image") {
       return NextResponse.json(
-        { error: "Imagem muito grande. Máximo: 5MB" },
+        { error: "Tipo de arquivo não suportado. Use JPEG, PNG, GIF ou WebP." },
         { status: 400 }
       );
     }
@@ -40,10 +45,8 @@ export async function POST(request: Request) {
       select: { avatarPublicId: true },
     });
 
-    // Upload para o Cloudinary
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const base64 = `data:${file.type};base64,${buffer.toString("base64")}`;
+    // Upload para o Cloudinary (use validated MIME type, not client-supplied file.type)
+    const base64 = `data:${validation.mimeType};base64,${buffer.toString("base64")}`;
 
     const result = await cloudinary.uploader.upload(base64, {
       folder: "cheerconnect/avatars",
