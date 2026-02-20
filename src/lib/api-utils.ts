@@ -55,23 +55,6 @@ export function internalError(context: string, error: unknown): NextResponse {
   );
 }
 
-/**
- * Envelope de resposta de sucesso padronizado.
- */
-export function apiSuccess<T>(
-  data: T,
-  meta?: Record<string, unknown>,
-  status = 200
-) {
-  return NextResponse.json({ data, ...(meta && { meta }) }, { status });
-}
-
-/**
- * Envelope de resposta de erro padronizado.
- */
-export function apiError(message: string, status: number) {
-  return NextResponse.json({ error: message }, { status });
-}
 
 /**
  * Retorna IDs de usuários bloqueados (bidirecional).
