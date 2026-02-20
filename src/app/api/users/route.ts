@@ -172,11 +172,10 @@ async function handleSuggestions(userId: string) {
       })
     : Promise.resolve([]);
 
-  // Fallback: recent public users
+  // Fallback: recent users (any visibility — suggestions show only basic info)
   const fallbackPromise = prisma.user.findMany({
     where: {
       id: { notIn: excludeIds },
-      profileVisibility: "PUBLIC",
     },
     take: MAX,
     orderBy: { createdAt: "desc" },

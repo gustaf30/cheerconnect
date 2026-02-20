@@ -122,12 +122,6 @@ export default function TeamsPage() {
   } = useInfiniteScroll({ fetchFn: fetchTeams, enabled: !showingSuggestions });
 
   const handleSearch = () => {
-    const f = filtersRef.current;
-    const hasFilters = f.query || (f.category && f.category.trim()) || f.locationFilter || f.showMyTeams;
-    if (!hasFilters) {
-      setShowingSuggestions(true);
-      return;
-    }
     setShowingSuggestions(false);
     setTimeout(reset, 0);
   };

@@ -24,6 +24,7 @@ import { UserProfile } from "@/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { NotificationDropdown } from "./notification-dropdown";
+import { CreatePostDialog } from "@/components/feed/create-post-dialog";
 import { useAnimatedNumber } from "@/hooks/use-animated-number";
 import { useRealtime } from "@/hooks/use-realtime";
 const mainNavItems = [
@@ -75,6 +76,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [stats, setStats] = useState<Stats>({ connections: 0, achievements: 0 });
   const [profileError, setProfileError] = useState(false);
+  const [showCreatePost, setShowCreatePost] = useState(false);
   const { messageCount, notificationCount } = useRealtime();
 
   const fetchUserProfile = useCallback(async () => {
@@ -193,20 +195,29 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
 
         {/* New Post Button */}
         {session?.user && (
-          <Button
-            className="w-full gap-2"
-            onClick={() => {
-              onNavigate?.();
-              if (pathname === "/feed") {
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              } else {
-                router.push("/feed");
-              }
-            }}
-          >
-            <SquarePen className="h-4 w-4" />
-            Novo Post
-          </Button>
+          <>
+            <Button
+              className="w-full gap-2"
+              onClick={() => {
+                onNavigate?.();
+                setShowCreatePost(true);
+              }}
+            >
+              <SquarePen className="h-4 w-4" />
+              Novo Post
+            </Button>
+            <CreatePostDialog
+              open={showCreatePost}
+              onOpenChange={setShowCreatePost}
+              onPostCreated={() => {
+                if (pathname !== "/feed") {
+                  router.push("/feed");
+                } else {
+                  router.refresh();
+                }
+              }}
+            />
+          </>
         )}
 
         {/* Navigation */}
@@ -319,7 +330,13 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
         <div className="text-center">
           <Link
             href="/feed"
-            onClick={onNavigate}
+            onClick={(e) => {
+              onNavigate?.();
+              if (pathname === "/feed") {
+                e.preventDefault();
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }
+            }}
             className="flex items-center justify-center gap-0.5 font-display font-extrabold text-xl tracking-tight opacity-40"
           >
             <span className="text-primary">Cheer</span>

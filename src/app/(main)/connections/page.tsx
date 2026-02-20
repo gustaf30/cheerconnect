@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { staggerContainer, fadeSlideUp, noMotion, noMotionContainer, stagger } from "@/lib/animations";
 import { toast } from "sonner";
-import { getInitials } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
 import { positionLabels } from "@/lib/constants";
 import { ConnectionUser } from "@/types";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -277,30 +277,48 @@ function ConnectionsContent() {
 
   return (
     <div className="space-y-6">
-      {/* Cabeçalho com estatísticas */}
+      {/* Cabeçalho com estatísticas — clicáveis como navegação de tabs */}
       <div className="bento-card-static">
         <div className="accent-bar" />
         <div className="p-5">
           <h1 className="heading-section font-display mb-4">Conexões</h1>
           <div className="grid grid-cols-3 gap-4">
-            <div className="text-center">
-              <span className="font-mono text-2xl font-bold text-primary">{connections.length}</span>
+            <button
+              onClick={() => router.replace("/connections?tab=all", { scroll: false })}
+              className={cn(
+                "text-center rounded-lg py-2 transition-base cursor-pointer",
+                tab === "all" ? "bg-primary/10 ring-1 ring-primary/20" : "hover:bg-muted/50"
+              )}
+            >
+              <span className={cn("font-mono text-2xl font-bold", tab === "all" ? "text-primary" : "text-muted-foreground")}>{connections.length}</span>
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">Conexões</p>
-            </div>
-            <div className="text-center border-x border-border/50">
-              <span className="font-mono text-2xl font-bold text-primary">{pendingReceived.length}</span>
+            </button>
+            <button
+              onClick={() => router.replace("/connections?tab=received", { scroll: false })}
+              className={cn(
+                "text-center rounded-lg py-2 transition-base cursor-pointer border-x border-border/50",
+                tab === "received" ? "bg-primary/10 ring-1 ring-primary/20" : "hover:bg-muted/50"
+              )}
+            >
+              <span className={cn("font-mono text-2xl font-bold", tab === "received" ? "text-primary" : "text-muted-foreground")}>{pendingReceived.length}</span>
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">Recebidas</p>
-            </div>
-            <div className="text-center">
-              <span className="font-mono text-2xl font-bold text-primary">{pendingSent.length}</span>
+            </button>
+            <button
+              onClick={() => router.replace("/connections?tab=sent", { scroll: false })}
+              className={cn(
+                "text-center rounded-lg py-2 transition-base cursor-pointer",
+                tab === "sent" ? "bg-primary/10 ring-1 ring-primary/20" : "hover:bg-muted/50"
+              )}
+            >
+              <span className={cn("font-mono text-2xl font-bold", tab === "sent" ? "text-primary" : "text-muted-foreground")}>{pendingSent.length}</span>
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">Enviadas</p>
-            </div>
+            </button>
           </div>
         </div>
       </div>
 
       <Tabs value={tab} onValueChange={(v) => router.replace(`/connections?tab=${v}`, { scroll: false })}>
-        <TabsList>
+        <TabsList className="sr-only">
           <TabsTrigger value="all">
             Todas
           </TabsTrigger>

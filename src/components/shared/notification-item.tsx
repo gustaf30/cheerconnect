@@ -29,6 +29,7 @@ export interface Notification {
 interface NotificationItemProps {
   notification: Notification;
   onRead: (id: string) => void;
+  onNavigate?: () => void;
   showMarkAsRead?: boolean;
   style?: CSSProperties;
 }
@@ -64,7 +65,7 @@ const getNotificationLink = (notification: Notification): string => {
   }
   if (notification.relatedType === "connection") {
     if (notification.type === "CONNECTION_REQUEST") {
-      return "/connections?tab=pending";
+      return "/connections?tab=received";
     }
     if (notification.actor) {
       return `/profile/${notification.actor.username}`;
@@ -79,11 +80,12 @@ const getNotificationLink = (notification: Notification): string => {
   return "/feed";
 };
 
-export function NotificationItem({ notification, onRead, showMarkAsRead, style }: NotificationItemProps) {
+export function NotificationItem({ notification, onRead, onNavigate, showMarkAsRead, style }: NotificationItemProps) {
   const handleClick = () => {
     if (!notification.isRead) {
       onRead(notification.id);
     }
+    onNavigate?.();
   };
 
   const handleMarkAsRead = (e: MouseEvent) => {
