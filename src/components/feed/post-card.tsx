@@ -1,10 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
 import Image from "next/image";
 import { X, MoreHorizontal, Trash2, Pencil, Loader2 } from "lucide-react";
-import { useSession } from "next-auth/react";
-import { useAnimation, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,8 +12,8 @@ import {
 import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { PostData } from "@/types";
-import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { usePostInteractions } from "@/hooks/use-post-interactions";
 import { PostRepostInfo } from "./post-repost-info";
 import { PostHeader } from "./post-header";
 import { PostContent, renderContentWithLinks } from "./post-content";
@@ -30,172 +27,16 @@ interface PostProps {
 }
 
 export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
-  const { data: session } = useSession();
-  const likeControls = useAnimation();
-  const shouldReduceMotion = useReducedMotion();
-
-  const targetPost = post.originalPost || post;
-  const isRepost = !!post.originalPostId;
-
-  const [isLiked, setIsLiked] = useState(targetPost.isLiked);
-  const [likesCount, setLikesCount] = useState(targetPost._count.likes);
-  const [repostsCount, setRepostsCount] = useState(targetPost._count.reposts || 0);
-  const [hasReposted, setHasReposted] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isReposting, setIsReposting] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [justLiked, setJustLiked] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showCommentInput, setShowCommentInput] = useState(false);
-  const [commentsCount, setCommentsCount] = useState(targetPost._count.comments);
-  const [displayContent, setDisplayContent] = useState(post.content);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editContent, setEditContent] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [isEdited, setIsEdited] = useState(!!post.isEdited);
-
-  const isAuthor = session?.user?.id === post.author.id;
-  const isTargetAuthor = session?.user?.id === targetPost.author.id;
-
-  const handleLike = useCallback(async () => {
-    const wasLiked = isLiked;
-    const prevCount = likesCount;
-
-    // Optimistic update — atualiza UI imediatamente
-    setIsLiked(!wasLiked);
-    setLikesCount(wasLiked ? prevCount - 1 : prevCount + 1);
-    onLikeToggle?.(post.id);
-
-    if (!wasLiked) {
-      setJustLiked(true);
-      setTimeout(() => setJustLiked(false), 400);
-      if (!shouldReduceMotion) {
-        likeControls.start({
-          scale: [1, 1.04, 0.99, 1.01, 1],
-          transition: { duration: 0.4, ease: "easeOut" }
-        });
-      }
-    }
-
-    try {
-      const response = await fetch(`/api/posts/${targetPost.id}/like`, {
-        method: wasLiked ? "DELETE" : "POST",
-      });
-
-      if (!response.ok) throw new Error();
-    } catch {
-      // Rollback em caso de erro
-      setIsLiked(wasLiked);
-      setLikesCount(prevCount);
-      toast.error("Erro ao curtir post");
-    }
-  }, [isLiked, likesCount, shouldReduceMotion, likeControls, targetPost.id, post.id, onLikeToggle]);
-
-  const handleRepost = useCallback(async () => {
-    if (isTargetAuthor) {
-      toast.error("Você não pode repostar sua própria publicação");
-      return;
-    }
-
-    setIsReposting(true);
-    try {
-      if (hasReposted) {
-        const response = await fetch(`/api/posts/${targetPost.id}/repost`, {
-          method: "DELETE",
-        });
-
-        if (!response.ok) throw new Error();
-
-        setHasReposted(false);
-        setRepostsCount((prev) => prev - 1);
-        toast.success("Repost removido");
-      } else {
-        const response = await fetch(`/api/posts/${targetPost.id}/repost`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Erro ao repostar");
-        }
-
-        setHasReposted(true);
-        setRepostsCount((prev) => prev + 1);
-        toast.success("Repostado!");
-      }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao repostar");
-    } finally {
-      setIsReposting(false);
-    }
-  }, [isTargetAuthor, hasReposted, targetPost.id]);
-
-  const handleDelete = useCallback(async () => {
-    setIsDeleting(true);
-    try {
-      const response = await fetch(`/api/posts/${post.id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) throw new Error();
-
-      toast.success("Post excluído");
-      onDelete?.(post.id);
-    } catch {
-      toast.error("Erro ao excluir post");
-    } finally {
-      setIsDeleting(false);
-    }
-  }, [post.id, onDelete]);
-
-  const handleDeleteClick = useCallback(() => {
-    setShowDeleteConfirm(true);
-  }, []);
-
-  const handleEdit = useCallback(async () => {
-    const trimmed = editContent.trim();
-    if (!trimmed || trimmed === displayContent) {
-      setIsEditing(false);
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const response = await fetch(`/api/posts/${post.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: trimmed }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Erro ao editar post");
-      }
-
-      setDisplayContent(trimmed);
-      setIsEdited(true);
-      setIsEditing(false);
-      toast.success("Post editado");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao editar post");
-    } finally {
-      setIsSaving(false);
-    }
-  }, [editContent, displayContent, post.id]);
-
-  const handleToggleComments = useCallback(() => {
-    setShowCommentInput((prev) => !prev);
-  }, []);
-
-  const handleImageClick = useCallback((image: string) => {
-    setSelectedImage(image);
-  }, []);
-
-  const handleCloseCommentInput = useCallback(() => {
-    setShowCommentInput(false);
-  }, []);
+  const {
+    targetPost, isRepost, isAuthor, isTargetAuthor,
+    isLiked, likesCount, justLiked, likeControls, handleLike,
+    hasReposted, repostsCount, isReposting, handleRepost,
+    isDeleting, showDeleteConfirm, setShowDeleteConfirm, handleDelete, handleDeleteClick,
+    isEditing, setIsEditing, editContent, setEditContent, isSaving, isEdited,
+    displayContent, handleEdit, startEditing,
+    showCommentInput, commentsCount, setCommentsCount, handleToggleComments, handleCloseCommentInput,
+    selectedImage, setSelectedImage, handleImageClick,
+  } = usePostInteractions({ post, onDelete, onLikeToggle });
 
   return (
     <div className="bento-card-static shadow-depth-1 relative">
@@ -233,12 +74,7 @@ export function PostCard({ post, onDelete, onLikeToggle }: PostProps) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="animate-scale-in">
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setEditContent(displayContent);
-                      setIsEditing(true);
-                    }}
-                  >
+                  <DropdownMenuItem onClick={startEditing}>
                     <Pencil className="h-4 w-4 mr-2" />
                     Editar
                   </DropdownMenuItem>
