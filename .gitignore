@@ -51,12 +51,11 @@ next-env.d.ts
 .claude/
 tasks/
 CLAUDE.md
-list.md
-improvements.md
-deploy.md
-security.md
-mobile.md
-CHEERCONNECT-PLANEJAMENTO.MD
+.superdesign/
+.playwright-mcp/
+docs/
+dbml/
+doc.md
 
 # windows artifacts
 nul
