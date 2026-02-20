@@ -46,7 +46,7 @@ export async function deleteCloudinaryAsset(
         );
         return false;
       }
-      // Exponential backoff: 500ms, 1000ms, 2000ms...
+      // Backoff exponencial: 500ms, 1000ms, 2000ms...
       await new Promise((resolve) =>
         setTimeout(resolve, 500 * Math.pow(2, attempt - 1))
       );

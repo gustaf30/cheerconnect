@@ -28,7 +28,7 @@ const COMPRESSION_OPTIONS = {
 const IMAGE_UPLOAD_TIMEOUT = 30_000; // 30s
 const VIDEO_UPLOAD_TIMEOUT = 120_000; // 120s
 
-// Retry config
+// Configuração de retry
 const MAX_RETRIES = 3;
 
 interface UploadError extends Error {

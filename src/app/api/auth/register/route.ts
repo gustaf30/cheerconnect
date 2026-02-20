@@ -59,7 +59,7 @@ export async function POST(request: Request) {
       data: {
         identifier: email,
         token,
-        expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+        expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 horas
       },
     });
 

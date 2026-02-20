@@ -46,7 +46,7 @@ export async function GET(
       ? members.find((m) => m.userId === session.user.id)
       : null;
 
-    // Strip admin/permission flags from member data for unauthenticated requests
+    // Remove flags admin/permissão dos dados para requisições não autenticadas
     const responseMembers = session
       ? members
       : members.map(({ isAdmin: _a, hasPermission: _p, ...member }) => member);

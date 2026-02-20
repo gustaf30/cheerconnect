@@ -84,7 +84,7 @@ export async function POST(
       }),
     ]);
 
-    // Criar o repost — catch P2002 for unique constraint (authorId, originalPostId)
+    // Criar o repost — captura P2002 para unique constraint (authorId, originalPostId)
     let repost;
     try {
       repost = await prisma.post.create({

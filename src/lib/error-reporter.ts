@@ -12,7 +12,7 @@ export function reportError(error: unknown, context?: string): void {
     console.error(prefix, error);
   }
 
-  // TODO: Future Sentry integration
+  // TODO: Integração futura com Sentry
   // if (typeof window !== 'undefined') {
   //   Sentry.captureException(error, { tags: { context } });
   // }

@@ -219,7 +219,7 @@ export async function PUT(
     const body = await request.json();
     const { content } = updatePostSchema.parse(body);
 
-    // Skip if content hasn't changed
+    // Pular se o conteúdo não mudou
     if (content === post.content) {
       return NextResponse.json({ post: null, unchanged: true });
     }
@@ -232,7 +232,7 @@ export async function PUT(
     const previousMentionedIds = new Set(previousMentions.map(m => m.mentionedUserId));
 
     const updatedPost = await prisma.$transaction(async (tx) => {
-      // Save old content to edit history
+      // Salvar conteúdo antigo no histórico de edições
       await tx.postEdit.create({
         data: {
           postId: id,
@@ -240,7 +240,7 @@ export async function PUT(
         },
       });
 
-      // Update post with new content and mark as edited
+      // Atualizar post com novo conteúdo e marcar como editado
       const updated = await tx.post.update({
         where: { id },
         data: { content, isEdited: true },

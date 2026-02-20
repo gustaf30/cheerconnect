@@ -141,7 +141,7 @@ export async function POST(request: Request) {
       avatar: true,
     } as const;
 
-    // Try to create; catch P2002 (unique constraint) and return existing
+    // Tenta criar; captura P2002 (unique constraint) e retorna existente
     let conversation;
     let isNew = true;
 
@@ -161,7 +161,7 @@ export async function POST(request: Request) {
         err instanceof Prisma.PrismaClientKnownRequestError &&
         err.code === "P2002"
       ) {
-        // Conversation already exists — find and return it
+        // Conversa já existe — buscar e retornar
         conversation = await prisma.conversation.findFirst({
           where: {
             OR: [

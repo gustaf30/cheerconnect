@@ -5,7 +5,7 @@
 
 const rateLimitMap = new Map<string, number[]>();
 
-// Clean up old entries periodically
+// Limpa entradas expiradas periodicamente
 setInterval(() => {
   const now = Date.now();
   for (const [key, timestamps] of rateLimitMap.entries()) {

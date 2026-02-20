@@ -57,7 +57,7 @@ export async function GET(request: Request) {
       .map((p) => p.trim())
       .filter(Boolean) || [];
 
-    // NOTE: Full-text search (PostgreSQL tsvector) would improve performance here — deferred to post-launch.
+    // NOTA: Full-text search (PostgreSQL tsvector) melhoraria performance aqui — adiado para pós-lançamento.
     const teams = await prisma.team.findMany({
       where: {
         AND: [
@@ -102,7 +102,7 @@ export async function GET(request: Request) {
 async function handleTeamSuggestions(userId: string) {
   const MAX = 12;
 
-  // Get user info, connections, and user's own teams in parallel
+  // Buscar info do usuário, conexões e equipes próprias em paralelo
   const [currentUser, acceptedConnections, myMemberships] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
@@ -138,7 +138,7 @@ async function handleTeamSuggestions(userId: string) {
     }
   };
 
-  // Teams where connections are active members (user is NOT a member)
+  // Equipes onde conexões são membros ativos (usuário NÃO é membro)
   const connectionTeamsPromise = connectedIds.length > 0
     ? prisma.team.findMany({
         where: {
@@ -155,7 +155,7 @@ async function handleTeamSuggestions(userId: string) {
       })
     : Promise.resolve([]);
 
-  // Same region teams
+  // Equipes da mesma região
   const locationParts = currentUser?.location
     ?.split(",")
     .map((p) => p.trim())
@@ -173,7 +173,7 @@ async function handleTeamSuggestions(userId: string) {
       })
     : Promise.resolve([]);
 
-  // Popular teams (by member count)
+  // Equipes populares (por número de membros)
   const popularTeamsPromise = prisma.team.findMany({
     where: { id: { notIn: myTeamIds } },
     take: MAX,
@@ -211,7 +211,7 @@ export async function POST(request: Request) {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
 
-    // Create with retry on slug conflict — no pre-check to avoid race condition
+    // Cria com retry em conflito de slug — sem pre-check para evitar race condition
     let slug = baseSlug;
     let counter = 0;
     const MAX_RETRIES = 5;

@@ -66,7 +66,7 @@ export async function GET(request: Request) {
               lastConversation?.lastMessageAt?.toISOString() ?? null;
             const lastMessageAtStr = lastMessageAt ?? "";
 
-            // Only emit data when values change
+            // Só emite dados quando valores mudam
             if (
               notificationCount !== prevNotificationCount ||
               messageCount !== prevMessageCount ||
@@ -86,11 +86,11 @@ export async function GET(request: Request) {
               controller.enqueue(encoder.encode(`: heartbeat\n\n`));
             }
           } catch {
-            // Silently handle errors
+            // Ignora erros silenciosamente
           }
         };
 
-        // Send initial data immediately
+        // Envia dados iniciais imediatamente
         await poll();
 
         const intervalId = setInterval(poll, pollInterval);
@@ -100,7 +100,7 @@ export async function GET(request: Request) {
           try {
             controller.close();
           } catch {
-            // Already closed
+            // Já fechado
           }
         });
       },

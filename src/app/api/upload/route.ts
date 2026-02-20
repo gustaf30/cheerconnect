@@ -13,7 +13,7 @@ import type { UploadApiResponse } from "cloudinary";
 export async function POST(request: NextRequest) {
   try {
     const contentLength = parseInt(request.headers.get("content-length") || "0");
-    const MAX_REQUEST_SIZE = 10 * 1024 * 1024; // 10MB (small files only)
+    const MAX_REQUEST_SIZE = 10 * 1024 * 1024; // 10MB (só arquivos pequenos)
     if (contentLength > MAX_REQUEST_SIZE) {
       return NextResponse.json(
         { error: "File too large. Maximum size is 10MB." },
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Arquivo não enviado" }, { status: 400 });
     }
 
-    // Read buffer and validate via magic bytes (blocks SVG + spoofed MIME types)
+    // Ler buffer e validar via magic bytes (bloqueia SVG + MIME types falsificados)
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Upload via stream to avoid base64 memory overhead (~33% larger)
+    // Upload via stream para evitar overhead de memória base64 (~33% maior)
     const result = await new Promise<UploadApiResponse>((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {

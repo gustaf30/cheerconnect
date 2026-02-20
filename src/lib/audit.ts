@@ -11,7 +11,7 @@ interface LogActivityParams {
 }
 
 export function logActivity(params: LogActivityParams): void {
-  // Fire-and-forget — don't await, don't block the response
+  // Fire-and-forget — não faz await, não bloqueia a resposta
   prisma.activityLog
     .create({
       data: {
