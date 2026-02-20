@@ -37,7 +37,7 @@ export function NotificationDropdown({ variant = "icon" }: NotificationDropdownP
   const [localCountOffset, setLocalCountOffset] = useState(0);
   const prevSseCountRef = useRef(notificationCount);
 
-  // Reset local offset when SSE count changes (server caught up)
+  // Reseta offset local quando contagem SSE muda (servidor atualizou)
   useEffect(() => {
     if (notificationCount !== prevSseCountRef.current) {
       prevSseCountRef.current = notificationCount;

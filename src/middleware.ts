@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
-// --- Rate limit configuration ---
+// --- Configuração de rate limit ---
 
 type RateLimitRule = { maxRequests: number; interval: number };
 
@@ -23,14 +23,14 @@ const RATE_LIMIT_RULES: { pattern: string; rule: RateLimitRule }[] = [
   { pattern: "/api/settings", rule: { maxRequests: 10, interval: 60_000 } },
 ];
 
-// Match /api/conversations/*/messages
+// Verifica rota /api/conversations/*/messages
 function matchesConversationMessages(pathname: string): boolean {
   return /^\/api\/conversations\/[^/]+\/messages$/.test(pathname);
 }
 
-// --- IP extraction ---
-// Prefer request.ip (reliable on Vercel), then last x-forwarded-for value
-// (closest trusted proxy), then "anonymous"
+// --- Extração de IP ---
+// Prioriza request.ip (confiável no Vercel), depois último x-forwarded-for
+// (proxy mais próximo), senão "anonymous"
 function getIp(request: NextRequest): string {
   const realIp = request.headers.get("x-real-ip");
   if (realIp) return realIp;
@@ -45,8 +45,8 @@ function getIp(request: NextRequest): string {
   return "anonymous";
 }
 
-// When IP is "anonymous", compute a weak fingerprint from headers to
-// differentiate clients sharing the same missing-IP bucket
+// Quando IP é "anonymous", gera fingerprint fraco dos headers
+// para diferenciar clientes no mesmo bucket sem IP
 function getClientIdentifier(request: NextRequest): string {
   const ip = getIp(request);
   if (ip !== "anonymous") return ip;
@@ -54,7 +54,7 @@ function getClientIdentifier(request: NextRequest): string {
   const ua = request.headers.get("user-agent") ?? "";
   const lang = request.headers.get("accept-language") ?? "";
   const accept = request.headers.get("accept") ?? "";
-  // Simple hash: sum char codes to produce a numeric fingerprint
+  // Hash simples: soma char codes para gerar fingerprint numérico
   const raw = `${ua}|${lang}|${accept}`;
   let hash = 0;
   for (let i = 0; i < raw.length; i++) {
@@ -63,7 +63,7 @@ function getClientIdentifier(request: NextRequest): string {
   return `anon:${hash.toString(36)}`;
 }
 
-// --- Public routes (no auth required) ---
+// --- Rotas públicas (sem auth) ---
 function isPublicRoute(pathname: string): boolean {
   return (
     pathname === "/" ||
@@ -75,20 +75,20 @@ function isPublicRoute(pathname: string): boolean {
   );
 }
 
-// --- Upstash rate limiter with in-memory dev fallback ---
+// --- Rate limiter Upstash com fallback in-memory para dev ---
 
 const useUpstash = !!(
   process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
 );
 
-// Build Upstash rate limiters keyed by rule signature
+// Limiters Upstash indexados por assinatura da regra
 const upstashLimiters = new Map<string, Ratelimit>();
 
 function getUpstashLimiter(rule: RateLimitRule): Ratelimit {
   const key = `${rule.maxRequests}:${rule.interval}`;
   let limiter = upstashLimiters.get(key);
   if (!limiter) {
-    // Convert ms to seconds for Upstash duration format (e.g. "60 s")
+    // Converte ms para segundos no formato Upstash (ex: "60 s")
     const seconds = Math.ceil(rule.interval / 1000);
     limiter = new Ratelimit({
       redis: Redis.fromEnv(),
@@ -104,7 +104,7 @@ function getUpstashLimiter(rule: RateLimitRule): Ratelimit {
   return limiter;
 }
 
-// --- In-memory fallback (local dev only) ---
+// --- Fallback in-memory (só dev local) ---
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
 function checkRateLimitInMemory(
@@ -128,7 +128,7 @@ function checkRateLimitInMemory(
   return { success: true, retryAfter: 0 };
 }
 
-// Best-effort cleanup for in-memory map (only used without Upstash)
+// Limpeza best-effort do map in-memory (só sem Upstash)
 const MAX_RATE_LIMIT_ENTRIES = 10_000;
 let lastCleanup = Date.now();
 function cleanupRateLimitMap() {
@@ -150,7 +150,7 @@ function cleanupRateLimitMap() {
   }
 }
 
-// --- Unified rate limit check ---
+// --- Checagem unificada de rate limit ---
 async function checkRateLimit(
   key: string,
   rule: RateLimitRule
@@ -165,33 +165,33 @@ async function checkRateLimit(
       );
       return { success: false, retryAfter };
     } catch {
-      // Upstash failure — fall back to in-memory so we never skip rate limiting
+      // Falha no Upstash — fallback in-memory para nunca pular rate limiting
       return checkRateLimitInMemory(key, rule);
     }
   }
   return checkRateLimitInMemory(key, rule);
 }
 
-// --- Middleware (standalone, not wrapped by withAuth) ---
-// This runs BEFORE route handlers, including NextAuth's /api/auth/* routes.
-// withAuth's inner function does NOT execute for /api/auth/* paths,
-// so rate limiting must happen here at the top level.
+// --- Middleware (standalone, sem withAuth) ---
+// Executa ANTES dos route handlers, incluindo /api/auth/* do NextAuth.
+// A função interna do withAuth NÃO executa para rotas /api/auth/*,
+// então rate limiting precisa acontecer aqui no nível raiz.
 
 export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   cleanupRateLimitMap();
 
-  // 1. Rate limiting — POST requests to specific paths
+  // 1. Rate limiting — requisições POST em rotas específicas
   if (request.method === "POST") {
     const clientId = getClientIdentifier(request);
     let rule: RateLimitRule | null = null;
 
-    // Check conversation messages route
+    // Rota de mensagens de conversa
     if (matchesConversationMessages(pathname)) {
       rule = { maxRequests: 30, interval: 60_000 };
     } else {
-      // Check static pattern rules (first match wins)
+      // Regras estáticas (primeiro match vence)
       for (const r of RATE_LIMIT_RULES) {
         if (pathname === r.pattern || pathname.startsWith(r.pattern + "/")) {
           rule = r.rule;
@@ -201,7 +201,7 @@ export default async function middleware(request: NextRequest) {
     }
 
     if (rule) {
-      // Use user ID from JWT when available, fall back to client identifier
+      // Usa user ID do JWT quando disponível, senão identificador do cliente
       const token = await getToken({ req: request });
       const key = token?.sub
         ? `user:${token.sub}:${pathname}`
@@ -219,11 +219,11 @@ export default async function middleware(request: NextRequest) {
     }
   }
 
-  // 2. Auth check — protect non-public routes
+  // 2. Checagem de auth — proteger rotas não-públicas
   if (!isPublicRoute(pathname)) {
     const token = await getToken({ req: request });
     if (!token) {
-      // Redirect to login for page routes, return 401 for API routes
+      // Redireciona para login em rotas de página, retorna 401 em rotas API
       if (pathname.startsWith("/api/")) {
         return NextResponse.json(
           { error: "Não autorizado" },

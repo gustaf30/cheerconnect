@@ -54,7 +54,7 @@ interface CommentSectionProps {
 
 type SortOption = "popular" | "recent";
 
-// Module-level cache for current user avatar to avoid redundant /api/users/me fetches
+// Cache module-level do avatar do usuário para evitar fetches redundantes em /api/users/me
 let cachedUserAvatar: string | null | undefined = undefined;
 let avatarFetchPromise: Promise<string | null> | null = null;
 

@@ -32,15 +32,15 @@ export async function GET(request: Request) {
     const blockedIds = await getBlockedUserIds(session.user.id);
 
     // Montar cláusula where baseada no filtro
-    // NOTE: Full-text search (PostgreSQL tsvector) would improve performance here — deferred to post-launch.
+    // NOTA: Full-text search (PostgreSQL tsvector) melhoraria performance aqui — adiado para pós-lançamento.
     const conditions: Record<string, unknown>[] = [];
 
-    // Exclude posts from blocked users
+    // Excluir posts de usuários bloqueados
     if (blockedIds.length > 0) {
       conditions.push({ authorId: { notIn: blockedIds } });
     }
 
-    // Text search filter (post content)
+    // Filtro de busca textual (conteúdo do post)
     if (query) {
       conditions.push({ content: { contains: query, mode: "insensitive" } });
     }
@@ -183,7 +183,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { content, images, videoUrl, teamId } = createPostSchema.parse(body);
 
-    // Verify the user has permission to post on behalf of this team
+    // Verificar se o usuário tem permissão para postar pela equipe
     if (teamId) {
       const membership = await prisma.teamMember.findFirst({
         where: { userId: session.user.id, teamId, isActive: true, hasPermission: true },

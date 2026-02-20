@@ -1,16 +1,16 @@
 import type { NextConfig } from "next";
 
-// --- Content Security Policy (built from parts for readability) ---
+// --- Content Security Policy (montado em partes para legibilidade) ---
 const isDev = process.env.NODE_ENV === "development";
 
 const cspDirectives = [
   "default-src 'self'",
 
-  // 'unsafe-inline': Required by Next.js for inline scripts
-  // 'unsafe-eval': Required in dev for Fast Refresh / hot-reload
+  // 'unsafe-inline': Necessário pelo Next.js para scripts inline
+  // 'unsafe-eval': Necessário em dev para Fast Refresh / hot-reload
   `script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com${isDev ? " 'unsafe-eval'" : ""}`,
 
-  // 'unsafe-inline': Required for Tailwind/CSS-in-JS
+  // 'unsafe-inline': Necessário para Tailwind/CSS-in-JS
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
 
   "font-src 'self' https://fonts.gstatic.com",
@@ -22,13 +22,13 @@ const cspDirectives = [
     "https://fastly.picsum.photos",
     "https://api.dicebear.com",
     "https://lh3.googleusercontent.com",
-    // blob: Used for image previews before upload
+    // blob: Usado para preview de imagens antes do upload
     "data: blob:",
   ].join(" "),
   "media-src 'self' https://res.cloudinary.com",
   "connect-src 'self' https://res.cloudinary.com https://api.cloudinary.com https://servicodados.ibge.gov.br https://vitals.vercel-analytics.com https://va.vercel-scripts.com",
 
-  // Prevents clickjacking by restricting who can embed this site in an iframe
+  // Previne clickjacking restringindo quem pode embutir o site em iframe
   "frame-ancestors 'self'",
 
   "base-uri 'self'",

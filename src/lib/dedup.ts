@@ -3,7 +3,7 @@
  * Prevents double-submits from rapid taps/clicks on mobile.
  */
 
-const DEDUP_WINDOW_MS = 5000; // 5 seconds
+const DEDUP_WINDOW_MS = 5000; // 5 segundos
 
 let lastSubmission: { hash: string; timestamp: number } | null = null;
 

@@ -10,7 +10,7 @@ interface ValidationResult {
   mimeType: string | null;
 }
 
-// Magic byte signatures for allowed file types
+// Assinaturas de magic bytes para tipos de arquivo permitidos
 const SIGNATURES: { bytes: number[]; offset: number; mimeType: string; type: "image" | "video" }[] = [
   // JPEG: FF D8 FF
   { bytes: [0xFF, 0xD8, 0xFF], offset: 0, mimeType: "image/jpeg", type: "image" },
@@ -28,7 +28,7 @@ function matchesSignature(buffer: Buffer, sig: { bytes: number[]; offset: number
 }
 
 function isWebP(buffer: Buffer): boolean {
-  // WebP: starts with RIFF (52 49 46 46) and has WEBP at offset 8
+  // WebP: começa com RIFF (52 49 46 46) e tem WEBP no offset 8
   if (buffer.length < 12) return false;
   return (
     buffer[0] === 0x52 &&
@@ -54,7 +54,7 @@ function isMp4(buffer: Buffer): boolean {
 }
 
 function isSvg(buffer: Buffer): boolean {
-  // Check first 256 bytes for SVG markers
+  // Verifica primeiros 256 bytes por marcadores SVG
   const head = buffer.subarray(0, Math.min(256, buffer.length)).toString("utf-8").toLowerCase();
   return head.includes("<svg") || head.includes("<?xml");
 }
@@ -64,22 +64,22 @@ export function validateFileType(buffer: Buffer): ValidationResult {
 
   if (buffer.length === 0) return invalid;
 
-  // Block SVG (potential XSS vector)
+  // Bloqueia SVG (vetor potencial de XSS)
   if (isSvg(buffer)) return invalid;
 
-  // Check standard signatures
+  // Verifica assinaturas padrão
   for (const sig of SIGNATURES) {
     if (matchesSignature(buffer, sig)) {
       return { valid: true, detectedType: sig.type, mimeType: sig.mimeType };
     }
   }
 
-  // Check WebP (compound signature)
+  // Verifica WebP (assinatura composta)
   if (isWebP(buffer)) {
     return { valid: true, detectedType: "image", mimeType: "image/webp" };
   }
 
-  // Check MP4 (compound signature)
+  // Verifica MP4 (assinatura composta)
   if (isMp4(buffer)) {
     return { valid: true, detectedType: "video", mimeType: "video/mp4" };
   }

@@ -56,7 +56,7 @@ export function internalError(context: string, error: unknown): NextResponse {
 }
 
 /**
- * Standard success response envelope.
+ * Envelope de resposta de sucesso padronizado.
  */
 export function apiSuccess<T>(
   data: T,
@@ -67,7 +67,7 @@ export function apiSuccess<T>(
 }
 
 /**
- * Standard error response envelope.
+ * Envelope de resposta de erro padronizado.
  */
 export function apiError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });

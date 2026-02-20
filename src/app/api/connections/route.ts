@@ -56,7 +56,7 @@ export async function GET(request: Request) {
       ...(cursor && { skip: 1, cursor: { id: cursor } }),
     });
 
-    // Filter out connections with blocked users
+    // Filtrar conexões com usuários bloqueados
     if (blockedIds.length > 0) {
       const blockedSet = new Set(blockedIds);
       connections = connections.filter(c => {

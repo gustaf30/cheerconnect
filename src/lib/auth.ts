@@ -68,9 +68,9 @@ export const authOptions: NextAuthOptions = {
   // Não usar bloco cookies customizado - defaults do NextAuth são otimizados
   callbacks: {
     async redirect({ url, baseUrl }) {
-      // Allow relative URLs
+      // Permite URLs relativas
       if (url.startsWith("/")) return `${baseUrl}${url}`;
-      // Allow same-origin URLs
+      // Permite URLs de mesma origem
       if (new URL(url).origin === baseUrl) return url;
       return baseUrl;
     },
@@ -79,7 +79,7 @@ export const authOptions: NextAuthOptions = {
       // Buscar resto dos dados do banco quando precisar
       if (user) {
         token.id = user.id;
-        // Fetch tokenVersion on initial login
+        // Busca tokenVersion no login inicial
         try {
           const dbUser = await prisma.user.findUnique({
             where: { id: user.id },
@@ -91,7 +91,7 @@ export const authOptions: NextAuthOptions = {
         }
         token.tokenVersionCheckedAt = Date.now();
       } else {
-        // Periodic re-check of tokenVersion
+        // Re-checagem periódica de tokenVersion
         const checkedAt = (token.tokenVersionCheckedAt as number) ?? 0;
         if (Date.now() - checkedAt > TOKEN_VERSION_CHECK_INTERVAL) {
           try {
@@ -103,13 +103,13 @@ export const authOptions: NextAuthOptions = {
               dbUser &&
               dbUser.tokenVersion !== (token.tokenVersion as number)
             ) {
-              // Token version mismatch — force re-login
+              // tokenVersion divergiu — forçar re-login
               return {} as JWT;
             }
             token.tokenVersionCheckedAt = Date.now();
           } catch (error) {
-            // On DB failure, keep existing token to avoid mass-logout
-            // Only a successful query with mismatched tokenVersion should invalidate (handled above)
+            // Em falha do DB, manter token atual para evitar logout em massa
+            // Só invalida com query bem-sucedida e tokenVersion diferente (tratado acima)
             console.warn(
               "[auth] tokenVersion check failed, keeping current token:",
               error instanceof Error ? error.message : "unknown error"
