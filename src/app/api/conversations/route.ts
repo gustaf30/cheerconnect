@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
-import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, parsePaginationLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const createConversationSchema = z.object({
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
     const userId = session.user.id;
     const { searchParams } = new URL(request.url);
     const cursor = searchParams.get("cursor");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
+    const limit = parsePaginationLimit(searchParams);
 
     const conversations = await prisma.conversation.findMany({
       where: {

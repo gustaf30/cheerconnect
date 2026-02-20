@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAuth, handleZodError, internalError, getConversationWithAccessCheck } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, getConversationWithAccessCheck, parsePaginationLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const sendMessageSchema = z.object({
@@ -20,7 +20,7 @@ export async function GET(
     const userId = session.user.id;
     const { searchParams } = new URL(request.url);
     const cursor = searchParams.get("cursor");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100);
+    const limit = parsePaginationLimit(searchParams, 50, 100);
 
     // Verificar se o usuário faz parte da conversa
     const conversation = await getConversationWithAccessCheck(conversationId, userId);

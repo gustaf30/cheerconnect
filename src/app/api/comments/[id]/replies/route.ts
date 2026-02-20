@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, internalError } from "@/lib/api-utils";
+import { requireAuth, internalError, parsePaginationLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 // GET /api/comments/[id]/replies - Buscar respostas de um comentário
@@ -15,7 +15,7 @@ export async function GET(
     const { searchParams } = new URL(request.url);
 
     const offset = parseInt(searchParams.get("offset") || "0");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "10"), 50);
+    const limit = parsePaginationLimit(searchParams, 10);
 
     // Verificar se o comentário existe
     const comment = await prisma.comment.findUnique({

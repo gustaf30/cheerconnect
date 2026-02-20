@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, parsePaginationLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const createEventSchema = z.object({
@@ -58,7 +58,7 @@ export async function GET(request: Request) {
     const type = searchParams.get("type");
     const q = searchParams.get("q")?.slice(0, 200);
     const location = searchParams.get("location");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
+    const limit = parsePaginationLimit(searchParams);
     const cursor = searchParams.get("cursor");
 
     // Separar localização em partes de cidade/estado para busca OR

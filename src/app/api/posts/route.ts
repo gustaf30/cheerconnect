@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAuth, handleZodError, internalError, getBlockedUserIds, getConnectedUserIds } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, getBlockedUserIds, getConnectedUserIds, parsePaginationLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { extractHashtags, extractMentions } from "@/lib/parsers";
 
@@ -25,7 +25,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const cursor = searchParams.get("cursor");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "20") || 20, 50);
+    const limit = parsePaginationLimit(searchParams);
     const filter = searchParams.get("filter") || "following";
     const query = searchParams.get("q")?.slice(0, 200);
 

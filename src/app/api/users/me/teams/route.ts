@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAuth, internalError } from "@/lib/api-utils";
+import { requireAuth, internalError, parsePaginationLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 // GET /api/users/me/teams - Buscar equipes do usuário atual
@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const query = searchParams.get("q")?.slice(0, 200) || "";
     const categoryFilter = searchParams.get("category") || "";
     const cursor = searchParams.get("cursor");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "20") || 20, 50);
+    const limit = parsePaginationLimit(searchParams);
 
     const teams = await prisma.team.findMany({
       where: {
