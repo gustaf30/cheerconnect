@@ -83,6 +83,23 @@ export const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
 export const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB
 export const MAX_IMAGES_PER_POST = 4;
 
+// Compressão de imagem no cliente
+export const IMAGE_COMPRESSION_THRESHOLD = 2 * 1024 * 1024; // 2MB
+export const IMAGE_COMPRESSION_OPTIONS = {
+  maxSizeMB: 1.5,
+  maxWidthOrHeight: 2048,
+  useWebWorker: true,
+} as const;
+
+// Timeouts de upload
+export const IMAGE_UPLOAD_TIMEOUT = 30_000;
+export const VIDEO_UPLOAD_TIMEOUT = 120_000;
+
+// Retry de upload
+export const UPLOAD_MAX_RETRIES = 3;
+export const UPLOAD_INITIAL_BACKOFF_MS = 1_000;
+export const UPLOAD_MAX_CONCURRENT = 3;
+
 // Limites de paginação
 export const COMMENTS_PER_PAGE = 3;
 export const COMMENTS_EXPANDED_PER_PAGE = 10;
