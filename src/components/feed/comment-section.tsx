@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { isDuplicateSubmission } from "@/lib/dedup";
+import { fetchCachedUserProfile } from "@/lib/avatar-cache";
 import { springs, scaleIn, noMotion } from "@/lib/animations";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -53,35 +54,6 @@ interface CommentSectionProps {
 }
 
 type SortOption = "popular" | "recent";
-
-// Cache module-level do avatar do usuário para evitar fetches redundantes em /api/users/me
-let cachedUserAvatar: string | null | undefined = undefined;
-let avatarFetchPromise: Promise<string | null> | null = null;
-
-async function fetchCachedUserAvatar(): Promise<string | null> {
-  if (cachedUserAvatar !== undefined) return cachedUserAvatar;
-  if (avatarFetchPromise) return avatarFetchPromise;
-
-  avatarFetchPromise = fetch("/api/users/me")
-    .then(async (res) => {
-      if (res.ok) {
-        const data = await res.json();
-        cachedUserAvatar = data.user.avatar ?? null;
-        return cachedUserAvatar as string | null;
-      }
-      cachedUserAvatar = null;
-      return null;
-    })
-    .catch(() => {
-      cachedUserAvatar = null;
-      return null;
-    })
-    .finally(() => {
-      avatarFetchPromise = null;
-    });
-
-  return avatarFetchPromise;
-}
 
 export function CommentSection({ postId, initialCommentsCount, showInput = false, onCommentsCountChange, onInputClose }: CommentSectionProps) {
   const { data: session } = useSession();
@@ -143,8 +115,8 @@ export function CommentSection({ postId, initialCommentsCount, showInput = false
 
   useEffect(() => {
     if (session?.user) {
-      fetchCachedUserAvatar().then((avatar) => {
-        setCurrentUserAvatar(avatar);
+      fetchCachedUserProfile().then((profile) => {
+        setCurrentUserAvatar(profile?.avatar ?? null);
       });
     }
   }, [session]);
