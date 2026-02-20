@@ -5,6 +5,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
+import logger from "./logger";
 
 const TOKEN_VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
@@ -110,9 +111,9 @@ export const authOptions: NextAuthOptions = {
           } catch (error) {
             // Em falha do DB, manter token atual para evitar logout em massa
             // Só invalida com query bem-sucedida e tokenVersion diferente (tratado acima)
-            console.warn(
-              "[auth] tokenVersion check failed, keeping current token:",
-              error instanceof Error ? error.message : "unknown error"
+            logger.warn(
+              { err: error },
+              "[auth] falha na checagem de tokenVersion, mantendo token atual"
             );
           }
         }

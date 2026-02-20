@@ -97,7 +97,7 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
       const compressed = await imageCompression(file, IMAGE_COMPRESSION_OPTIONS);
       return compressed as File;
     } catch (err) {
-      console.warn("Falha na compressão, usando arquivo original:", err);
+      reportError(err, "CreatePostCard.compressImage");
       return file;
     }
   }, []);

@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from "cloudinary";
+import logger from "./logger";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -40,9 +41,9 @@ export async function deleteCloudinaryAsset(
       return true;
     } catch (error) {
       if (attempt === maxRetries) {
-        console.error(
-          `[cloudinary] Failed to delete ${resourceType} ${publicId} after ${maxRetries} attempts:`,
-          error instanceof Error ? error.message : error
+        logger.error(
+          { err: error, publicId, resourceType },
+          `[cloudinary] falha ao deletar após ${maxRetries} tentativas`
         );
         return false;
       }
@@ -87,7 +88,7 @@ export async function deletePostAssets(post: {
       (r) => r.status === "rejected" || (r.status === "fulfilled" && !r.value)
     ).length;
     if (failed > 0) {
-      console.warn(`[cloudinary] ${failed}/${results.length} asset deletions failed for post`);
+      logger.warn(`[cloudinary] ${failed}/${results.length} deleções de assets falharam para post`);
     }
   }
 }
