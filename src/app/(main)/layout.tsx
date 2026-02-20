@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
@@ -19,6 +20,14 @@ export default function MainLayout({
 }) {
   const [open, setOpen] = useState(false);
   const isMounted = useIsMounted();
+  const pathname = usePathname();
+
+  const handleLogoClick = useCallback((e: React.MouseEvent) => {
+    if (pathname === "/feed") {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [pathname]);
 
   return (
     <RealtimeProvider>
@@ -57,6 +66,7 @@ export default function MainLayout({
         )}
         <Link
           href="/feed"
+          onClick={handleLogoClick}
           className="ml-2 flex items-center gap-0.5 font-display font-extrabold text-xl tracking-tight group"
         >
           <span className="text-primary transition-base group-hover:opacity-90">

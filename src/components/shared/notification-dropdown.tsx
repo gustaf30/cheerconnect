@@ -200,6 +200,7 @@ export function NotificationDropdown({ variant = "icon" }: NotificationDropdownP
                   <NotificationItem
                     notification={notification}
                     onRead={handleMarkAsRead}
+                    onNavigate={() => setIsOpen(false)}
                   />
                 </motion.div>
               ))}

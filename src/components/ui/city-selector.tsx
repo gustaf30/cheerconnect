@@ -148,7 +148,7 @@ export function CitySelector({
     <div className="flex gap-2">
       {/* State selector */}
       <Select
-        value={selectedUF}
+        value={selectedUF || undefined}
         onValueChange={handleStateChange}
         disabled={disabled}
       >
