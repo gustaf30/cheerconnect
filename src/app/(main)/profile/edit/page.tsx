@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { Skeleton } from "@/components/ui/skeleton";
 import { reportError } from "@/lib/error-reporter";
+import { invalidateUserProfileCache } from "@/lib/avatar-cache";
 import { toast } from "sonner";
 import { AvatarBannerSection } from "@/components/profile/edit/AvatarBannerSection";
 import { ImageCropDialog } from "@/components/shared/image-crop-dialog";
@@ -145,6 +146,7 @@ export default function EditProfilePage() {
       if (!response.ok) throw new Error();
 
       await update();
+      invalidateUserProfileCache();
       toast.success("Perfil atualizado!");
       router.push("/profile");
     } catch {
@@ -189,6 +191,7 @@ export default function EditProfilePage() {
         if (!response.ok) throw new Error();
         const data = await response.json();
         setAvatarUrl(data.user.avatar);
+        invalidateUserProfileCache();
         toast.success("Foto atualizada!");
       } catch {
         toast.error("Erro ao atualizar foto");
@@ -244,6 +247,7 @@ export default function EditProfilePage() {
       if (!response.ok) throw new Error();
 
       setAvatarUrl(null);
+      invalidateUserProfileCache();
       toast.success("Foto removida!");
     } catch {
       toast.error("Erro ao remover foto");

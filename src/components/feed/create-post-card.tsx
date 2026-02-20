@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { ImagePlus, Video, Send, X, Loader2 } from "lucide-react";
 import { isDuplicateSubmission } from "@/lib/dedup";
+import { fetchCachedUserProfile } from "@/lib/avatar-cache";
 import { reportError } from "@/lib/error-reporter";
 import { scaleIn, noMotion } from "@/lib/animations";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -62,7 +63,9 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
 
   useEffect(() => {
     if (session?.user) {
-      fetchUserProfile();
+      fetchCachedUserProfile().then((profile) => {
+        if (profile) setUserProfile(profile);
+      });
     }
   }, [session]);
 
@@ -72,22 +75,6 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
       mediaFiles.forEach((media) => URL.revokeObjectURL(media.preview));
     };
   }, [mediaFiles]);
-
-  const fetchUserProfile = async () => {
-    try {
-      const response = await fetch("/api/users/me");
-      if (response.ok) {
-        const data = await response.json();
-        setUserProfile({
-          name: data.user.name,
-          username: data.user.username,
-          avatar: data.user.avatar,
-        });
-      }
-    } catch (error) {
-      reportError(error, "CreatePostCard.fetchUserProfile");
-    }
-  };
 
   /** Comprime imagem se maior que o threshold */
   const compressImage = useCallback(async (file: File): Promise<File> => {
