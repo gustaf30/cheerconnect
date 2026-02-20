@@ -10,34 +10,26 @@ import { scaleIn, noMotion } from "@/lib/animations";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { getInitials } from "@/lib/utils";
-import { MAX_IMAGE_SIZE, MAX_VIDEO_SIZE, MAX_IMAGES_PER_POST } from "@/lib/constants";
+import {
+  MAX_IMAGE_SIZE,
+  MAX_VIDEO_SIZE,
+  MAX_IMAGES_PER_POST,
+  IMAGE_COMPRESSION_THRESHOLD,
+  IMAGE_COMPRESSION_OPTIONS,
+  IMAGE_UPLOAD_TIMEOUT,
+  VIDEO_UPLOAD_TIMEOUT,
+  UPLOAD_MAX_RETRIES,
+  UPLOAD_INITIAL_BACKOFF_MS,
+  UPLOAD_MAX_CONCURRENT,
+} from "@/lib/constants";
 import { POST_PLACEHOLDERS } from "@/lib/placeholders";
 import { UserProfile } from "@/types";
 import { toast } from "sonner";
 import imageCompression from "browser-image-compression";
 
-// Limites de compressão
-const COMPRESSION_THRESHOLD = 2 * 1024 * 1024; // 2MB
-const COMPRESSION_OPTIONS = {
-  maxSizeMB: 1.5,
-  maxWidthOrHeight: 2048,
-  useWebWorker: true,
-};
-
-// Timeouts de upload
-const IMAGE_UPLOAD_TIMEOUT = 30_000; // 30s
-const VIDEO_UPLOAD_TIMEOUT = 120_000; // 120s
-
-// Configuração de retry
-const MAX_RETRIES = 3;
-
 interface UploadError extends Error {
   status?: number;
 }
-const INITIAL_BACKOFF_MS = 1_000;
-
-// Concorrência máxima de uploads
-const MAX_CONCURRENT_UPLOADS = 3;
 
 interface MediaFile {
   file: File;
@@ -99,10 +91,10 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
 
   /** Comprime imagem se maior que o threshold */
   const compressImage = useCallback(async (file: File): Promise<File> => {
-    if (file.size <= COMPRESSION_THRESHOLD) return file;
+    if (file.size <= IMAGE_COMPRESSION_THRESHOLD) return file;
 
     try {
-      const compressed = await imageCompression(file, COMPRESSION_OPTIONS);
+      const compressed = await imageCompression(file, IMAGE_COMPRESSION_OPTIONS);
       return compressed as File;
     } catch (err) {
       console.warn("Falha na compressão, usando arquivo original:", err);
@@ -212,7 +204,7 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
 
       let lastError: Error | null = null;
 
-      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      for (let attempt = 0; attempt < UPLOAD_MAX_RETRIES; attempt++) {
         try {
           const result = await new Promise<{ url: string; type: "image" | "video" }>(
             (resolve, reject) => {
@@ -277,8 +269,8 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
           }
 
           // Backoff exponencial antes de retentar
-          if (attempt < MAX_RETRIES - 1) {
-            const backoff = INITIAL_BACKOFF_MS * Math.pow(2, attempt);
+          if (attempt < UPLOAD_MAX_RETRIES - 1) {
+            const backoff = UPLOAD_INITIAL_BACKOFF_MS * Math.pow(2, attempt);
             await new Promise((r) => setTimeout(r, backoff));
           }
         }
@@ -320,7 +312,7 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
         }
       };
 
-      const concurrency = Math.min(MAX_CONCURRENT_UPLOADS, files.length);
+      const concurrency = Math.min(UPLOAD_MAX_CONCURRENT, files.length);
       for (let i = 0; i < concurrency; i++) {
         workers.push(processNext());
       }
