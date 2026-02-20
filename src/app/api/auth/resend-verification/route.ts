@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { handleZodError, internalError } from "@/lib/api-utils";
+import logger from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { sendVerificationEmail } from "@/lib/email";
 
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
     try {
       await sendVerificationEmail(email, token);
     } catch (emailError) {
-      console.error("[resend-verification] Falha ao enviar email:", emailError);
+      logger.error({ err: emailError }, "[resend-verification] falha ao enviar email");
     }
 
     return genericResponse;

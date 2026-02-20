@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { handleZodError, internalError } from "@/lib/api-utils";
+import logger from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { PASSWORD_MIN_LENGTH, PASSWORD_REGEX, PASSWORD_ERROR } from "@/lib/constants";
 import { sendVerificationEmail } from "@/lib/email";
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
     try {
       await sendVerificationEmail(email, token);
     } catch (emailError) {
-      console.error("[register] Falha ao enviar email de verificação:", emailError);
+      logger.error({ err: emailError }, "[register] falha ao enviar email de verificação");
     }
 
     return NextResponse.json(

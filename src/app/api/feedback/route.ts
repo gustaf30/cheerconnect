@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
+import logger from "@/lib/logger";
 import { rateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 import { Resend } from "resend";
 
@@ -60,9 +61,9 @@ export async function POST(request: NextRequest) {
     const userEmail = session.user.email || "sem email";
 
     if (!resend) {
-      console.log("[feedback] RESEND_API_KEY not set — dev fallback");
-      console.log(`[feedback] From: ${userName} (${userEmail})`);
-      console.log(`[feedback] Message: ${message}`);
+      logger.info("[feedback] RESEND_API_KEY não configurada — fallback dev");
+      logger.info(`[feedback] De: ${userName} (${userEmail})`);
+      logger.info(`[feedback] Mensagem: ${message}`);
       return NextResponse.json({ success: true });
     }
 
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (sendError) {
-      console.error("[feedback] Resend error:", sendError);
+      logger.error({ err: sendError }, "[feedback] erro Resend");
       return NextResponse.json(
         { error: "Falha ao enviar feedback" },
         { status: 500 }

@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import logger from "./logger";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -9,8 +10,8 @@ export async function sendVerificationEmail(email: string, token: string) {
   const verificationUrl = `${baseUrl}/api/auth/verify-email?token=${token}`;
 
   if (!resend) {
-    console.log("[email] RESEND_API_KEY not set — dev fallback");
-    console.log(`[email] Verification URL for ${email}: ${verificationUrl}`);
+    logger.info("[email] RESEND_API_KEY não configurada — fallback dev");
+    logger.info(`[email] URL de verificação para ${email}: ${verificationUrl}`);
     return;
   }
 
@@ -33,9 +34,9 @@ export async function sendVerificationEmail(email: string, token: string) {
   });
 
   if (error) {
-    console.error("[email] Resend error:", error);
+    logger.error({ err: error }, "[email] erro Resend");
     throw new Error(`Falha ao enviar email: ${error.message}`);
   }
 
-  console.log(`[email] Verification email sent to ${email} (id: ${data?.id})`);
+  logger.info(`[email] email de verificação enviado para ${email} (id: ${data?.id})`);
 }
