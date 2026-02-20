@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAuth, handleZodError, internalError, getConnectedUserIds } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, getConnectedUserIds, parsePaginationLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const achievementSchema = z.object({
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId") || session.user.id;
     const cursor = searchParams.get("cursor");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "10") || 10, 50);
+    const limit = parsePaginationLimit(searchParams, 10);
 
     // Authorization: if viewing another user's achievements, check visibility
     if (userId !== session.user.id) {

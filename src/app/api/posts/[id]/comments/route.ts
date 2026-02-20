@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAuth, handleZodError, internalError, getBlockedUserIds } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, getBlockedUserIds, parsePaginationLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 
@@ -23,7 +23,7 @@ export async function GET(
 
     const sort = searchParams.get("sort") || "popular"; // "popular" ou "recent"
     const cursor = searchParams.get("cursor");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "10"), 50);
+    const limit = parsePaginationLimit(searchParams, 10);
 
     // Verificar se o post existe
     const post = await prisma.post.findUnique({

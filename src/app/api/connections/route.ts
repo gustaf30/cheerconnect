@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
-import { requireAuth, handleZodError, internalError, getBlockedUserIds } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, getBlockedUserIds, parsePaginationLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 const createConnectionSchema = z.object({
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status") || "ACCEPTED";
     const cursor = searchParams.get("cursor");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
+    const limit = parsePaginationLimit(searchParams);
 
     const blockedIds = await getBlockedUserIds(session.user.id);
 

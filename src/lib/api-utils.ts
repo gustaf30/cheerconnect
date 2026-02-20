@@ -119,6 +119,18 @@ export async function getConversationWithAccessCheck(
 }
 
 /**
+ * Extrai e limita o parâmetro "limit" de paginação dos searchParams.
+ */
+export function parsePaginationLimit(
+  searchParams: URLSearchParams,
+  defaultLimit = 20,
+  maxLimit = 50
+): number {
+  const raw = parseInt(searchParams.get("limit") || String(defaultLimit));
+  return Math.min(raw > 0 ? raw : defaultLimit, maxLimit);
+}
+
+/**
  * Helper para metadados de paginação por cursor.
  */
 export function cursorPaginationMeta<T extends Record<string, unknown>>(

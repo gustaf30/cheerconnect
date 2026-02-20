@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, parsePaginationLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 interface RouteParams {
@@ -33,7 +33,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 
     const { searchParams } = new URL(request.url);
     const cursor = searchParams.get("cursor");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "10"), 50);
+    const limit = parsePaginationLimit(searchParams, 10);
 
     const achievements = await prisma.teamAchievement.findMany({
       where: { teamId: team.id },

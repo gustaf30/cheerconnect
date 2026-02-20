@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAuth, internalError, getBlockedUserIds, getConnectedUserIds } from "@/lib/api-utils";
+import { requireAuth, internalError, getBlockedUserIds, getConnectedUserIds, parsePaginationLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { Position } from "@prisma/client";
 
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     const query = searchParams.get("q")?.slice(0, 200) || "";
     const position = searchParams.get("position");
     const location = searchParams.get("location");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
+    const limit = parsePaginationLimit(searchParams);
     const cursor = searchParams.get("cursor");
 
     // Buscar IDs de usuários conectados e bloqueados em paralelo

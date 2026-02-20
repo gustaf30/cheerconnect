@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, parsePaginationLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { Position } from "@prisma/client";
 
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const cursor = searchParams.get("cursor");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "20") || 20, 50);
+    const limit = parsePaginationLimit(searchParams);
 
     const careerHistory = await prisma.careerHistory.findMany({
       where: { userId: session.user.id },
