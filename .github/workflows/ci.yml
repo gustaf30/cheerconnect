@@ -116,8 +116,17 @@ jobs:
           done
           curl -sf http://localhost:3000/api/health || { echo "app não subiu"; exit 1; }
 
+      - name: Instala o k6
+        uses: grafana/setup-k6-action@v1.2.2
+
       - name: Carga de leitura
-        uses: grafana/setup-k6-action@v0.3.1
-        with:
-          k6file: tests/load/main.js
-          args: -e LOAD_BASE_URL=http://localhost:3000 -e LOAD_DURATION=45s -e LOAD_AUTH_USERS=8 -e LOAD_READ_ONLY=true -e LOAD_PASSWORD=123456 --quiet --no-color
+        run: |
+          k6 run \
+            -e LOAD_BASE_URL=http://localhost:3000 \
+            -e LOAD_DURATION=45s \
+            -e LOAD_AUTH_USERS=8 \
+            -e LOAD_READ_ONLY=true \
+            -e LOAD_PASSWORD=123456 \
+            -e LOAD_USERS=30 \
+            --quiet --no-color \
+            tests/load/main.js
