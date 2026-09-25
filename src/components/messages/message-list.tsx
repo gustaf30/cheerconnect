@@ -17,10 +17,9 @@ import {
 interface MessageListProps {
   conversationId: string;
   currentUserId: string;
-  onNewMessage?: () => void;
 }
 
-export function MessageList({ conversationId, currentUserId, onNewMessage }: MessageListProps) {
+export function MessageList({ conversationId, currentUserId }: MessageListProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -29,6 +28,7 @@ export function MessageList({ conversationId, currentUserId, onNewMessage }: Mes
   const containerRef = useRef<HTMLDivElement>(null);
   const lastMessageCountRef = useRef(0);
   const isInitialLoadRef = useRef(true);
+  const lastStreamCursorRef = useRef<string | null>(null);
   const shouldReduceMotion = useReducedMotion();
 
   const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
@@ -52,10 +52,14 @@ export function MessageList({ conversationId, currentUserId, onNewMessage }: Mes
 
       if (cursor) {
         // Adicionar mensagens antigas no início
-        setMessages((prev) => [...data.messages, ...prev]);
-      } else {
-        setMessages(data.messages);
-        lastMessageCountRef.current = data.messages.length;
+        setMessages((prev) => [...data.messages, ...prev].sort((a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() ||
+          a.id.localeCompare(b.id)
+        ));
+       } else {
+         setMessages([...data.messages].reverse());
+         lastStreamCursorRef.current = data.messages[0]?.id ?? null;
+         lastMessageCountRef.current = data.messages.length;
         // Mark initial load complete after first successful fetch
         setTimeout(() => {
           isInitialLoadRef.current = false;
@@ -102,42 +106,69 @@ export function MessageList({ conversationId, currentUserId, onNewMessage }: Mes
     }
   }, [isLoading, messages.length]);
 
-  // Real-time via SSE
+  useEffect(() => {
+    const handleMessageSent = (event: Event) => {
+      const detail = (event as CustomEvent<{ conversationId: string; message: Message }>).detail;
+      if (!detail || detail.conversationId !== conversationId) return;
+      setMessages((prev) => {
+        if (prev.some((message) => message.id === detail.message.id)) return prev;
+        return [...prev, detail.message].sort((a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() ||
+          a.id.localeCompare(b.id)
+        );
+      });
+    };
+    window.addEventListener("cheerconnect:message-sent", handleMessageSent);
+    return () => window.removeEventListener("cheerconnect:message-sent", handleMessageSent);
+  }, [conversationId]);
+
   useEffect(() => {
     let eventSource: EventSource | null = null;
     let retryDelay = 1000;
-    let retryTimeout: ReturnType<typeof setTimeout>;
+    let retryTimeout: ReturnType<typeof setTimeout> | undefined;
+    let stopped = false;
+    let pageVisible = !document.hidden;
 
     const connect = () => {
+      if (stopped) return;
+      const params = new URLSearchParams();
+      if (!pageVisible) params.set("idle", "true");
+      if (lastStreamCursorRef.current) params.set("cursor", lastStreamCursorRef.current);
+      const query = params.toString();
       eventSource = new EventSource(
-        `/api/conversations/${conversationId}/messages/stream`
+        `/api/conversations/${conversationId}/messages/stream${query ? `?${query}` : ""}`
       );
 
       eventSource.onopen = () => {
-        retryDelay = 1000; // Reset backoff on successful connection
+        retryDelay = 1000;
       };
 
       eventSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
           if (data.type === "new_messages" && data.messages?.length > 0) {
+            if (event.lastEventId) lastStreamCursorRef.current = event.lastEventId;
+            else lastStreamCursorRef.current = data.messages[data.messages.length - 1]?.id ?? lastStreamCursorRef.current;
             setMessages((prev) => {
-              const existingIds = new Set(prev.map((m) => m.id));
-              const newMsgs = data.messages.filter(
-                (m: Message) => !existingIds.has(m.id)
-              );
-              return newMsgs.length > 0 ? [...prev, ...newMsgs] : prev;
+              const existingIds = new Set(prev.map((message) => message.id));
+              const newMessages = data.messages.filter((message: Message) => !existingIds.has(message.id));
+              return newMessages.length > 0
+                ? [...prev, ...newMessages].sort((a, b) =>
+                    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() || a.id.localeCompare(b.id)
+                  )
+                : prev;
             });
-            markAsRead();
-            onNewMessage?.();
+            void markAsRead();
           }
         } catch {
-          // Ignore parse errors
+          return;
         }
       };
 
       eventSource.onerror = () => {
+        if (stopped) return;
         eventSource?.close();
+        eventSource = null;
         retryTimeout = setTimeout(() => {
           retryDelay = Math.min(retryDelay * 2, 30000);
           connect();
@@ -145,13 +176,33 @@ export function MessageList({ conversationId, currentUserId, onNewMessage }: Mes
       };
     };
 
+    const handleOnline = () => {
+      clearTimeout(retryTimeout);
+      eventSource?.close();
+      connect();
+    };
+    const handleVisibilityChange = () => {
+      const nextVisible = !document.hidden;
+      if (nextVisible === pageVisible) return;
+      pageVisible = nextVisible;
+      clearTimeout(retryTimeout);
+      eventSource?.close();
+      eventSource = null;
+      connect();
+    };
+
     connect();
+    window.addEventListener("online", handleOnline);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
+      stopped = true;
       eventSource?.close();
-      clearTimeout(retryTimeout);
+      if (retryTimeout) clearTimeout(retryTimeout);
+      window.removeEventListener("online", handleOnline);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [conversationId, markAsRead, onNewMessage]);
+  }, [conversationId, markAsRead]);
 
   // Carregar mais ao rolar para o topo
   const handleScroll = useCallback(() => {

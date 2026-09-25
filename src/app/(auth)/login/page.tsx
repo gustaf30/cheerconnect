@@ -37,8 +37,9 @@ export default function LoginPage() {
     try {
       const result = await signIn("credentials", {
         email: data.email,
-        password: data.password,
-        redirect: false,
+         password: data.password,
+         redirect: false,
+         callbackUrl: "/feed",
       });
 
       if (result?.error) {
@@ -102,38 +103,44 @@ export default function LoginPage() {
         className="space-y-8"
       >
         <motion.div variants={itemVariants} className="floating-label-group relative flex flex-col">
-          <input
-            type="email"
-            placeholder=" "
+           <input
+             id="login-email"
+             type="email"
+             placeholder=" "
+             aria-invalid={Boolean(form.formState.errors.email)}
+             aria-describedby={form.formState.errors.email ? "login-email-error" : undefined}
             disabled={isLoading}
             {...form.register("email")}
             className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-fast outline-none text-foreground font-medium"
           />
-          <label className="absolute left-0 pointer-events-none transition-slow font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
-            Endereço de Email
-          </label>
+           <label htmlFor="login-email" className="absolute left-0 pointer-events-none transition-slow font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
+             Endereço de Email
+           </label>
           {form.formState.errors.email && (
-            <p className="text-destructive text-sm mt-1">
-              {form.formState.errors.email.message}
-            </p>
+             <p id="login-email-error" role="alert" className="text-destructive text-sm mt-1">
+               {form.formState.errors.email.message}
+             </p>
           )}
         </motion.div>
 
         <motion.div variants={itemVariants} className="floating-label-group relative flex flex-col">
-          <input
-            type="password"
-            placeholder=" "
+           <input
+             id="login-password"
+             type="password"
+             placeholder=" "
+             aria-invalid={Boolean(form.formState.errors.password)}
+             aria-describedby={form.formState.errors.password ? "login-password-error" : undefined}
             disabled={isLoading}
             {...form.register("password")}
             className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-fast outline-none text-foreground font-medium"
           />
-          <label className="absolute left-0 pointer-events-none transition-slow font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
-            Sua Senha
-          </label>
+           <label htmlFor="login-password" className="absolute left-0 pointer-events-none transition-slow font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
+             Sua Senha
+           </label>
           {form.formState.errors.password && (
-            <p className="text-destructive text-sm mt-1">
-              {form.formState.errors.password.message}
-            </p>
+             <p id="login-password-error" role="alert" className="text-destructive text-sm mt-1">
+               {form.formState.errors.password.message}
+             </p>
           )}
         </motion.div>
 
@@ -190,9 +197,18 @@ export default function LoginPage() {
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               fill="#EA4335"
             />
-          </svg>
-          Continuar com Google
-        </button>
+           </svg>
+           Continuar com Google
+         </button>
+       </motion.div>
+
+       <motion.div variants={itemVariants} className="mt-6 text-center">
+        <Link
+          href="/verify-email"
+          className="text-sm text-muted-foreground hover:text-foreground transition-fast"
+        >
+          Não verificou seu email? Reenviar link
+        </Link>
       </motion.div>
 
       <motion.div variants={itemVariants} className="mt-12 text-center">

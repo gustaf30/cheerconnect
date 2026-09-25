@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
-import { requireAuth, internalError } from "@/lib/api-utils";
+import { requireAuth, internalError, areUsersBlocked } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { publishRealtimeEvent } from "@/lib/realtime-bus";
 
-// POST /api/posts/[id]/like - Curtir/descurtir um post (toggle)
+// POST /api/posts/[id]/like - Curtir um post de forma idempotente
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -28,6 +29,13 @@ export async function POST(
       return NextResponse.json(
         { error: "Post não encontrado" },
         { status: 404 }
+      );
+    }
+
+    if (await areUsersBlocked(session.user.id, post.author.id)) {
+      return NextResponse.json(
+        { error: "Não é possível interagir com esta publicação" },
+        { status: 403 }
       );
     }
 
@@ -70,23 +78,19 @@ export async function POST(
         }
       });
 
-      return NextResponse.json({ liked: true });
-    } catch (err) {
-      if (
-        err instanceof Prisma.PrismaClientKnownRequestError &&
-        err.code === "P2002"
-      ) {
-        // Already liked — toggle off
-        await prisma.like.deleteMany({
-          where: {
-            userId: session.user.id,
-            postId,
-          },
-        });
-        return NextResponse.json({ liked: false });
-      }
-      throw err;
-    }
+       if (post.author.id !== session.user.id) {
+         publishRealtimeEvent({ userId: post.author.id, type: "notification" });
+       }
+       return NextResponse.json({ liked: true });
+     } catch (err) {
+       if (
+         err instanceof Prisma.PrismaClientKnownRequestError &&
+         err.code === "P2002"
+       ) {
+         return NextResponse.json({ liked: true });
+       }
+       throw err;
+     }
   } catch (error) {
     return internalError("Erro ao curtir post", error);
   }

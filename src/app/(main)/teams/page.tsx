@@ -285,7 +285,7 @@ export default function TeamsPage() {
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-display font-semibold truncate">{team.name}</h3>
+                           <h2 className="font-display font-semibold truncate">{team.name}</h2>
                           <div className="flex items-center gap-2 mt-1">
                             <Badge variant="gradient" className="text-xs">
                               {categoryLabels[team.category] || team.category}
@@ -358,7 +358,7 @@ export default function TeamsPage() {
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-display font-semibold truncate">{team.name}</h3>
+                         <h2 className="font-display font-semibold truncate">{team.name}</h2>
                         <div className="flex items-center gap-2 mt-1">
                           <Badge variant="gradient" className="text-xs">
                             {categoryLabels[team.category] || team.category}

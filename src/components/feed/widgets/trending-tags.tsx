@@ -36,7 +36,7 @@ export function TrendingTags() {
     <div className="bento-card-static shadow-depth-1 p-4">
       <div className="flex items-center gap-2 mb-3">
         <TrendingUp className="h-4 w-4 text-primary" />
-        <h3 className="font-display font-bold text-sm">Em Alta</h3>
+         <h2 className="font-display font-bold text-sm">Em Alta</h2>
       </div>
 
       {loading ? (

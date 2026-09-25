@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { requireAuth, internalError } from "@/lib/api-utils";
+import { requireAuth, internalError, areUsersBlocked } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { publishRealtimeEvent } from "@/lib/realtime-bus";
 
 // POST /api/connections/[id]/accept - Aceitar solicitação de conexão
 export async function POST(
@@ -12,6 +13,13 @@ export async function POST(
     if (error) return error;
 
     const { id: senderId } = await params;
+
+    if (await areUsersBlocked(session.user.id, senderId)) {
+      return NextResponse.json(
+        { error: "Não é possível aceitar uma conexão de um usuário bloqueado" },
+        { status: 403 }
+      );
+    }
 
     // Encontrar conexão pendente onde o usuário atual é o receptor
     const connection = await prisma.connection.findFirst({
@@ -50,14 +58,34 @@ export async function POST(
       location: true,
     } as const;
 
-    const updatedConnection = await prisma.connection.update({
-      where: { id: connection.id },
+    const claimed = await prisma.connection.updateMany({
+      where: {
+        id: connection.id,
+        receiverId: session.user.id,
+        status: "PENDING",
+      },
       data: { status: "ACCEPTED" },
+    });
+    if (claimed.count !== 1) {
+      return NextResponse.json(
+        { error: "Solicitação já foi processada" },
+        { status: 409 }
+      );
+    }
+
+    const updatedConnection = await prisma.connection.findUnique({
+      where: { id: connection.id },
       include: {
         sender: { select: userSelect },
         receiver: { select: userSelect },
       },
     });
+    if (!updatedConnection) {
+      return NextResponse.json(
+        { error: "Solicitação não encontrada" },
+        { status: 404 }
+      );
+    }
 
     // Criar notificação para o remetente original (se habilitado)
     if (senderPrefs?.notifyConnectionAccepted) {
@@ -74,7 +102,8 @@ export async function POST(
       });
     }
 
-    return NextResponse.json({ connection: updatedConnection });
+     publishRealtimeEvent({ userId: senderId, type: "notification" });
+     return NextResponse.json({ connection: updatedConnection });
   } catch (error) {
     return internalError("Erro ao aceitar conexão", error);
   }

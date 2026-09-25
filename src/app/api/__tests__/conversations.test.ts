@@ -73,11 +73,11 @@ describe("GET /api/conversations", () => {
     expect(data.nextCursor).toBeNull();
   });
 
-  it("returns nextCursor when results match limit", async () => {
+  it("returns nextCursor when the database reports another page", async () => {
     const session = mockSession();
     mockGetServerSession.mockResolvedValue(session);
 
-    const mockConversations = Array.from({ length: 2 }, (_, i) => ({
+     const mockConversations = Array.from({ length: 3 }, (_, i) => ({
       id: `conv-${i + 1}`,
       participant1Id: "test-user-id",
       participant2Id: `user-${i}`,
@@ -276,8 +276,10 @@ describe("POST /api/conversations", () => {
     expect(mockPrisma.conversation.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: {
-          participant1Id: "test-user-id",
-          participant2Id: "other-user",
+           participant1Id: "test-user-id",
+           participant2Id: "other-user",
+           pairKey: "other-user:test-user-id",
+
         },
       })
     );

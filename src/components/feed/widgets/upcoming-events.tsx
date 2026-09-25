@@ -61,7 +61,7 @@ export function UpcomingEvents() {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <CalendarDays className="h-4 w-4 text-primary" />
-          <h3 className="font-display font-bold text-sm">Próximos Eventos</h3>
+           <h2 className="font-display font-bold text-sm">Próximos Eventos</h2>
         </div>
         <Link
           href="/events"

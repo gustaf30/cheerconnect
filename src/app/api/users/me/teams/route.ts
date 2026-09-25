@@ -36,7 +36,7 @@ export async function GET(request: Request) {
             : {},
         ],
       },
-      orderBy: { name: "asc" },
+       orderBy: [{ name: "asc" }, { id: "asc" }],
       select: {
         id: true,
         name: true,
@@ -53,13 +53,16 @@ export async function GET(request: Request) {
           },
         },
       },
-      take: limit,
+      take: limit + 1,
       ...(cursor && { skip: 1, cursor: { id: cursor } }),
     });
 
-    const nextCursor = teams.length === limit ? teams[teams.length - 1]?.id : null;
-
-    return NextResponse.json({ teams, nextCursor });
+     const hasMore = teams.length > limit;
+    const pageTeams = hasMore ? teams.slice(0, limit) : teams;
+    return NextResponse.json({
+      teams: pageTeams,
+      nextCursor: hasMore ? pageTeams[pageTeams.length - 1]?.id ?? null : null,
+    });
   } catch (error) {
     return internalError("Erro ao buscar equipes do usuário", error);
   }

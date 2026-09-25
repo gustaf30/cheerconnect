@@ -22,6 +22,10 @@ import {
   UPLOAD_MAX_RETRIES,
   UPLOAD_INITIAL_BACKOFF_MS,
   UPLOAD_MAX_CONCURRENT,
+  ALLOWED_IMAGE_MIME_TYPES,
+  ALLOWED_VIDEO_MIME_TYPES,
+  ALLOWED_IMAGE_ACCEPT,
+  ALLOWED_VIDEO_ACCEPT,
 } from "@/lib/constants";
 import { POST_PLACEHOLDERS } from "@/lib/placeholders";
 import { UserProfile } from "@/types";
@@ -60,6 +64,7 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const mediaFilesRef = useRef<MediaFile[]>([]);
 
   useEffect(() => {
     if (session?.user) {
@@ -69,12 +74,15 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
     }
   }, [session]);
 
-  // Limpar URLs de preview ao desmontar
+  useEffect(() => {
+    mediaFilesRef.current = mediaFiles;
+  }, [mediaFiles]);
+
   useEffect(() => {
     return () => {
-      mediaFiles.forEach((media) => URL.revokeObjectURL(media.preview));
+      mediaFilesRef.current.forEach((media) => URL.revokeObjectURL(media.preview));
     };
-  }, [mediaFiles]);
+  }, []);
 
   /** Comprime imagem se maior que o threshold */
   const compressImage = useCallback(async (file: File): Promise<File> => {
@@ -108,7 +116,7 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
     const newFiles: MediaFile[] = [];
     for (let i = 0; i < Math.min(files.length, remainingSlots); i++) {
       const file = files[i];
-      if (!file.type.startsWith("image/")) continue;
+      if (!ALLOWED_IMAGE_MIME_TYPES.has(file.type)) continue;
       if (file.size > MAX_IMAGE_SIZE) {
         toast.error(`${file.name} é muito grande. Máximo: ${MAX_IMAGE_SIZE / (1024 * 1024)}MB`);
         continue;
@@ -138,7 +146,7 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
     }
 
     const file = files[0];
-    if (!file.type.startsWith("video/")) {
+    if (!ALLOWED_VIDEO_MIME_TYPES.has(file.type)) {
       toast.error("Selecione um arquivo de vídeo");
       return;
     }
@@ -165,14 +173,19 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
   };
 
   /** Get signed upload params from server (lightweight, no file body) */
-  const getUploadSignature = useCallback(async (): Promise<{
+  const getUploadSignature = useCallback(async (
+    resourceType: "image" | "video"
+  ): Promise<{
     signature: string;
     timestamp: number;
     apiKey: string;
     cloudName: string;
     folder: string;
+    allowedFormats: string;
+    assetId: string;
+    uploadToken: string;
   }> => {
-    const res = await fetch("/api/upload/sign", { method: "POST" });
+    const res = await fetch(`/api/upload/sign?resourceType=${resourceType}`, { method: "POST" });
     if (!res.ok) throw new Error("Erro ao obter assinatura de upload");
     return res.json();
   }, []);
@@ -182,18 +195,35 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
     async (
       media: MediaFile,
       onProgress?: (loaded: number, total: number) => void,
-    ): Promise<{ url: string; type: "image" | "video" }> => {
+    ): Promise<{
+      url: string;
+      type: "image" | "video";
+      assetId: string;
+      uploadToken: string;
+      publicId: string;
+      bytes?: number;
+      width?: number;
+      height?: number;
+      mimeType?: string;
+    }> => {
       const timeout = media.type === "video" ? VIDEO_UPLOAD_TIMEOUT : IMAGE_UPLOAD_TIMEOUT;
 
       // Get signed params once per upload attempt group
-      const signData = await getUploadSignature();
+      const signData = await getUploadSignature(media.type);
       const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${signData.cloudName}/auto/upload`;
 
       let lastError: Error | null = null;
 
       for (let attempt = 0; attempt < UPLOAD_MAX_RETRIES; attempt++) {
         try {
-          const result = await new Promise<{ url: string; type: "image" | "video" }>(
+          const result = await new Promise<{
+            url: string;
+            type: "image" | "video";
+            publicId: string;
+            bytes?: number;
+            width?: number;
+            height?: number;
+          }>(
             (resolve, reject) => {
               const xhr = new XMLHttpRequest();
               const timer = setTimeout(() => {
@@ -213,7 +243,14 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
                   try {
                     const data = JSON.parse(xhr.responseText);
                     const type: "image" | "video" = data.resource_type === "video" ? "video" : "image";
-                    resolve({ url: data.secure_url, type });
+                    resolve({
+                      url: data.secure_url,
+                      type,
+                      publicId: data.public_id,
+                      bytes: data.bytes,
+                      width: data.width,
+                      height: data.height,
+                    });
                   } catch {
                     reject(new Error("Resposta inválida do servidor"));
                   }
@@ -239,13 +276,37 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
               formData.append("timestamp", String(signData.timestamp));
               formData.append("signature", signData.signature);
               formData.append("folder", signData.folder);
+              formData.append("allowed_formats", signData.allowedFormats);
 
               xhr.open("POST", cloudinaryUrl);
               xhr.send(formData);
             },
           );
 
-          return result;
+          const completeResponse = await fetch("/api/upload/complete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              assetId: signData.assetId,
+              uploadToken: signData.uploadToken,
+              url: result.url,
+              publicId: result.publicId,
+              bytes: result.bytes,
+              width: result.width,
+              height: result.height,
+              mimeType: media.file.type,
+            }),
+          });
+          if (!completeResponse.ok) {
+            throw new Error("Não foi possível registrar o arquivo enviado");
+          }
+
+          return {
+            ...result,
+            assetId: signData.assetId,
+            uploadToken: signData.uploadToken,
+            mimeType: media.file.type,
+          };
         } catch (err) {
           lastError = err instanceof Error ? err : new Error(String(err));
           const status = (lastError as UploadError).status ?? null;
@@ -388,7 +449,9 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
           </Avatar>
           <div className="flex-1 space-y-3">
             <textarea
-              placeholder={POST_PLACEHOLDERS[Math.floor(Math.random() * POST_PLACEHOLDERS.length)]}
+               placeholder={POST_PLACEHOLDERS[0]}
+               aria-label="Conteúdo da publicação"
+
               value={content}
               onChange={(e) => setContent(e.target.value)}
               onFocus={() => setIsFocused(true)}
@@ -462,7 +525,7 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
                 <input
                   ref={imageInputRef}
                   type="file"
-                  accept="image/*"
+                  accept={ALLOWED_IMAGE_ACCEPT}
                   multiple
                   onChange={handleImageSelect}
                   className="hidden"
@@ -479,7 +542,7 @@ export function CreatePostCard({ onPostCreated }: { onPostCreated?: () => void }
                 <input
                   ref={videoInputRef}
                   type="file"
-                  accept="video/*"
+                  accept={ALLOWED_VIDEO_ACCEPT}
                   onChange={handleVideoSelect}
                   className="hidden"
                 />

@@ -95,43 +95,48 @@ export function NotificationItem({ notification, onRead, onNavigate, showMarkAsR
   };
 
   return (
-    <Link
-      href={getNotificationLink(notification)}
-      onClick={handleClick}
+    <div
       style={style}
       className={cn(
-        "flex items-start gap-3 p-4 hover:bg-muted/50 transition-base group/notif hover-flash",
+        "flex items-start gap-2 p-4 hover:bg-muted/50 transition-base group/notif hover-flash",
         !notification.isRead && "bg-primary/5"
       )}
     >
-      <div className="relative">
-        <Avatar className="h-10 w-10 ring-2 ring-transparent hover:ring-primary/20 transition-base">
-          <AvatarImage
-            src={notification.actor?.avatar || undefined}
-            alt={notification.actor?.name || ""}
-            className="object-cover"
-          />
-          <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-            {notification.actor?.name ? getInitials(notification.actor.name) : "?"}
-          </AvatarFallback>
-        </Avatar>
-        <div className="absolute -bottom-1 -right-1 rounded-full bg-background p-0.5 shadow-sm">
-          {getNotificationIcon(notification.type)}
+      <Link
+        href={getNotificationLink(notification)}
+        onClick={handleClick}
+        className="flex min-w-0 flex-1 items-start gap-3"
+      >
+        <div className="relative">
+          <Avatar className="h-10 w-10 ring-2 ring-transparent hover:ring-primary/20 transition-base">
+            <AvatarImage
+              src={notification.actor?.avatar || undefined}
+              alt={notification.actor?.name || ""}
+              className="object-cover"
+            />
+            <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+              {notification.actor?.name ? getInitials(notification.actor.name) : "?"}
+            </AvatarFallback>
+          </Avatar>
+          <div className="absolute -bottom-1 -right-1 rounded-full bg-background p-0.5 shadow-sm">
+            {getNotificationIcon(notification.type)}
+          </div>
         </div>
-      </div>
 
-      <div className="flex-1 min-w-0">
-        <p className={cn("text-sm transition-fast", !notification.isRead && "font-medium")}>
-          {notification.message}
-        </p>
-        <time dateTime={new Date(notification.createdAt).toISOString()} className="text-xs text-muted-foreground mt-0.5 block">
-          {formatTimeAgo(notification.createdAt)}
-        </time>
-      </div>
+        <div className="flex-1 min-w-0">
+          <p className={cn("text-sm transition-fast", !notification.isRead && "font-medium")}>
+            {notification.message}
+          </p>
+          <time dateTime={new Date(notification.createdAt).toISOString()} className="text-xs text-muted-foreground mt-0.5 block">
+            {formatTimeAgo(notification.createdAt)}
+          </time>
+        </div>
+      </Link>
 
       {!notification.isRead && (
         showMarkAsRead ? (
           <button
+            type="button"
             onClick={handleMarkAsRead}
             className="shrink-0 mt-1 p-1.5 rounded-full text-primary/60 hover:text-primary hover:bg-primary/10 transition-base cursor-pointer opacity-0 group-hover/notif:opacity-100 focus-visible:opacity-100"
             aria-label="Marcar como lida"
@@ -143,6 +148,6 @@ export function NotificationItem({ notification, onRead, onNavigate, showMarkAsR
           <div className="h-2 w-2 rounded-full bg-gradient-to-br from-primary to-[oklch(0.45_0.20_25)] mt-2 shrink-0 animate-pulse" />
         )
       )}
-    </Link>
+    </div>
   );
 }

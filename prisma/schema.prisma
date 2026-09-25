@@ -17,48 +17,48 @@ datasource db {
 
 // ============ USUÁRIOS ============
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String
-  username      String    @unique
-  password      String?   // null se usar OAuth
-  avatar        String?
+  id             String    @id @default(cuid())
+  email          String    @unique
+  name           String
+  username       String    @unique
+  password       String? // null se usar OAuth
+  avatar         String?
   avatarPublicId String?
-  banner        String?
+  banner         String?
   bannerPublicId String?
-  bio           String?
-  location      String?
-  birthDate     DateTime?
+  bio            String?
+  location       String?
+  birthDate      DateTime?
 
   // Perfil de Cheerleading
-  positions     Position[]
-  experience    Int?        // Anos de experiência
-  skills        String[]
-  achievements  Achievement[]
+  positions    Position[]
+  experience   Int? // Anos de experiência
+  skills       String[]
+  achievements Achievement[]
 
   // Currículo - histórico de times
   careerHistory CareerHistory[]
 
   // Relações
-  posts         Post[]
-  comments      Comment[]
-  likes         Like[]
-  commentLikes  CommentLike[]
-  teamMembers   TeamMember[]
-  teamFollows   TeamFollow[]
-  events        Event[]
+  posts        Post[]
+  comments     Comment[]
+  likes        Like[]
+  commentLikes CommentLike[]
+  teamMembers  TeamMember[]
+  teamFollows  TeamFollow[]
+  events       Event[]
 
   // Conexões (relacionamento N:N consigo mesmo)
   sentConnections     Connection[] @relation("ConnectionSender")
   receivedConnections Connection[] @relation("ConnectionReceiver")
 
   // NextAuth
-  accounts      Account[]
-  sessions      Session[]
+  accounts Account[]
+  sessions Session[]
 
   // Notificações
-  notifications       Notification[] @relation("UserNotifications")
-  actedNotifications  Notification[] @relation("NotificationActor")
+  notifications      Notification[] @relation("UserNotifications")
+  actedNotifications Notification[] @relation("NotificationActor")
 
   // Mensagens
   conversationsAsParticipant1 Conversation[] @relation("ConversationParticipant1")
@@ -66,40 +66,47 @@ model User {
   sentMessages                Message[]      @relation("MessageSender")
 
   // Preferências de notificação
-  notifyPostLiked         Boolean @default(true)
-  notifyPostCommented     Boolean @default(true)
-  notifyConnectionRequest Boolean @default(true)
+  notifyPostLiked          Boolean @default(true)
+  notifyPostCommented      Boolean @default(true)
+  notifyConnectionRequest  Boolean @default(true)
   notifyConnectionAccepted Boolean @default(true)
-  notifyCommentReplied    Boolean @default(true)
-  notifyMessageReceived   Boolean @default(true)
-  notifyPostReposted      Boolean @default(true)
-  notifyTeamInvite        Boolean @default(true)
-  notifyMention           Boolean @default(true)
+  notifyCommentReplied     Boolean @default(true)
+  notifyMessageReceived    Boolean @default(true)
+  notifyPostReposted       Boolean @default(true)
+  notifyTeamInvite         Boolean @default(true)
+  notifyMention            Boolean @default(true)
 
   // Configurações de privacidade
-  profileVisibility       ProfileVisibility @default(PUBLIC)
-  showEmail               Boolean @default(false)
+  profileVisibility ProfileVisibility @default(PUBLIC)
+  showEmail         Boolean           @default(false)
 
   // Controle de alteração de username
-  usernameChangedAt       DateTime?
+  usernameChangedAt DateTime?
 
   // Segurança
-  tokenVersion      Int       @default(0)
-  emailVerified     DateTime?
+  tokenVersion  Int       @default(0)
+  emailVerified DateTime?
+  isAdmin       Boolean   @default(false)
+
+  mediaAssets      MediaAsset[]             @relation("OwnedMediaAssets")
+  privacyRequests  PrivacyRequest[]
+  reauthChallenges AccountReauthChallenge[]
+  moderatedReports Report[]                 @relation("ReportsModerated")
 
   // Convites de time
-  teamInvites   TeamInvite[]
+  teamInvitesReceived TeamInvite[] @relation("TeamInviteRecipient")
+  teamInvitesCreated  TeamInvite[] @relation("TeamInviteCreator")
 
   // Menções
-  mentions  Mention[] @relation("MentionedIn")
+  mentions Mention[] @relation("MentionedIn")
 
   // Denúncias e bloqueios
-  reports          Report[] @relation("ReportsMade")
-  blocksMade       Block[]  @relation("BlocksMade")
-  blocksReceived   Block[]  @relation("BlocksReceived")
+  reports        Report[] @relation("ReportsMade")
+  blocksMade     Block[]  @relation("BlocksMade")
+  blocksReceived Block[]  @relation("BlocksReceived")
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum Position {
@@ -157,27 +164,27 @@ model VerificationToken {
 
 // ============ CURRÍCULO (Histórico de Times) ============
 model CareerHistory {
-  id          String         @id @default(cuid())
+  id String @id @default(cuid())
 
-  role        CareerRole
-  positions   Position[]
+  role      CareerRole
+  positions Position[]
 
-  startDate   DateTime
-  endDate     DateTime?
-  isCurrent   Boolean        @default(false)
+  startDate DateTime
+  endDate   DateTime?
+  isCurrent Boolean   @default(false)
 
-  teamName    String
-  teamId      String?
-  team        Team?          @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  teamName String
+  teamId   String?
+  team     Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
 
   description String?
   location    String?
 
-  userId      String
-  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
 }
@@ -199,27 +206,29 @@ model Achievement {
   date        DateTime
   category    String?
 
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
 // ============ CONEXÕES ============
 model Connection {
-  id         String           @id @default(cuid())
-  status     ConnectionStatus @default(PENDING)
+  id     String           @id @default(cuid())
+  status ConnectionStatus @default(PENDING)
 
-  senderId   String
-  sender     User             @relation("ConnectionSender", fields: [senderId], references: [id], onDelete: Cascade)
+  senderId String
+  sender   User   @relation("ConnectionSender", fields: [senderId], references: [id], onDelete: Cascade)
 
   receiverId String
-  receiver   User             @relation("ConnectionReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  receiver   User   @relation("ConnectionReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  pairKey    String
 
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([senderId, receiverId])
+  @@unique([pairKey])
   @@index([senderId, status])
   @@index([receiverId, status])
 }
@@ -232,34 +241,35 @@ enum ConnectionStatus {
 
 // ============ POSTS/FEED ============
 model Post {
-  id        String    @id @default(cuid())
-  content   String
-  images    String[]
-  videoUrl  String?
+  id       String   @id @default(cuid())
+  content  String
+  images   String[]
+  videoUrl String?
 
-  authorId  String
-  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
-  teamId    String?
-  team      Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  teamId String?
+  team   Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
 
   // Repost
   originalPostId String?
   originalPost   Post?   @relation("PostReposts", fields: [originalPostId], references: [id], onDelete: Cascade)
   reposts        Post[]  @relation("PostReposts")
 
-  comments  Comment[]
-  likes     Like[]
+  comments Comment[]
+  likes    Like[]
 
-  isEdited  Boolean    @default(false)
-  edits     PostEdit[]
+  isEdited Boolean    @default(false)
+  edits    PostEdit[]
 
   // Tags e Menções
-  tags      PostTag[]
-  mentions  Mention[]
+  tags        PostTag[]
+  mentions    Mention[]
+  mediaAssets MediaAsset[]
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([authorId, originalPostId])
   @@index([authorId])
@@ -272,11 +282,11 @@ model Post {
 
 // ============ HISTÓRICO DE EDIÇÃO ============
 model PostEdit {
-  id        String   @id @default(cuid())
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  content   String
-  editedAt  DateTime @default(now())
+  id       String   @id @default(cuid())
+  postId   String
+  post     Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  content  String
+  editedAt DateTime @default(now())
 
   @@index([postId])
 }
@@ -284,7 +294,7 @@ model PostEdit {
 // ============ TAGS/MENÇÕES ============
 model Tag {
   id    String    @id @default(cuid())
-  name  String    @unique  // lowercase, sem #
+  name  String    @unique // lowercase, sem #
   posts PostTag[]
 
   createdAt DateTime @default(now())
@@ -313,21 +323,21 @@ model Mention {
 }
 
 model Comment {
-  id        String   @id @default(cuid())
-  content   String
+  id      String @id @default(cuid())
+  content String
 
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   // Relação para respostas (apenas um nível de aninhamento)
-  parentId  String?
-  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies   Comment[] @relation("CommentReplies")
+  parentId String?
+  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Comment[] @relation("CommentReplies")
 
-  likes     CommentLike[]
+  likes CommentLike[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -339,13 +349,13 @@ model Comment {
 }
 
 model CommentLike {
-  id        String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   commentId String
-  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  comment   Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
@@ -353,13 +363,13 @@ model CommentLike {
 }
 
 model Like {
-  id        String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
@@ -370,19 +380,21 @@ model Like {
 
 // ============ EQUIPES ============
 model Team {
-  id          String       @id @default(cuid())
-  name        String
-  slug        String       @unique
-  description String?
-  logo        String?
-  banner      String?
-  location    String?
-  foundedAt   DateTime?
-  website     String?
-  instagram   String?
+  id             String    @id @default(cuid())
+  name           String
+  slug           String    @unique
+  description    String?
+  logo           String?
+  logoPublicId   String?
+  banner         String?
+  bannerPublicId String?
+  location       String?
+  foundedAt      DateTime?
+  website        String?
+  instagram      String?
 
-  category    TeamCategory @default(ALLSTAR)
-  level       String?
+  category TeamCategory @default(ALLSTAR)
+  level    String?
 
   members       TeamMember[]
   followers     TeamFollow[]
@@ -390,10 +402,11 @@ model Team {
   posts         Post[]
   events        Event[]
   careerEntries CareerHistory[]
+  mediaAssets   MediaAsset[]
   invites       TeamInvite[]
 
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum TeamCategory {
@@ -405,22 +418,27 @@ enum TeamCategory {
 }
 
 model TeamMember {
-  id        String     @id @default(cuid())
-  role      String     @default("Atleta")
-  position  String?
-  joinedAt  DateTime   @default(now())
-  leftAt    DateTime?
-  isActive  Boolean    @default(true)
+  id       String    @id @default(cuid())
+  role     String    @default("Atleta")
+  position String?
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime?
+  isActive Boolean   @default(true)
 
   // Permissões
-  hasPermission Boolean @default(false)  // Pode editar equipe, postar, convidar
-  isAdmin       Boolean @default(false)  // Pode gerenciar membros com permissão
+  hasPermission    Boolean @default(false) // Pode editar equipe, postar, convidar
+  isAdmin          Boolean @default(false) // Pode gerenciar membros com permissão
+  canEdit          Boolean @default(false)
+  canPost          Boolean @default(false)
+  canInvite        Boolean @default(false)
+  canManageMembers Boolean @default(false)
+  canDeleteTeam    Boolean @default(false)
 
-  userId    String
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  teamId    String
-  team      Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId String
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@unique([userId, teamId])
   @@index([userId])
@@ -428,13 +446,13 @@ model TeamMember {
 }
 
 model TeamFollow {
-  id        String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  teamId    String
-  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId String
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
@@ -449,26 +467,34 @@ model TeamAchievement {
   date        DateTime
   category    String?
 
-  teamId      String
-  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId String
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 }
 
 model TeamInvite {
-  id        String       @id @default(cuid())
-  teamId    String
-  team      Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role          String       @default("Atleta")
-  hasPermission Boolean      @default(false)
-  isAdmin       Boolean      @default(false)
-  status    InviteStatus @default(PENDING)
-  createdAt DateTime     @default(now())
-  expiresAt DateTime?
+  id               String       @id @default(cuid())
+  teamId           String
+  team             Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User         @relation("TeamInviteRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  invitedById      String?
+  invitedBy        User?        @relation("TeamInviteCreator", fields: [invitedById], references: [id], onDelete: SetNull)
+  role             String       @default("Atleta")
+  hasPermission    Boolean      @default(false)
+  isAdmin          Boolean      @default(false)
+  canEdit          Boolean      @default(false)
+  canPost          Boolean      @default(false)
+  canInvite        Boolean      @default(false)
+  canManageMembers Boolean      @default(false)
+  canDeleteTeam    Boolean      @default(false)
+  status           InviteStatus @default(PENDING)
+  createdAt        DateTime     @default(now())
+  expiresAt        DateTime?
 
   @@unique([teamId, userId])
+  @@index([invitedById])
 }
 
 enum InviteStatus {
@@ -480,23 +506,23 @@ enum InviteStatus {
 
 // ============ EVENTOS ============
 model Event {
-  id          String    @id @default(cuid())
-  name        String
-  description String?
-  location    String
-  startDate   DateTime
-  endDate     DateTime?
-  type        EventType
+  id              String    @id @default(cuid())
+  name            String
+  description     String?
+  location        String
+  startDate       DateTime
+  endDate         DateTime?
+  type            EventType
   registrationUrl String?
 
-  creatorId   String?
-  creator     User?     @relation(fields: [creatorId], references: [id], onDelete: SetNull)
+  creatorId String?
+  creator   User?   @relation(fields: [creatorId], references: [id], onDelete: SetNull)
 
-  teamId      String?
-  team        Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  teamId String?
+  team   Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([startDate])
   @@index([type])
@@ -525,19 +551,19 @@ enum NotificationType {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
 
-  type      NotificationType
-  message   String
-  isRead    Boolean  @default(false)
+  type    NotificationType
+  message String
+  isRead  Boolean          @default(false)
 
-  actorId   String?
-  actor     User?    @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  actorId String?
+  actor   User?   @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
 
   relatedId   String?
-  relatedType String?  // "post", "connection", "conversation"
+  relatedType String? // "post", "connection", "conversation"
 
   createdAt DateTime @default(now())
 
@@ -549,16 +575,17 @@ model Notification {
 
 // ============ MENSAGENS ============
 model Conversation {
-  id               String    @id @default(cuid())
-  participant1Id   String
-  participant1     User      @relation("ConversationParticipant1", fields: [participant1Id], references: [id], onDelete: Cascade)
-  participant2Id   String
-  participant2     User      @relation("ConversationParticipant2", fields: [participant2Id], references: [id], onDelete: Cascade)
-  messages         Message[]
-  lastMessageAt    DateTime?
+  id                 String    @id @default(cuid())
+  participant1Id     String
+  participant1       User      @relation("ConversationParticipant1", fields: [participant1Id], references: [id], onDelete: Cascade)
+  participant2Id     String
+  participant2       User      @relation("ConversationParticipant2", fields: [participant2Id], references: [id], onDelete: Cascade)
+  pairKey            String    @unique
+  messages           Message[]
+  lastMessageAt      DateTime?
   lastMessagePreview String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@unique([participant1Id, participant2Id])
   @@index([participant1Id, lastMessageAt])
@@ -583,19 +610,23 @@ model Message {
 
 // ============ DENÚNCIAS ============
 model Report {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   reason      String
   description String?
 
-  reporterId  String
-  reporter    User     @relation("ReportsMade", fields: [reporterId], references: [id], onDelete: Cascade)
+  reporterId String
+  reporter   User   @relation("ReportsMade", fields: [reporterId], references: [id], onDelete: Cascade)
 
-  contentType String   // "post", "comment", "user"
+  contentType String // "post", "comment", "user"
   contentId   String
 
-  status      ReportStatus @default(PENDING)
+  status         ReportStatus @default(PENDING)
+  moderatorId    String?
+  moderator      User?        @relation("ReportsModerated", fields: [moderatorId], references: [id], onDelete: SetNull)
+  resolutionNote String?
+  resolvedAt     DateTime?
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([reporterId])
   @@index([contentType, contentId])
@@ -610,15 +641,15 @@ enum ReportStatus {
 
 // ============ BLOQUEIOS ============
 model Block {
-  id          String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  userId      String
-  user        User     @relation("BlocksMade", fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation("BlocksMade", fields: [userId], references: [id], onDelete: Cascade)
 
   blockedUserId String
   blockedUser   User   @relation("BlocksReceived", fields: [blockedUserId], references: [id], onDelete: Cascade)
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([userId, blockedUserId])
   @@index([userId])
@@ -627,15 +658,109 @@ model Block {
 
 // ============ AUDIT LOG ============
 model ActivityLog {
-  id          String   @id @default(cuid())
-  action      String   // "MEMBER_UPDATED", "MEMBER_REMOVED", "TEAM_EDITED", etc.
-  entityType  String   // "team", "team_member", "team_invite"
-  entityId    String
-  actorId     String
-  metadata    Json?
-  createdAt   DateTime @default(now())
+  id             String    @id @default(cuid())
+  action         String // "MEMBER_UPDATED", "MEMBER_REMOVED", "TEAM_EDITED", etc.
+  entityType     String // "team", "team_member", "team_invite"
+  entityId       String
+  actorId        String?
+  metadata       Json?
+  retentionUntil DateTime?
+  anonymizedAt   DateTime?
+  createdAt      DateTime  @default(now())
 
   @@index([entityType, entityId])
   @@index([actorId])
   @@index([createdAt])
+}
+
+enum MediaAssetStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum MediaPurpose {
+  POST
+  AVATAR
+  BANNER
+  TEAM_LOGO
+  TEAM_BANNER
+}
+
+model MediaAsset {
+  id              String           @id @default(cuid())
+  url             String?          @unique
+  publicId        String?
+  ownerId         String?
+  owner           User?            @relation("OwnedMediaAssets", fields: [ownerId], references: [id], onDelete: SetNull)
+  postId          String?
+  post            Post?            @relation(fields: [postId], references: [id], onDelete: Cascade)
+  teamId          String?
+  team            Team?            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  purpose         MediaPurpose
+  resourceType    String
+  mimeType        String?
+  bytes           Int?
+  width           Int?
+  height          Int?
+  status          MediaAssetStatus @default(PENDING)
+  uploadTokenHash String?
+  completedAt     DateTime?
+  createdAt       DateTime         @default(now())
+
+  @@index([ownerId, purpose, status])
+  @@index([postId])
+  @@index([teamId])
+  @@index([status, createdAt])
+}
+
+enum AccountReauthPurpose {
+  ACCOUNT_DELETION
+}
+
+model AccountReauthChallenge {
+  id           String               @id @default(cuid())
+  userId       String
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose      AccountReauthPurpose
+  tokenHash    String               @unique
+  tokenVersion Int
+  expiresAt    DateTime
+  verifiedAt   DateTime?
+  consumedAt   DateTime?
+  attempts     Int                  @default(0)
+  createdAt    DateTime             @default(now())
+
+  @@index([userId, purpose, expiresAt])
+  @@index([purpose, verifiedAt, consumedAt])
+}
+
+enum PrivacyRequestType {
+  EXPORT
+  DELETE
+}
+
+enum PrivacyRequestStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  REJECTED
+}
+
+model PrivacyRequest {
+  id                  String               @id @default(cuid())
+  userId              String
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type                PrivacyRequestType
+  status              PrivacyRequestStatus @default(PENDING)
+  requestedAt         DateTime             @default(now())
+  completedAt         DateTime?
+  expiresAt           DateTime?
+  reauthVerifiedAt    DateTime?
+  processingStartedAt DateTime?
+  attempts            Int                  @default(0)
+  lastError           String?
+
+  @@index([userId, status])
+  @@index([status, requestedAt])
 }

@@ -67,15 +67,17 @@ export default async function LandingPage() {
             </button>
           </Link>
           <Link href="/register">
-            <button className="px-5 py-2.5 bg-primary hover:bg-primary-hover text-white text-sm font-bold rounded-xl transition-base shadow-depth-1 shadow-primary/10 hover:shadow-depth-2 hover:shadow-primary/20">
+             <button className="px-5 py-2.5 bg-primary-dark hover:bg-primary-hover text-white text-sm font-bold rounded-xl transition-base shadow-depth-1 shadow-primary/10 hover:shadow-depth-2 hover:shadow-primary/20">
+
               Cadastrar
             </button>
           </Link>
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="flex-1 flex items-center px-6 md:px-12">
+      <main id="main-content">
+        {/* Hero */}
+        <section className="flex-1 flex items-center px-6 md:px-12">
         <div className="max-w-[1440px] mx-auto w-full py-20 lg:py-28">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <LandingHero />
@@ -110,6 +112,8 @@ export default async function LandingPage() {
           <LandingCTA />
         </div>
       </section>
+
+      </main>
 
       {/* Footer */}
       <footer className="px-6 md:px-12 py-8 border-t">

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { assertDateOrder, dateStringSchema } from "@/lib/validation";
 import { Position } from "@prisma/client";
 
 const positionEnum = z.enum(["FLYER", "BASE", "BACKSPOT", "FRONTSPOT", "TUMBLER", "COACH", "CHOREOGRAPHER", "JUDGE", "OTHER"]);
@@ -9,13 +10,13 @@ const positionEnum = z.enum(["FLYER", "BASE", "BACKSPOT", "FRONTSPOT", "TUMBLER"
 const updateCareerSchema = z.object({
   role: z.enum(["ATHLETE", "COACH", "ASSISTANT_COACH", "CHOREOGRAPHER", "TEAM_MANAGER", "JUDGE", "OTHER"]).optional(),
   positions: z.array(positionEnum).max(10).optional(),
-  startDate: z.string().transform((str) => new Date(str)).optional(),
-  endDate: z.string().transform((str) => new Date(str)).optional().nullable(),
+  startDate: dateStringSchema.optional(),
+  endDate: dateStringSchema.optional().nullable(),
   isCurrent: z.boolean().optional(),
-  teamName: z.string().min(1).optional(),
+  teamName: z.string().trim().min(1).max(150).optional(),
   teamId: z.string().optional().nullable(),
-  description: z.string().optional().nullable(),
-  location: z.string().optional().nullable(),
+  description: z.string().trim().max(2000).optional().nullable(),
+  location: z.string().trim().max(200).optional().nullable(),
 });
 
 // GET /api/career/[id] - Buscar experiência de carreira específica
@@ -87,16 +88,34 @@ export async function PATCH(
 
     const body = await request.json();
     const parsed = updateCareerSchema.parse(body);
+     const nextStartDate = parsed.startDate ?? existing.startDate;
+     const nextEndDate = parsed.endDate === undefined ? existing.endDate : parsed.endDate;
+     const nextIsCurrent = parsed.isCurrent ?? existing.isCurrent;
+     try {
+       assertDateOrder(nextStartDate, nextEndDate);
+     } catch (error) {
+       return NextResponse.json(
+         { error: error instanceof Error ? error.message : "Datas inválidas" },
+         { status: 400 }
+       );
+     }
+     if (nextIsCurrent && nextEndDate) {
+       return NextResponse.json(
+         { error: "Experiência atual não pode ter data de término" },
+         { status: 400 }
+       );
+     }
 
     // Separar teamId para a sintaxe de atualização de relação do Prisma
-    const { teamId, positions, ...restData } = parsed;
+     const { teamId, positions, endDate, ...restData } = parsed;
 
     const career = await prisma.careerHistory.update({
       where: { id },
       data: {
         ...restData,
         // Converter positions para Position[] do Prisma
-        ...(positions !== undefined && { positions: positions as Position[] }),
+         ...(positions !== undefined && { positions: positions as Position[] }),
+         ...(endDate !== undefined && { endDate }),
         // Incluir atualização de relação team apenas se teamId foi explicitamente fornecido
         ...(teamId !== undefined && {
           team: teamId ? { connect: { id: teamId } } : { disconnect: true },

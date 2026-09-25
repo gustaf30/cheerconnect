@@ -152,7 +152,7 @@ export function CitySelector({
         onValueChange={handleStateChange}
         disabled={disabled}
       >
-        <SelectTrigger className="w-[100px]">
+         <SelectTrigger aria-label="Selecionar estado" className="w-[100px]">
           <SelectValue placeholder="UF" />
         </SelectTrigger>
         <SelectContent className="!z-[100]">
@@ -169,8 +169,9 @@ export function CitySelector({
         <PopoverTrigger asChild>
           <Button
             variant="outline"
-            role="combobox"
-            aria-expanded={open}
+             role="combobox"
+             aria-label="Selecionar cidade"
+             aria-expanded={open}
             className="flex-1 justify-between font-normal"
             disabled={disabled || !selectedUF}
           >

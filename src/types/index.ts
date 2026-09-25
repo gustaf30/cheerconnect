@@ -31,6 +31,7 @@ export interface PostData {
     reposts?: number;
   };
   isLiked: boolean;
+  hasReposted?: boolean;
   isEdited?: boolean;
 }
 

@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { parsePaginationLimit } from "@/lib/api-utils";
+import { ReportStatus } from "@prisma/client";
+import { logActivity } from "@/lib/audit";
 
 const createReportSchema = z.object({
   reason: z.string().min(1, "Motivo é obrigatório").max(200),
@@ -66,5 +69,126 @@ export async function POST(request: Request) {
     return NextResponse.json({ report }, { status: 201 });
   } catch (error) {
     return handleZodError(error) ?? internalError("Erro ao criar denúncia", error);
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    const { session, error } = await requireAuth();
+    if (error) return error;
+
+    const moderator = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { isAdmin: true },
+    });
+    if (!moderator?.isAdmin) {
+      return NextResponse.json({ error: "Acesso restrito a administradores" }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const statusParam = searchParams.get("status");
+    if (statusParam && !Object.values(ReportStatus).includes(statusParam as ReportStatus)) {
+      return NextResponse.json({ error: "Status de denúncia inválido" }, { status: 400 });
+    }
+    const status = statusParam as ReportStatus | null;
+    const cursor = searchParams.get("cursor");
+    const limit = parsePaginationLimit(searchParams, 25, 100);
+    const reports = await prisma.report.findMany({
+      where: status ? { status } : {},
+      orderBy: { createdAt: "desc" },
+      take: limit + 1,
+      ...(cursor && { skip: 1, cursor: { id: cursor } }),
+      include: {
+        reporter: { select: { id: true, name: true, username: true } },
+        moderator: { select: { id: true, name: true, username: true } },
+      },
+    });
+    const hasMore = reports.length > limit;
+    const data = hasMore ? reports.slice(0, limit) : reports;
+    const reportsWithContent = await Promise.all(
+      data.map(async (report) => {
+        if (report.contentType === "post") {
+          const content = await prisma.post.findUnique({
+            where: { id: report.contentId },
+            select: {
+              id: true,
+              content: true,
+              author: { select: { id: true, username: true } },
+              createdAt: true,
+            },
+          });
+          return { ...report, content };
+        }
+        if (report.contentType === "comment") {
+          const content = await prisma.comment.findUnique({
+            where: { id: report.contentId },
+            select: {
+              id: true,
+              content: true,
+              author: { select: { id: true, username: true } },
+              postId: true,
+              createdAt: true,
+            },
+          });
+          return { ...report, content };
+        }
+        const content = await prisma.user.findUnique({
+          where: { id: report.contentId },
+          select: { id: true, name: true, username: true, bio: true },
+        });
+        return { ...report, content };
+      })
+    );
+    return NextResponse.json({
+      reports: reportsWithContent,
+      nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null,
+    }, { headers: { "Cache-Control": "private, no-store" } });
+  } catch (error) {
+    return internalError("Erro ao listar denúncias", error);
+  }
+}
+
+const resolveReportSchema = z.object({
+  status: z.enum(["REVIEWED", "RESOLVED", "DISMISSED"]),
+  resolutionNote: z.string().trim().max(1000).optional().nullable(),
+});
+
+export async function PATCH(request: Request) {
+  try {
+    const { session, error } = await requireAuth();
+    if (error) return error;
+
+    const moderator = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { isAdmin: true },
+    });
+    if (!moderator?.isAdmin) {
+      return NextResponse.json({ error: "Acesso restrito a administradores" }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const data = resolveReportSchema.parse(body);
+    const reportId = z.string().min(1).parse(body.id);
+    const report = await prisma.report.update({
+      where: { id: reportId },
+      data: {
+        status: data.status,
+        resolutionNote: data.resolutionNote || null,
+        moderatorId: session.user.id,
+        resolvedAt: data.status === "REVIEWED" ? null : new Date(),
+      },
+    });
+
+    logActivity({
+      action: "REPORT_REVIEWED",
+      entityType: "report",
+      entityId: report.id,
+      actorId: session.user.id,
+      metadata: { status: data.status },
+    });
+
+    return NextResponse.json({ report });
+  } catch (error) {
+    return handleZodError(error) ?? internalError("Erro ao resolver denúncia", error);
   }
 }

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAuth, handleZodError, internalError, getBlockedUserIds, parsePaginationLimit } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, getBlockedUserIds, areUsersBlocked, parsePaginationLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, rateLimitHeaders } from "@/lib/rate-limit";
+import { publishRealtimeEvent } from "@/lib/realtime-bus";
 
 const createCommentSchema = z.object({
   content: z.string().min(1, "Comentário é obrigatório").max(1000),
@@ -24,11 +25,12 @@ export async function GET(
     const sort = searchParams.get("sort") || "popular"; // "popular" ou "recent"
     const cursor = searchParams.get("cursor");
     const limit = parsePaginationLimit(searchParams, 10);
+    const blockedUserIds = await getBlockedUserIds(session.user.id);
 
     // Verificar se o post existe
     const post = await prisma.post.findUnique({
       where: { id: postId },
-      select: { id: true },
+      select: { id: true, authorId: true },
     });
 
     if (!post) {
@@ -38,10 +40,18 @@ export async function GET(
       );
     }
 
+    if (blockedUserIds.includes(post.authorId)) {
+      return NextResponse.json(
+        { error: "Não é possível acessar os comentários" },
+        { status: 403 }
+      );
+    }
+
     // Condições base - buscar apenas comentários de nível superior (parentId: null)
     const whereCondition = {
       postId,
       parentId: null as string | null,
+      authorId: { notIn: blockedUserIds },
     };
 
     // Buscar comentários com respostas — ordenação server-side
@@ -68,6 +78,7 @@ export async function GET(
           },
         },
         replies: {
+          where: { authorId: { notIn: blockedUserIds } },
           take: 3,
           orderBy: { createdAt: "asc" },
           include: {
@@ -92,7 +103,9 @@ export async function GET(
           },
         },
       },
-      orderBy: { createdAt: "desc" },
+       orderBy: sort === "popular"
+         ? [{ likes: { _count: "desc" } }, { createdAt: "desc" }, { id: "desc" }]
+         : [{ createdAt: "desc" }, { id: "desc" }],
       take: limit + 1,
       ...(cursor && {
         skip: 1,
@@ -103,11 +116,11 @@ export async function GET(
     // Verificar se há mais resultados
     const hasMore = comments.length > limit;
     const paginatedComments = hasMore ? comments.slice(0, limit) : comments;
+    const visibleComments = paginatedComments.filter(
+      (comment) => !blockedUserIds.includes(comment.author.id)
+    );
 
-    // Sort by popularity client-side (avoids Prisma 7 orderBy edge case)
-    const resultComments = sort === "popular"
-      ? [...paginatedComments].sort((a, b) => b._count.likes - a._count.likes)
-      : paginatedComments;
+     const resultComments = visibleComments;
 
     // Transformar comentários para incluir flag isLiked e respostas
     const transformedComments = resultComments.map((comment) => ({
@@ -119,7 +132,9 @@ export async function GET(
       likesCount: comment._count.likes,
       repliesCount: comment._count.replies,
       isLiked: comment.likes.length > 0,
-      replies: comment.replies.map((reply) => ({
+      replies: comment.replies
+        .filter((reply) => !blockedUserIds.includes(reply.author.id))
+        .map((reply) => ({
         id: reply.id,
         content: reply.content,
         createdAt: reply.createdAt,
@@ -133,7 +148,8 @@ export async function GET(
 
     return NextResponse.json({
       comments: transformedComments,
-      nextCursor: hasMore ? resultComments[resultComments.length - 1].id : null,
+       nextCursor: hasMore ? resultComments[resultComments.length - 1]?.id ?? null : null,
+
       hasMore,
     });
   } catch (error) {
@@ -218,6 +234,13 @@ export async function POST(
         );
       }
 
+      if (await areUsersBlocked(session.user.id, parentComment.author.id)) {
+        return NextResponse.json(
+          { error: "Não é possível responder a este comentário" },
+          { status: 403 }
+        );
+      }
+
       // Impedir respostas aninhadas (apenas um nível de aninhamento permitido)
       if (parentComment.parentId !== null) {
         return NextResponse.json(
@@ -245,7 +268,8 @@ export async function POST(
         : null,
     ]);
 
-    const comment = await prisma.comment.create({
+     const comment = await prisma.$transaction(async (tx) => {
+       const createdComment = await tx.comment.create({
       data: {
         content,
         authorId: session.user.id,
@@ -266,10 +290,12 @@ export async function POST(
             likes: true,
           },
         },
-      },
-    });
+       },
+     });
+       return createdComment;
+     });
 
-    // Criar notificação (respeitando preferências do usuário)
+     // Criar notificação (respeitando preferências do usuário)
     if (parentId && parentComment) {
       // Notificar autor do comentário pai sobre a resposta (não para si mesmo, se habilitado)
       if (parentComment.author.id !== session.user.id && notifyTarget?.notifyCommentReplied) {
@@ -300,7 +326,11 @@ export async function POST(
       }
     }
 
-    // Retornar comentário transformado
+     if (notifyTargetId !== session.user.id) {
+       publishRealtimeEvent({ userId: notifyTargetId, type: "notification" });
+     }
+
+     // Retornar comentário transformado
     const transformedComment = {
       id: comment.id,
       content: comment.content,

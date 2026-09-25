@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockPrisma } = vi.hoisted(() => {
+const { mockPrisma, mockSendVerificationEmail } = vi.hoisted(() => {
   const fn = () => vi.fn();
   const model = () => ({
     findUnique: fn(), findFirst: fn(), findMany: fn(),
@@ -23,6 +23,7 @@ const { mockPrisma } = vi.hoisted(() => {
       verificationToken: { create: fn(), deleteMany: fn() },
       $transaction: fn(),
     },
+    mockSendVerificationEmail: vi.fn(),
   };
 });
 
@@ -31,7 +32,9 @@ vi.mock("@/lib/logger", () => ({
   default: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
 vi.mock("@/lib/email", () => ({
-  sendVerificationEmail: vi.fn(),
+  isEmailDeliveryError: (error: unknown) =>
+    Boolean(error && typeof error === "object" && "name" in error && error.name === "EmailDeliveryError"),
+  sendVerificationEmail: mockSendVerificationEmail,
 }));
 
 import { POST } from "@/app/api/auth/register/route";
@@ -72,6 +75,45 @@ describe("POST /api/auth/register", () => {
     expect(response.status).toBe(201);
     expect(data.success).toBe(true);
     expect(data.userId).toBe("new-user-id");
+    expect(data.requiresEmailVerification).toBe(true);
+  });
+
+  it("rolls back the user when email delivery fails", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    mockPrisma.user.create.mockResolvedValue({
+      id: "new-user-id",
+      name: "New User",
+      email: "new@example.com",
+      username: "newuser",
+      password: "$2a$12$hashedpassword",
+    });
+    mockPrisma.verificationToken.create.mockResolvedValue({});
+    mockSendVerificationEmail.mockRejectedValueOnce({
+      name: "EmailDeliveryError",
+      provider: "smtp",
+      reason: "not_configured",
+    });
+
+    const request = new Request("http://localhost:3000/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "New User",
+        email: "new@example.com",
+        username: "newuser",
+        password: VALID_PASSWORD,
+      }),
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(503);
+    expect(mockPrisma.verificationToken.deleteMany).toHaveBeenCalledWith({
+      where: { identifier: "new@example.com" },
+    });
+    expect(mockPrisma.user.delete).toHaveBeenCalledWith({
+      where: { id: "new-user-id" },
+    });
   });
 
   it("returns 409 when email already exists", async () => {

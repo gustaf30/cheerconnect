@@ -1,5 +1,6 @@
-import { requireAuth, internalError, getConversationWithAccessCheck } from "@/lib/api-utils";
+import { requireAuth, internalError, getConversationWithAccessCheck, isSessionTokenValid } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { subscribeRealtimeEvents } from "@/lib/realtime-bus";
 
 export const dynamic = "force-dynamic";
 
@@ -24,25 +25,63 @@ export async function GET(
     // Modo idle (aba invisível) usa intervalo maior para economizar bateria
     const url = new URL(request.url);
     const isIdle = url.searchParams.get("idle") === "true";
-    const pollInterval = isIdle ? 10000 : 3000;
+    const pollInterval = isIdle ? 30000 : 15000;
 
-    let lastTimestamp = new Date();
+    const now = Date.now();
+     const lastEventId = request.headers.get("last-event-id") || url.searchParams.get("cursor");
+    const latestMessage = lastEventId
+      ? await prisma.message.findFirst({
+          where: { id: lastEventId, conversationId },
+          select: { id: true, createdAt: true },
+        })
+      : await prisma.message.findFirst({
+          where: { conversationId },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          select: { id: true, createdAt: true },
+        });
+    let lastMessageId: string | null = latestMessage?.id ?? null;
+    let lastTimestamp = new Date(
+      Math.min(latestMessage?.createdAt.getTime() ?? now, now - 30_000)
+    );
 
     const stream = new ReadableStream({
       async start(controller) {
-        const encoder = new TextEncoder();
-        let heartbeatCounter = 0;
+         const encoder = new TextEncoder();
+         controller.enqueue(encoder.encode("retry: 5000\n\n"));
+         let heartbeatCounter = 0;
+        let polling = false;
+        let stopped = false;
+        const intervalRef: { current?: ReturnType<typeof setInterval> } = {};
+        let unsubscribe: () => void = () => {};
+
+        const close = () => {
+          if (stopped) return;
+          stopped = true;
+          if (intervalRef.current) clearInterval(intervalRef.current);
+          unsubscribe();
+          try {
+            controller.close();
+          } catch {
+            return;
+          }
+        };
 
         const poll = async () => {
+          if (polling || stopped) return;
+          polling = true;
           try {
             if (request.signal.aborted) {
-              controller.close();
+              close();
+              return;
+            }
+
+            if (!(await isSessionTokenValid(userId, session.user.tokenVersion))) {
+              close();
               return;
             }
 
             heartbeatCounter++;
 
-            // Every 5th tick (15s), send heartbeat
             if (heartbeatCounter % 5 === 0) {
               controller.enqueue(encoder.encode(": heartbeat\n\n"));
             }
@@ -50,9 +89,14 @@ export async function GET(
             const newMessages = await prisma.message.findMany({
               where: {
                 conversationId,
-                createdAt: { gt: lastTimestamp },
+                OR: [
+                  { createdAt: { gt: lastTimestamp } },
+                  ...(lastMessageId
+                    ? [{ createdAt: lastTimestamp, id: { gt: lastMessageId } }]
+                    : []),
+                ],
               },
-              orderBy: { createdAt: "asc" },
+              orderBy: [{ createdAt: "asc" }, { id: "asc" }],
               include: {
                 sender: {
                   select: {
@@ -66,9 +110,10 @@ export async function GET(
             });
 
             if (newMessages.length > 0) {
-              lastTimestamp = newMessages[newMessages.length - 1].createdAt;
+              const lastMessage = newMessages[newMessages.length - 1];
+              lastTimestamp = lastMessage.createdAt;
+              lastMessageId = lastMessage.id;
 
-              // Marcar mensagens do outro participante como lidas (conversa aberta)
               const hasUnreadFromOther = newMessages.some(
                 (m) => m.senderId !== userId && !m.isRead
               );
@@ -79,7 +124,7 @@ export async function GET(
                     senderId: { not: userId },
                     isRead: false,
                   },
-                  data: { isRead: true },
+                  data: { isRead: true, readAt: new Date() },
                 });
               }
 
@@ -87,32 +132,36 @@ export async function GET(
                 type: "new_messages",
                 messages: newMessages,
               });
-              controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+              controller.enqueue(
+                encoder.encode(`id: ${lastMessage.id}\ndata: ${data}\n\n`)
+              );
             }
           } catch {
-            // Silently handle errors during polling
+            return;
+          } finally {
+            polling = false;
           }
         };
 
-        const intervalId = setInterval(poll, pollInterval);
-
-        // Cleanup on abort
-        request.signal.addEventListener("abort", () => {
-          clearInterval(intervalId);
-          try {
-            controller.close();
-          } catch {
-            // Already closed
+        unsubscribe = subscribeRealtimeEvents((event) => {
+          if (event.type === "message" && event.conversationId === conversationId) {
+            void poll();
           }
-        });
+         });
+         void poll();
+         intervalRef.current = setInterval(poll, pollInterval);
+
+        request.signal.addEventListener("abort", close);
       },
     });
+
 
     return new Response(stream, {
       headers: {
         "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
+         "Cache-Control": "private, no-cache, no-transform",
+         "X-Accel-Buffering": "no",
+         Connection: "keep-alive",
       },
     });
   } catch (error) {

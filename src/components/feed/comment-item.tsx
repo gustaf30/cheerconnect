@@ -72,9 +72,9 @@ export const CommentItem = memo(function CommentItem({
 
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/comments/${comment.id}/like`, {
-        method: "POST",
-      });
+       const response = await fetch(`/api/comments/${comment.id}/like`, {
+         method: isLiked ? "DELETE" : "POST",
+       });
 
       if (!response.ok) throw new Error();
 

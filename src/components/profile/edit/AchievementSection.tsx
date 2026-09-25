@@ -26,6 +26,11 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { achievementCategoryOptions } from "@/lib/constants";
 
+function parseDateOnly(value: string): Date {
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
 interface Achievement {
   id: string;
   title: string;
@@ -37,9 +42,12 @@ interface Achievement {
 interface AchievementSectionProps {
   achievements: Achievement[];
   fetchAchievements: () => void;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
+  isLoadingMore?: boolean;
 }
 
-export function AchievementSection({ achievements, fetchAchievements }: AchievementSectionProps) {
+export function AchievementSection({ achievements, fetchAchievements, hasMore, onLoadMore, isLoadingMore }: AchievementSectionProps) {
   const [achievementDialogOpen, setAchievementDialogOpen] = useState(false);
   const [editingAchievement, setEditingAchievement] = useState<Achievement | null>(null);
   const [achievementForm, setAchievementForm] = useState({
@@ -104,7 +112,7 @@ export function AchievementSection({ achievements, fetchAchievements }: Achievem
 
       if (isNewAchievement) {
         const categoryLabel = achievementCategoryOptions.find((c) => c.value === achievementForm.category)?.label;
-        const dateFormatted = new Date(achievementForm.date).toLocaleDateString("pt-BR", {
+         const dateFormatted = parseDateOnly(achievementForm.date).toLocaleDateString("pt-BR", {
           month: "long",
           year: "numeric",
         });
@@ -205,9 +213,9 @@ export function AchievementSection({ achievements, fetchAchievements }: Achievem
                         {achievement.description}
                       </p>
                     )}
-                    <time dateTime={new Date(achievement.date).toISOString()} className="text-xs text-muted-foreground mt-1 block">
-                      {format(new Date(achievement.date), "MMMM yyyy", { locale: ptBR })}
-                    </time>
+                     <time dateTime={achievement.date} className="text-xs text-muted-foreground mt-1 block">
+                       {format(parseDateOnly(achievement.date), "MMMM yyyy", { locale: ptBR })}
+                     </time>
                   </div>
                   <div className="flex gap-1">
                     <Button
@@ -215,8 +223,9 @@ export function AchievementSection({ achievements, fetchAchievements }: Achievem
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() => openAchievementDialog(achievement)}
-                    >
+                       onClick={() => openAchievementDialog(achievement)}
+                       aria-label="Editar conquista"
+                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
@@ -224,16 +233,22 @@ export function AchievementSection({ achievements, fetchAchievements }: Achievem
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => setDeleteAchievementTargetId(achievement.id)}
-                    >
+                       onClick={() => setDeleteAchievementTargetId(achievement.id)}
+                       aria-label="Remover conquista"
+                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
               ))}
-            </div>
-          )}
-        </div>
+             </div>
+           )}
+           {hasMore && (
+             <Button type="button" variant="outline" className="mt-4 w-full" onClick={onLoadMore} disabled={isLoadingMore}>
+               {isLoadingMore ? "Carregando..." : "Carregar mais"}
+             </Button>
+           )}
+         </div>
       </div>
 
       {/* Dialog de Conquista */}
@@ -246,21 +261,22 @@ export function AchievementSection({ achievements, fetchAchievements }: Achievem
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Título *</label>
-              <Input
-                value={achievementForm.title}
+               <label htmlFor="achievement-title" className="text-sm font-medium">Título *</label>
+               <Input
+                 id="achievement-title"
+                 value={achievementForm.title}
                 onChange={(e) => setAchievementForm({ ...achievementForm, title: e.target.value })}
                 placeholder="Ex: Campeão Nacional 2024"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Categoria</label>
-              <Select
-                value={achievementForm.category}
+               <label htmlFor="achievement-category" className="text-sm font-medium">Categoria</label>
+               <Select
+                 value={achievementForm.category}
                 onValueChange={(value) => setAchievementForm({ ...achievementForm, category: value })}
               >
-                <SelectTrigger>
+                 <SelectTrigger id="achievement-category">
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -274,9 +290,10 @@ export function AchievementSection({ achievements, fetchAchievements }: Achievem
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Data *</label>
-              <Input
-                type="date"
+               <label htmlFor="achievement-date" className="text-sm font-medium">Data *</label>
+               <Input
+                 id="achievement-date"
+                 type="date"
                 value={achievementForm.date}
                 onChange={(e) => setAchievementForm({ ...achievementForm, date: e.target.value })}
               />

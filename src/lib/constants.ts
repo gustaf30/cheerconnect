@@ -82,6 +82,27 @@ export const PASSWORD_ERROR =
 export const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
 export const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB
 export const MAX_IMAGES_PER_POST = 4;
+export const ALLOWED_UPLOAD_FORMATS = [
+  "jpg",
+  "jpeg",
+  "png",
+  "gif",
+  "webp",
+  "webm",
+  "mp4",
+] as const;
+export const ALLOWED_IMAGE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+]);
+export const ALLOWED_VIDEO_MIME_TYPES = new Set(["video/webm", "video/mp4"]);
+export const ALLOWED_IMAGE_ACCEPT = Array.from(ALLOWED_IMAGE_MIME_TYPES).join(",");
+export const ALLOWED_VIDEO_ACCEPT = Array.from(ALLOWED_VIDEO_MIME_TYPES).join(",");
+export const MAX_IMAGE_DIMENSION = 12000;
+export const MAX_IMAGE_PIXELS = 40_000_000;
+export const MAX_UPLOAD_FILES_PER_POST = 4;
 
 // Compressão de imagem no cliente
 export const IMAGE_COMPRESSION_THRESHOLD = 2 * 1024 * 1024; // 2MB

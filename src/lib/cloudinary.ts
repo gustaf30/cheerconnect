@@ -9,6 +9,38 @@ cloudinary.config({
 
 export { cloudinary };
 
+function isCloudinaryNotFound(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const value = error as {
+    http_code?: unknown;
+    error?: { http_code?: unknown };
+    response?: { statusCode?: unknown };
+  };
+  return value.http_code === 404 || value.error?.http_code === 404 || value.response?.statusCode === 404;
+}
+
+export async function getCloudinaryAsset(
+  publicId: string,
+  resourceType: "image" | "video"
+): Promise<{
+  public_id: string;
+  secure_url: string;
+  bytes?: number;
+  width?: number;
+  height?: number;
+  format?: string;
+} | null> {
+  if (!process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+    return null;
+  }
+  try {
+    return await cloudinary.api.resource(publicId, { resource_type: resourceType });
+  } catch (error) {
+    if (isCloudinaryNotFound(error)) return null;
+    throw error;
+  }
+}
+
 /**
  * Extract public ID from a Cloudinary URL.
  * Example: https://res.cloudinary.com/demo/image/upload/v1234/cheerconnect/posts/abc123.jpg
@@ -16,9 +48,15 @@ export { cloudinary };
  */
 export function extractPublicId(url: string): string | null {
   try {
-    const regex = /\/upload\/(?:v\d+\/)?(.+)\.\w+$/;
-    const match = url.match(regex);
-    return match?.[1] ?? null;
+    const parsed = new URL(url);
+    const marker = "/upload/";
+    const markerIndex = parsed.pathname.indexOf(marker);
+    if (markerIndex < 0) return null;
+
+    let value = parsed.pathname.slice(markerIndex + marker.length);
+    value = value.replace(/^v\d+\//, "");
+    value = value.replace(/\.[a-z0-9]+$/i, "");
+    return value || null;
   } catch {
     return null;
   }
@@ -33,12 +71,16 @@ export async function deleteCloudinaryAsset(
   resourceType: "image" | "video" = "image",
   maxRetries = 3
 ): Promise<boolean> {
+  if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+    return false;
+  }
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      await cloudinary.uploader.destroy(publicId, {
+      const result = await cloudinary.uploader.destroy(publicId, {
         resource_type: resourceType,
       });
-      return true;
+      if (result.result === "ok" || result.result === "not found") return true;
+      throw new Error(`Resposta inesperada do Cloudinary: ${result.result}`);
     } catch (error) {
       if (attempt === maxRetries) {
         logger.error(

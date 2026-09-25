@@ -4,6 +4,15 @@ import { validateFileType } from "@/lib/file-validation";
 import { cloudinary } from "@/lib/cloudinary";
 import { Readable } from "stream";
 import type { UploadApiResponse } from "cloudinary";
+import { MediaPurpose } from "@prisma/client";
+import {
+  MAX_IMAGE_DIMENSION,
+  MAX_IMAGE_PIXELS,
+  MAX_IMAGE_SIZE,
+  MAX_VIDEO_SIZE,
+} from "@/lib/constants";
+import { registerCompletedMediaAsset } from "@/lib/media-assets";
+import { canonicalMediaFolder } from "@/lib/media-url";
 
 /**
  * POST /api/upload
@@ -13,15 +22,15 @@ import type { UploadApiResponse } from "cloudinary";
 export async function POST(request: NextRequest) {
   try {
     const contentLength = parseInt(request.headers.get("content-length") || "0");
-    const MAX_REQUEST_SIZE = 10 * 1024 * 1024; // 10MB (só arquivos pequenos)
+    const MAX_REQUEST_SIZE = MAX_VIDEO_SIZE;
     if (contentLength > MAX_REQUEST_SIZE) {
       return NextResponse.json(
-        { error: "File too large. Maximum size is 10MB." },
+        { error: `File too large. Maximum size is ${Math.round(MAX_REQUEST_SIZE / 1024 / 1024)}MB.` },
         { status: 413 }
       );
     }
 
-    const { error } = await requireAuth();
+    const { session, error } = await requireAuth();
     if (error) return error;
 
     const formData = await request.formData();
@@ -45,11 +54,24 @@ export async function POST(request: NextRequest) {
 
     const isVideo = validation.detectedType === "video";
 
-    // Validar tamanho do arquivo (10MB para imagens, 100MB para vídeos)
-    const maxSize = isVideo ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
+    const maxSize = isVideo ? MAX_VIDEO_SIZE : MAX_IMAGE_SIZE;
     if (file.size > maxSize) {
       return NextResponse.json(
         { error: `Arquivo muito grande. Máximo: ${isVideo ? "100MB" : "10MB"}` },
+        { status: 400 }
+      );
+    }
+
+    if (
+      !isVideo &&
+      (!validation.width ||
+        !validation.height ||
+        validation.width > MAX_IMAGE_DIMENSION ||
+        validation.height > MAX_IMAGE_DIMENSION ||
+        validation.width * validation.height > MAX_IMAGE_PIXELS)
+    ) {
+      return NextResponse.json(
+        { error: "Dimensões de imagem inválidas ou grandes demais" },
         { status: 400 }
       );
     }
@@ -58,7 +80,7 @@ export async function POST(request: NextRequest) {
     const result = await new Promise<UploadApiResponse>((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
-          folder: "cheerconnect/posts",
+          folder: `${canonicalMediaFolder(session.user.id)}/posts`,
           resource_type: isVideo ? "video" : "image",
         },
         (error, result) => {
@@ -69,11 +91,31 @@ export async function POST(request: NextRequest) {
       Readable.from(buffer).pipe(uploadStream);
     });
 
-    return NextResponse.json({
-      url: result.secure_url,
-      type: isVideo ? "video" : "image",
-      publicId: result.public_id,
-    });
+    try {
+      const asset = await registerCompletedMediaAsset({
+        ownerId: session.user.id,
+        url: result.secure_url,
+        publicId: result.public_id,
+        purpose: MediaPurpose.POST,
+        resourceType: isVideo ? "video" : "image",
+        bytes: file.size,
+        width: result.width,
+        height: result.height,
+        mimeType: validation.mimeType || undefined,
+      });
+
+      return NextResponse.json({
+        url: result.secure_url,
+        type: isVideo ? "video" : "image",
+        publicId: result.public_id,
+        assetId: asset.id,
+      });
+    } catch (assetError) {
+      await cloudinary.uploader.destroy(result.public_id, {
+        resource_type: isVideo ? "video" : "image",
+      });
+      throw assetError;
+    }
   } catch (error) {
     return internalError("Erro ao fazer upload", error);
   }

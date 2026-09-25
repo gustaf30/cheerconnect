@@ -6,6 +6,7 @@ import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import logger from "./logger";
+import { logSecurityEvent } from "./security-events";
 
 const TOKEN_VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
@@ -15,6 +16,18 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+      profile(profile) {
+        const emailPart = (profile.email || "user").split("@")[0];
+        const base = emailPart.toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 20) || "user";
+        const suffix = profile.sub ? `_${profile.sub.slice(-6).replace(/[^a-z0-9]/gi, "")}` : "";
+        return {
+          id: profile.sub,
+          name: profile.name,
+          email: profile.email,
+          image: profile.picture,
+          username: `${base}${suffix}`.slice(0, 30),
+        };
+      },
     }),
     CredentialsProvider({
       name: "credentials",
@@ -40,7 +53,13 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!user || !user.password) {
+          logSecurityEvent("auth.login_failed", { reason: "invalid_credentials" });
           throw new Error("Usuário não encontrado");
+        }
+
+        if (!user.emailVerified) {
+          logSecurityEvent("auth.email_unverified", { userId: user.id });
+          throw new Error("Verifique seu email antes de fazer login");
         }
 
         const isPasswordValid = await bcrypt.compare(
@@ -49,6 +68,7 @@ export const authOptions: NextAuthOptions = {
         );
 
         if (!isPasswordValid) {
+          logSecurityEvent("auth.login_failed", { userId: user.id, reason: "invalid_password" });
           throw new Error("Senha incorreta");
         }
 
@@ -64,10 +84,42 @@ export const authOptions: NextAuthOptions = {
   ],
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 dias
+    maxAge: 30 * 24 * 60 * 60,
   },
+  useSecureCookies: process.env.NODE_ENV === "production",
   // Não usar bloco cookies customizado - defaults do NextAuth são otimizados
   callbacks: {
+    async signIn({ user, account, profile }) {
+      const providerVerified = Boolean(
+        profile &&
+          typeof profile === "object" &&
+          "email_verified" in profile &&
+          (profile.email_verified === true || profile.email_verified === "true")
+      );
+
+      if (!user.id) {
+        return account?.provider === "google" && providerVerified;
+      }
+
+      const dbUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { emailVerified: true },
+      });
+
+      if (!dbUser) {
+        return account?.provider === "google" && providerVerified;
+      }
+
+      if (account?.provider === "google" && providerVerified && !dbUser.emailVerified) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { emailVerified: new Date() },
+        });
+        return true;
+      }
+
+      return Boolean(dbUser.emailVerified);
+    },
     async redirect({ url, baseUrl }) {
       // Permite URLs relativas
       if (url.startsWith("/")) return `${baseUrl}${url}`;
@@ -84,9 +136,11 @@ export const authOptions: NextAuthOptions = {
         try {
           const dbUser = await prisma.user.findUnique({
             where: { id: user.id },
-            select: { tokenVersion: true },
-          });
-          token.tokenVersion = dbUser?.tokenVersion ?? 0;
+             select: { tokenVersion: true, isAdmin: true },
+           });
+           token.tokenVersion = dbUser?.tokenVersion ?? 0;
+           token.isAdmin = dbUser?.isAdmin ?? false;
+
         } catch {
           token.tokenVersion = 0;
         }
@@ -100,11 +154,11 @@ export const authOptions: NextAuthOptions = {
               where: { id: token.id as string },
               select: { tokenVersion: true },
             });
-            if (
-              dbUser &&
-              dbUser.tokenVersion !== (token.tokenVersion as number)
-            ) {
-              // tokenVersion divergiu — forçar re-login
+            if (!dbUser) {
+              return {} as JWT;
+            }
+
+            if (dbUser.tokenVersion !== (token.tokenVersion as number)) {
               return {} as JWT;
             }
             token.tokenVersionCheckedAt = Date.now();
@@ -123,8 +177,27 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.isAdmin = Boolean(token.isAdmin);
+        session.user.tokenVersion = token.tokenVersion as number | undefined;
       }
       return session;
+    },
+  },
+  events: {
+    async signIn({ user, account, profile }) {
+      if (account?.provider !== "google" || !user.id) return;
+      const verified = Boolean(
+        profile &&
+          typeof profile === "object" &&
+          "email_verified" in profile &&
+          (profile.email_verified === true || profile.email_verified === "true")
+      );
+      if (verified) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { emailVerified: new Date() },
+        });
+      }
     },
   },
   pages: {

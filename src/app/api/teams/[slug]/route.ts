@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
-import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, getBlockedUserIds } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/audit";
+import { externalHttpUrlSchema } from "@/lib/validation";
+import { deleteTeamMediaAssets } from "@/lib/media-assets";
+import { isCloudinaryUrl } from "@/lib/media-url";
+import { MediaPurpose } from "@prisma/client";
+
+const teamMediaUrlSchema = z.string().url().refine(isCloudinaryUrl, "URL de asset inválida");
 
 const updateTeamSchema = z.object({
   name: z.string().min(2).optional(),
@@ -12,10 +16,10 @@ const updateTeamSchema = z.object({
   location: z.string().optional().nullable(),
   category: z.enum(["ALLSTAR", "SCHOOL", "COLLEGE", "RECREATIONAL", "PROFESSIONAL"]).optional(),
   level: z.string().optional().nullable(),
-  website: z.string().url().optional().nullable().or(z.literal("")),
+  website: externalHttpUrlSchema.optional().nullable().or(z.literal("")),
   instagram: z.string().optional().nullable(),
-  logo: z.string().optional().nullable(),
-  banner: z.string().optional().nullable(),
+  logo: teamMediaUrlSchema.optional().nullable(),
+  banner: teamMediaUrlSchema.optional().nullable(),
 });
 
 // GET /api/teams/[slug] - Buscar detalhes da equipe
@@ -24,14 +28,16 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    const { slug } = await params;
+    const { session, error } = await requireAuth();
+    if (error) return error;
+     const { slug } = await params;
+     const blockedIds = await getBlockedUserIds(session.user.id);
 
-    const team = await prisma.team.findUnique({
+     const team = await prisma.team.findUnique({
       where: { slug },
       include: {
         members: {
-          where: { isActive: true },
+           where: { isActive: true, userId: { notIn: blockedIds } },
           include: {
             user: {
               select: {
@@ -46,8 +52,9 @@ export async function GET(
           orderBy: [{ isAdmin: "desc" }, { hasPermission: "desc" }, { joinedAt: "asc" }],
           take: 20, // Paginated endpoint at /api/teams/[slug]/members for full list
         },
-        posts: {
-          orderBy: { createdAt: "desc" },
+         posts: {
+           where: { authorId: { notIn: blockedIds } },
+           orderBy: { createdAt: "desc" },
           take: 10,
           include: {
             author: {
@@ -73,10 +80,11 @@ export async function GET(
               : false,
           },
         },
-        events: {
-          where: {
-            startDate: { gte: new Date() },
-          },
+         events: {
+           where: {
+             startDate: { gte: new Date() },
+             creatorId: { notIn: blockedIds },
+           },
           orderBy: { startDate: "asc" },
           take: 5,
         },
@@ -138,7 +146,7 @@ export async function PATCH(
           where: {
             userId: session.user.id,
             isActive: true,
-            hasPermission: true,
+            canEdit: true,
           },
         },
       },
@@ -157,6 +165,28 @@ export async function PATCH(
 
     const body = await request.json();
     const data = updateTeamSchema.parse(body);
+
+    const mediaUrls = [
+      ...(data.logo ? [{ url: data.logo, purpose: MediaPurpose.TEAM_LOGO }] : []),
+      ...(data.banner ? [{ url: data.banner, purpose: MediaPurpose.TEAM_BANNER }] : []),
+    ];
+    if (mediaUrls.length > 0) {
+      const ownedAssets = await prisma.mediaAsset.findMany({
+        where: {
+          ownerId: session.user.id,
+          teamId: team.id,
+          status: "COMPLETED",
+          OR: mediaUrls.map(({ url }) => ({ url })),
+        },
+        select: { url: true, purpose: true },
+      });
+      if (ownedAssets.length !== mediaUrls.length) {
+        return NextResponse.json(
+          { error: "Um ou mais arquivos não pertencem a esta equipe" },
+          { status: 403 }
+        );
+      }
+    }
 
     const updatedTeam = await prisma.team.update({
       where: { id: team.id },
@@ -218,6 +248,8 @@ export async function DELETE(
         { status: 403 }
       );
     }
+
+    await deleteTeamMediaAssets(team.id);
 
     await prisma.team.delete({
       where: { id: team.id },

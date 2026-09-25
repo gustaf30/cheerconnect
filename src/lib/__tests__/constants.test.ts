@@ -4,6 +4,8 @@ import {
   careerRoleLabels,
   categoryLabels,
   eventTypeLabels,
+  ALLOWED_IMAGE_MIME_TYPES,
+  ALLOWED_VIDEO_MIME_TYPES,
 } from '../constants';
 
 describe('positionLabels', () => {
@@ -81,5 +83,14 @@ describe('eventTypeLabels', () => {
       expect(typeof value).toBe('string');
       expect(value.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('upload MIME allowlists', () => {
+  it('keeps image and video formats separate', () => {
+    expect(ALLOWED_IMAGE_MIME_TYPES.has('image/jpeg')).toBe(true);
+    expect(ALLOWED_IMAGE_MIME_TYPES.has('video/mp4')).toBe(false);
+    expect(ALLOWED_VIDEO_MIME_TYPES.has('video/mp4')).toBe(true);
+    expect(ALLOWED_VIDEO_MIME_TYPES.has('image/jpeg')).toBe(false);
   });
 });

@@ -102,9 +102,12 @@ export default function VerifyEmailPage() {
           <p className="text-sm text-muted-foreground">
             Solicite um novo link de verificação:
           </p>
-          <input
-            type="email"
-            value={email}
+           <label htmlFor="verify-email" className="sr-only">Seu email</label>
+           <input
+             id="verify-email"
+             type="email"
+             value={email}
+             aria-invalid={Boolean(error)}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Seu email"
             className="w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-fast outline-none text-foreground font-medium text-center"

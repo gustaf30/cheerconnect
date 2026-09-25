@@ -14,6 +14,12 @@ import { PostData } from "@/types";
 import { useIsMounted } from "@/hooks/use-is-mounted";
 import { AchievementList } from "./achievement-list";
 
+function parseDateOnly(value: string | Date): Date {
+  if (value instanceof Date) return value;
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
 interface Achievement {
   id: string;
   title: string;
@@ -163,15 +169,15 @@ export function ProfileTabs({ user, posts, isOwnProfile, achievementLimit = 10 }
                         {entry.location && <span>• {entry.location}</span>}
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        <time dateTime={new Date(entry.startDate).toISOString()}>
-                          {format(new Date(entry.startDate), "MMM yyyy", {
+                         <time dateTime={new Date(entry.startDate).toISOString()}>
+                           {format(parseDateOnly(entry.startDate), "MMM yyyy", {
                             locale: ptBR,
                           })}
                         </time>{" "}
                         -{" "}
                         {entry.endDate
                           ? <time dateTime={new Date(entry.endDate).toISOString()}>
-                              {format(new Date(entry.endDate), "MMM yyyy", {
+                              {format(parseDateOnly(entry.endDate), "MMM yyyy", {
                                 locale: ptBR,
                               })}
                             </time>

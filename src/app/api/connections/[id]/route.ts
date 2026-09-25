@@ -13,26 +13,17 @@ export async function DELETE(
 
     const { id: otherUserId } = await params;
 
-    // Encontrar a conexão
-    const connection = await prisma.connection.findFirst({
-      where: {
-        OR: [
-          { senderId: session.user.id, receiverId: otherUserId },
-          { senderId: otherUserId, receiverId: session.user.id },
-        ],
-      },
-    });
-
-    if (!connection) {
-      return NextResponse.json(
-        { error: "Conexão não encontrada" },
-        { status: 404 }
-      );
-    }
-
-    await prisma.connection.delete({
-      where: { id: connection.id },
-    });
+     const result = await prisma.connection.deleteMany({
+       where: {
+         OR: [
+           { senderId: session.user.id, receiverId: otherUserId },
+           { senderId: otherUserId, receiverId: session.user.id },
+         ],
+       },
+     });
+     if (result.count === 0) {
+       return NextResponse.json({ error: "Conexão não encontrada" }, { status: 404 });
+     }
 
     return NextResponse.json({ success: true });
   } catch (error) {

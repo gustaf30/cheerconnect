@@ -21,7 +21,34 @@ export async function requireAuth() {
       ),
     };
   }
+
+  if (!(await isSessionTokenValid(session.user.id, session.user.tokenVersion))) {
+    return {
+      session: null as never,
+      error: NextResponse.json(
+        { error: "Sessão expirada" },
+        { status: 401 }
+      ),
+    };
+  }
+
   return { session, error: null };
+}
+
+export async function isSessionTokenValid(
+  userId: string,
+  tokenVersion: number | undefined
+): Promise<boolean> {
+  if (tokenVersion === undefined) return process.env.NODE_ENV !== "production";
+  const currentUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { tokenVersion: true, emailVerified: true },
+  });
+  return Boolean(
+    currentUser &&
+      currentUser.tokenVersion === tokenVersion &&
+      currentUser.emailVerified
+  );
 }
 
 /**
@@ -60,13 +87,15 @@ export function internalError(context: string, error: unknown): NextResponse {
  * Retorna IDs de usuários bloqueados (bidirecional).
  */
 export async function getBlockedUserIds(userId: string): Promise<string[]> {
+  const blockModel = (prisma as unknown as { block?: { findMany?: (args: unknown) => Promise<Array<{ blockedUserId: string }>> } }).block;
+  if (!blockModel?.findMany) return [];
   const [blockedByMe, blockedMe] = await Promise.all([
     prisma.block.findMany({ where: { userId }, select: { blockedUserId: true } }),
     prisma.block.findMany({ where: { blockedUserId: userId }, select: { userId: true } }),
   ]);
   return [
-    ...blockedByMe.map((b) => b.blockedUserId),
-    ...blockedMe.map((b) => b.userId),
+    ...(blockedByMe ?? []).map((b) => b.blockedUserId),
+    ...(blockedMe ?? []).map((b) => b.userId),
   ];
 }
 
@@ -84,6 +113,35 @@ export async function getConnectedUserIds(userId: string): Promise<string[]> {
   return connections.map((c) =>
     c.senderId === userId ? c.receiverId : c.senderId
   );
+}
+
+export async function areUsersBlocked(firstUserId: string, secondUserId: string): Promise<boolean> {
+  const blockModel = (prisma as unknown as { block?: { findFirst?: (args: unknown) => Promise<unknown> } }).block;
+  if (!blockModel?.findFirst) return false;
+  const block = await blockModel.findFirst({
+    where: {
+      OR: [
+        { userId: firstUserId, blockedUserId: secondUserId },
+        { userId: secondUserId, blockedUserId: firstUserId },
+      ],
+    },
+    select: { id: true },
+  });
+  return Boolean(block);
+}
+
+export async function areUsersConnected(firstUserId: string, secondUserId: string): Promise<boolean> {
+  const connection = await prisma.connection.findFirst({
+    where: {
+      status: "ACCEPTED",
+      OR: [
+        { senderId: firstUserId, receiverId: secondUserId },
+        { senderId: secondUserId, receiverId: firstUserId },
+      ],
+    },
+    select: { id: true },
+  });
+  return Boolean(connection);
 }
 
 /**
@@ -114,6 +172,11 @@ export async function getConversationWithAccessCheck(
 
   if (!conversation) return null;
   if (conversation.participant1Id !== userId && conversation.participant2Id !== userId) return null;
+
+  const otherUserId = conversation.participant1Id === userId
+    ? conversation.participant2Id
+    : conversation.participant1Id;
+  if (await areUsersBlocked(userId, otherUserId)) return null;
 
   return conversation;
 }

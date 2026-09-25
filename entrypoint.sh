@@ -1,3 +1,4 @@
 #!/bin/sh
-npx prisma migrate deploy
+set -e
+npx --no-install prisma migrate deploy --config ./prisma.config.ts
 exec "$@"

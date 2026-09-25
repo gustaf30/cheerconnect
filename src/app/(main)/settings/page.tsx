@@ -43,6 +43,7 @@ import { FeedbackWidget } from "@/components/feed/widgets/feedback-widget";
 interface Settings {
   email: string;
   username: string;
+  emailVerified: boolean;
   hasPassword: boolean;
   notifications: {
     postLiked: boolean;
@@ -51,6 +52,9 @@ interface Settings {
     connectionAccepted: boolean;
     commentReplied: boolean;
     messageReceived: boolean;
+    postReposted: boolean;
+    teamInvite: boolean;
+    mention: boolean;
   };
   privacy: {
     profileVisibility: "PUBLIC" | "CONNECTIONS_ONLY";
@@ -79,6 +83,8 @@ export default function SettingsPage() {
   // Estado de exclusão de conta
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [reauthChallengeId, setReauthChallengeId] = useState<string | null>(null);
+  const [isRequestingReauth, setIsRequestingReauth] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Estado de verificação de disponibilidade de username
@@ -89,6 +95,19 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const challengeId = params.get("reauthChallengeId");
+    if (params.get("reauthVerified") === "true" && challengeId) {
+      setReauthChallengeId(challengeId);
+      toast.success("Identidade confirmada. Você pode finalizar a exclusão.");
+      window.history.replaceState({}, "", "/settings");
+    }
+    if (params.get("reauthError")) {
+      toast.error("Não foi possível confirmar sua identidade. Solicite um novo link.");
+      window.history.replaceState({}, "", "/settings");
+    }
+  }, []);
 
   const fetchSettings = useCallback(async () => {
     try {
@@ -148,9 +167,9 @@ export default function SettingsPage() {
         throw new Error(data.error || "Erro ao salvar configurações");
       }
 
-      const data = await response.json();
-      setSettings(data.settings);
-      toast.success("Configurações salvas!");
+       const data = await response.json();
+       setSettings((current) => current ? { ...current, ...data.settings } : data.settings);
+       toast.success("Configurações salvas!");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao salvar configurações");
     } finally {
@@ -203,9 +222,33 @@ export default function SettingsPage() {
     }
   };
 
+  const handleRequestReauthentication = async () => {
+    setIsRequestingReauth(true);
+    try {
+      const response = await fetch("/api/users/me/reauthenticate", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Não foi possível solicitar o link");
+      }
+      toast.success("Link de confirmação enviado para seu email.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível solicitar o link");
+    } finally {
+      setIsRequestingReauth(false);
+    }
+  };
+
   const handleDeleteAccount = async () => {
-    if (deleteConfirmation !== settings?.username) {
+    if (!settings?.emailVerified) {
+      toast.error("Verifique seu email antes de excluir sua conta");
+      return;
+    }
+    if (deleteConfirmation !== settings.username) {
       toast.error("Digite seu username corretamente para confirmar");
+      return;
+    }
+    if (!reauthChallengeId) {
+      toast.error("Confirme sua identidade pelo link enviado por email");
       return;
     }
 
@@ -213,6 +256,11 @@ export default function SettingsPage() {
     try {
       const response = await fetch("/api/users/me", {
         method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: settings.username,
+          reauthChallengeId,
+        }),
       });
 
       if (!response.ok) {
@@ -301,8 +349,9 @@ export default function SettingsPage() {
           </p>
           <div className="space-y-6">
           <div className="space-y-2">
-            <Label>Email</Label>
-            <Input value={settings.email} disabled className="bg-muted" />
+             <Label htmlFor="account-email">Email</Label>
+             <Input id="account-email" value={settings.email} disabled className="bg-muted" />
+
             <p className="text-xs text-muted-foreground">
               O email não pode ser alterado
             </p>
@@ -414,7 +463,8 @@ export default function SettingsPage() {
           </p>
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Modo escuro</Label>
+               <Label htmlFor="dark-mode">Modo escuro</Label>
+
               <p className="text-sm text-muted-foreground">
                 Alterne entre tema claro e escuro
               </p>
@@ -422,12 +472,15 @@ export default function SettingsPage() {
             <div className="flex items-center gap-3">
               <Sun className="h-4 w-4 text-muted-foreground" />
               {mounted ? (
-                <Switch
-                  checked={theme === "dark"}
+                 <Switch
+                   id="dark-mode"
+                   checked={theme === "dark"}
+
                   onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
                 />
               ) : (
-                <Switch checked={false} disabled />
+                 <Switch id="dark-mode" checked={false} disabled />
+
               )}
               <Moon className="h-4 w-4 text-muted-foreground" />
             </div>
@@ -446,86 +499,135 @@ export default function SettingsPage() {
           <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Curtidas em posts</Label>
+               <Label htmlFor="notify-post-liked">Curtidas em posts</Label>
               <p className="text-sm text-muted-foreground">
                 Quando alguém curtir sua publicação
               </p>
             </div>
-            <Switch
-              checked={settings.notifications.postLiked}
+             <Switch
+               id="notify-post-liked"
+               checked={settings.notifications.postLiked}
               onCheckedChange={(checked) => updateNotification("postLiked", checked)}
             />
           </div>
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Comentários em posts</Label>
+               <Label htmlFor="notify-post-commented">Comentários em posts</Label>
               <p className="text-sm text-muted-foreground">
                 Quando alguém comentar sua publicação
               </p>
             </div>
-            <Switch
-              checked={settings.notifications.postCommented}
+             <Switch
+               id="notify-post-commented"
+               checked={settings.notifications.postCommented}
               onCheckedChange={(checked) => updateNotification("postCommented", checked)}
             />
           </div>
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Solicitações de conexão</Label>
+               <Label htmlFor="notify-connection-request">Solicitações de conexão</Label>
               <p className="text-sm text-muted-foreground">
                 Quando alguém enviar uma solicitação de conexão
               </p>
             </div>
-            <Switch
-              checked={settings.notifications.connectionRequest}
+             <Switch
+               id="notify-connection-request"
+               checked={settings.notifications.connectionRequest}
               onCheckedChange={(checked) => updateNotification("connectionRequest", checked)}
             />
           </div>
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Conexões aceitas</Label>
+               <Label htmlFor="notify-connection-accepted">Conexões aceitas</Label>
               <p className="text-sm text-muted-foreground">
                 Quando alguém aceitar sua solicitação de conexão
               </p>
             </div>
-            <Switch
-              checked={settings.notifications.connectionAccepted}
+             <Switch
+               id="notify-connection-accepted"
+               checked={settings.notifications.connectionAccepted}
               onCheckedChange={(checked) => updateNotification("connectionAccepted", checked)}
             />
           </div>
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Respostas a comentários</Label>
+               <Label htmlFor="notify-comment-replied">Respostas a comentários</Label>
               <p className="text-sm text-muted-foreground">
                 Quando alguém responder seu comentário
               </p>
             </div>
-            <Switch
-              checked={settings.notifications.commentReplied}
+             <Switch
+               id="notify-comment-replied"
+               checked={settings.notifications.commentReplied}
               onCheckedChange={(checked) => updateNotification("commentReplied", checked)}
             />
           </div>
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Mensagens recebidas</Label>
+               <Label htmlFor="notify-message-received">Mensagens recebidas</Label>
               <p className="text-sm text-muted-foreground">
                 Quando alguém enviar uma mensagem
               </p>
             </div>
-            <Switch
-              checked={settings.notifications.messageReceived}
+              <Switch
+                id="notify-message-received"
+                checked={settings.notifications.messageReceived}
               onCheckedChange={(checked) => updateNotification("messageReceived", checked)}
             />
-          </div>
-          </div>
-        </div>
-      </div>
+           </div>
 
-      {/* Card de Privacidade */}
+           <div className="flex items-center justify-between">
+             <div className="space-y-0.5">
+                <Label htmlFor="notify-post-reposted">Repostagens</Label>
+               <p className="text-sm text-muted-foreground">
+                 Quando alguém repostar sua publicação
+               </p>
+             </div>
+              <Switch
+                id="notify-post-reposted"
+                checked={settings.notifications.postReposted}
+               onCheckedChange={(checked) => updateNotification("postReposted", checked)}
+             />
+           </div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="notify-team-invite">Convites de equipe</Label>
+                <p className="text-sm text-muted-foreground">
+                  Quando você receber um convite para uma equipe
+                </p>
+              </div>
+              <Switch
+                id="notify-team-invite"
+                checked={settings.notifications.teamInvite}
+                onCheckedChange={(checked) => updateNotification("teamInvite", checked)}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="notify-mention">Menções</Label>
+                <p className="text-sm text-muted-foreground">
+                  Quando alguém mencionar você em uma publicação ou comentário
+                </p>
+              </div>
+              <Switch
+                id="notify-mention"
+                checked={settings.notifications.mention}
+                onCheckedChange={(checked) => updateNotification("mention", checked)}
+              />
+            </div>
+            </div>
+         </div>
+       </div>
+
+       {/* Card de Privacidade */}
+
       <div className="bento-card-static">
         <div className="accent-bar" />
         <div className="p-6">
@@ -535,14 +637,14 @@ export default function SettingsPage() {
           </p>
           <div className="space-y-6">
           <div className="space-y-2">
-            <Label>Visibilidade do perfil</Label>
-            <Select
-              value={settings.privacy.profileVisibility}
+             <Label htmlFor="profile-visibility">Visibilidade do perfil</Label>
+              <Select
+                value={settings.privacy.profileVisibility}
               onValueChange={(value: "PUBLIC" | "CONNECTIONS_ONLY") =>
                 updatePrivacy("profileVisibility", value)
               }
             >
-              <SelectTrigger>
+               <SelectTrigger id="profile-visibility">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -554,13 +656,14 @@ export default function SettingsPage() {
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Mostrar email no perfil</Label>
+               <Label htmlFor="show-email">Mostrar email no perfil</Label>
               <p className="text-sm text-muted-foreground">
                 Permite que outros usuários vejam seu email
               </p>
             </div>
-            <Switch
-              checked={settings.privacy.showEmail}
+             <Switch
+               id="show-email"
+               checked={settings.privacy.showEmail}
               onCheckedChange={(checked) => updatePrivacy("showEmail", checked)}
             />
           </div>
@@ -685,6 +788,38 @@ export default function SettingsPage() {
                 <li>Suas conexões e histórico de times</li>
                 <li>Suas conquistas e notificações</li>
               </ul>
+              <div className="space-y-3 rounded-lg border border-border p-4 text-sm">
+                {settings.emailVerified ? (
+                  reauthChallengeId ? (
+                    <p className="text-green-600">Identidade confirmada. Você pode concluir a exclusão.</p>
+                  ) : (
+                    <>
+                      <p className="text-muted-foreground">
+                        Antes de excluir, confirme sua identidade pelo link enviado por email.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleRequestReauthentication}
+                        disabled={isRequestingReauth}
+                      >
+                        {isRequestingReauth && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Enviar link de confirmação
+                      </Button>
+                    </>
+                  )
+                ) : (
+                  <p className="text-amber-600">
+                    Verifique seu email antes de excluir a conta.{" "}
+                    <Link
+                      href="/verify-email"
+                      className="underline"
+                    >
+                      Verificar agora
+                    </Link>
+                  </p>
+                )}
+              </div>
               <div className="pt-4">
                 <Label htmlFor="delete-confirm">
                   Digite <span className="font-mono font-bold">{settings.username}</span> para confirmar:
@@ -705,7 +840,12 @@ export default function SettingsPage() {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteAccount}
-              disabled={isDeleting || deleteConfirmation !== settings.username}
+              disabled={
+                isDeleting ||
+                !settings.emailVerified ||
+                !reauthChallengeId ||
+                deleteConfirmation !== settings.username
+              }
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

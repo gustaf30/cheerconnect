@@ -1,50 +1,62 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAuth, handleZodError, internalError, parsePaginationLimit } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, parsePaginationLimit, getBlockedUserIds } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { dateStringSchema } from "@/lib/validation";
+import { getTeamPermissions } from "@/lib/team-permissions";
 
 interface RouteParams {
   params: Promise<{ slug: string }>;
 }
 
 const achievementSchema = z.object({
-  title: z.string().min(1, "Título é obrigatório"),
-  description: z.string().optional().nullable(),
-  date: z.string().transform((str) => new Date(str)),
-  category: z.string().optional().nullable(),
+  title: z.string().trim().min(1, "Título é obrigatório").max(150),
+  description: z.string().trim().max(2000).optional().nullable(),
+  date: dateStringSchema,
+  category: z.string().trim().max(100).optional().nullable(),
 });
 
 // GET /api/teams/[slug]/achievements - Buscar conquistas da equipe
 export async function GET(request: Request, { params }: RouteParams) {
   try {
-    const { error } = await requireAuth();
-    if (error) return error;
+     const { session, error } = await requireAuth();
+     if (error) return error;
 
-    const { slug } = await params;
+     const { slug } = await params;
+     const blockedIds = await getBlockedUserIds(session.user.id);
 
     const team = await prisma.team.findUnique({
       where: { slug },
       select: { id: true },
     });
 
-    if (!team) {
-      return NextResponse.json({ error: "Equipe não encontrada" }, { status: 404 });
-    }
+     if (!team) {
+       return NextResponse.json({ error: "Equipe não encontrada" }, { status: 404 });
+     }
+     const blockedMemberCount = await prisma.teamMember.count({
+       where: { teamId: team.id, userId: { in: blockedIds }, isActive: true },
+     });
+     if (blockedMemberCount > 0) {
+       return NextResponse.json({ error: "Equipe não encontrada" }, { status: 404 });
+     }
 
-    const { searchParams } = new URL(request.url);
+     const { searchParams } = new URL(request.url);
     const cursor = searchParams.get("cursor");
     const limit = parsePaginationLimit(searchParams, 10);
 
-    const achievements = await prisma.teamAchievement.findMany({
-      where: { teamId: team.id },
-      orderBy: { date: "desc" },
-      take: limit,
-      ...(cursor && { skip: 1, cursor: { id: cursor } }),
-    });
+     const achievements = await prisma.teamAchievement.findMany({
+       where: { teamId: team.id },
+       orderBy: [{ date: "desc" }, { id: "desc" }],
+       take: limit + 1,
+       ...(cursor && { skip: 1, cursor: { id: cursor } }),
+     });
+     const hasMore = achievements.length > limit;
+     const pageAchievements = hasMore ? achievements.slice(0, limit) : achievements;
 
-    const nextCursor = achievements.length === limit ? achievements[achievements.length - 1]?.id : null;
-
-    return NextResponse.json({ achievements, nextCursor });
+     return NextResponse.json({
+       achievements: pageAchievements,
+       nextCursor: hasMore ? pageAchievements[pageAchievements.length - 1]?.id ?? null : null,
+     });
   } catch (error) {
     return internalError("Erro ao buscar conquistas da equipe", error);
   }
@@ -66,7 +78,8 @@ export async function POST(request: Request, { params }: RouteParams) {
           where: {
             userId: session.user.id,
             isActive: true,
-            OR: [{ hasPermission: true }, { isAdmin: true }],
+             canEdit: true,
+
           },
         },
       },
@@ -76,7 +89,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "Equipe não encontrada" }, { status: 404 });
     }
 
-    if (team.members.length === 0) {
+    if (!getTeamPermissions(team.members[0]).canEdit) {
       return NextResponse.json(
         { error: "Você não tem permissão para adicionar conquistas" },
         { status: 403 }

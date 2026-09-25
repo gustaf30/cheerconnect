@@ -1,14 +1,22 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAuth, handleZodError, internalError, parsePaginationLimit } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, parsePaginationLimit, getBlockedUserIds } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/audit";
+import { getTeamPermissions, normalizeTeamPermissions } from "@/lib/team-permissions";
+import { areUsersBlocked } from "@/lib/api-utils";
+import { publishRealtimeEvent } from "@/lib/realtime-bus";
 
 const createInviteSchema = z.object({
   userId: z.string(),
-  role: z.string().default("Atleta"),
-  hasPermission: z.boolean().default(false),
-  isAdmin: z.boolean().default(false),
+  role: z.string().trim().max(100).default("Atleta"),
+  hasPermission: z.boolean().optional(),
+  isAdmin: z.boolean().optional(),
+  canEdit: z.boolean().optional(),
+  canPost: z.boolean().optional(),
+  canInvite: z.boolean().optional(),
+  canManageMembers: z.boolean().optional(),
+  canDeleteTeam: z.boolean().optional(),
 });
 
 // POST /api/teams/[slug]/invites - Enviar convite para usuário
@@ -30,7 +38,8 @@ export async function POST(
           where: {
             userId: session.user.id,
             isActive: true,
-            hasPermission: true,
+             canInvite: true,
+
           },
         },
       },
@@ -48,7 +57,17 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { userId, role, hasPermission, isAdmin } = createInviteSchema.parse(body);
+    const {
+      userId,
+      role,
+      hasPermission,
+      isAdmin,
+      canEdit,
+      canPost,
+      canInvite,
+      canManageMembers,
+      canDeleteTeam,
+    } = createInviteSchema.parse(body);
 
     // Validar e sanitizar role
     if (role && (typeof role !== "string" || role.length > 50)) {
@@ -59,17 +78,30 @@ export async function POST(
     }
     const sanitizedRole = role ? role.replace(/<[^>]*>/g, "").trim() : role;
 
-    // Apenas admins podem convidar com permissões elevadas
     const currentMember = team.members[0];
-    if (isAdmin && !currentMember.isAdmin) {
+    const currentPermissions = getTeamPermissions(currentMember);
+    const invitePermissions = normalizeTeamPermissions({
+      hasPermission,
+      isAdmin,
+      canEdit,
+      canPost,
+      canInvite,
+      canManageMembers,
+      canDeleteTeam,
+    });
+    const canGrantElevated = Boolean(
+      currentMember.isAdmin || currentMember.canManageMembers === true
+    );
+    if (!canGrantElevated &&
+      (invitePermissions.hasPermission || invitePermissions.isAdmin || invitePermissions.canManageMembers || invitePermissions.canDeleteTeam)) {
       return NextResponse.json(
-        { error: "Apenas administradores podem conceder privilégios de administrador" },
+        { error: "Apenas administradores podem conceder permissões especiais" },
         { status: 403 }
       );
     }
-    if (hasPermission && !currentMember.isAdmin) {
+    if (!currentPermissions.canInvite) {
       return NextResponse.json(
-        { error: "Apenas administradores podem conceder permissões especiais" },
+        { error: "Você não tem permissão para convidar membros" },
         { status: 403 }
       );
     }
@@ -82,6 +114,13 @@ export async function POST(
 
     if (!targetUser) {
       return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
+    }
+
+    if (await areUsersBlocked(session.user.id, userId)) {
+      return NextResponse.json(
+        { error: "Não é possível convidar um usuário bloqueado" },
+        { status: 403 }
+      );
     }
 
     // Verificar se o usuário já é membro
@@ -129,16 +168,16 @@ export async function POST(
       create: {
         teamId: team.id,
         userId,
+        invitedById: session.user.id,
         role: sanitizedRole,
-        hasPermission,
-        isAdmin,
+        ...invitePermissions,
         status: "PENDING",
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias
       },
       update: {
+        invitedById: session.user.id,
         role: sanitizedRole,
-        hasPermission,
-        isAdmin,
+        ...invitePermissions,
         status: "PENDING",
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       },
@@ -184,7 +223,10 @@ export async function POST(
       },
     });
 
-    return NextResponse.json({ invite }, { status: 201 });
+     if (targetUser.notifyTeamInvite) {
+       publishRealtimeEvent({ userId, type: "notification" });
+     }
+     return NextResponse.json({ invite }, { status: 201 });
   } catch (error) {
     return handleZodError(error) ?? internalError("Erro ao criar convite", error);
   }
@@ -209,7 +251,8 @@ export async function GET(
           where: {
             userId: session.user.id,
             isActive: true,
-            hasPermission: true,
+             canManageMembers: true,
+
           },
         },
       },
@@ -228,12 +271,14 @@ export async function GET(
 
     const { searchParams } = new URL(request.url);
     const cursor = searchParams.get("cursor");
-    const limit = parsePaginationLimit(searchParams);
+     const limit = parsePaginationLimit(searchParams);
+     const blockedIds = await getBlockedUserIds(session.user.id);
 
-    const invites = await prisma.teamInvite.findMany({
+     const invites = await prisma.teamInvite.findMany({
       where: {
-        teamId: team.id,
-        status: "PENDING",
+         teamId: team.id,
+         status: "PENDING",
+         userId: { notIn: blockedIds },
         OR: [
           { expiresAt: null },
           { expiresAt: { gt: new Date() } },
@@ -249,14 +294,18 @@ export async function GET(
           },
         },
       },
-      orderBy: { createdAt: "desc" },
-      take: limit,
+       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+       take: limit + 1,
       ...(cursor && { skip: 1, cursor: { id: cursor } }),
     });
 
-    const nextCursor = invites.length === limit ? invites[invites.length - 1]?.id : null;
+     const hasMore = invites.length > limit;
+     const pageInvites = hasMore ? invites.slice(0, limit) : invites;
 
-    return NextResponse.json({ invites, nextCursor });
+     return NextResponse.json({
+       invites: pageInvites,
+       nextCursor: hasMore ? pageInvites[pageInvites.length - 1]?.id ?? null : null,
+     });
   } catch (error) {
     return internalError("Erro ao listar convites", error);
   }

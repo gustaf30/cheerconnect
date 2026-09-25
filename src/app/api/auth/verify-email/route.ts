@@ -5,7 +5,7 @@ export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token");
 
   if (!token) {
-    return NextResponse.redirect(new URL("/login?error=invalid-token", request.url));
+    return NextResponse.redirect(new URL("/verify-email?error=invalid-token", request.url));
   }
 
   try {
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!verificationToken) {
-      return NextResponse.redirect(new URL("/login?error=invalid-token", request.url));
+      return NextResponse.redirect(new URL("/verify-email?error=invalid-token", request.url));
     }
 
     if (verificationToken.expires < new Date()) {
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
       await prisma.verificationToken.delete({
         where: { token },
       });
-      return NextResponse.redirect(new URL("/login?error=token-expired", request.url));
+      return NextResponse.redirect(new URL("/verify-email?error=token-expired", request.url));
     }
 
     // Mark email as verified and delete the token
@@ -38,6 +38,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(new URL("/verify-email?verified=true", request.url));
   } catch {
-    return NextResponse.redirect(new URL("/login?error=verification-failed", request.url));
+    return NextResponse.redirect(new URL("/verify-email?error=verification-failed", request.url));
   }
 }

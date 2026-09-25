@@ -31,8 +31,12 @@ export default function MainLayout({
 
   return (
     <RealtimeProvider>
-    <OfflineBanner />
-    <div className="min-h-screen flex flex-col">
+     <OfflineBanner />
+     <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:z-[100] focus:m-4 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground">
+       Pular para o conteúdo
+     </a>
+     <div className="min-h-screen flex flex-col">
+
       {/* Mobile top bar — visible only below lg */}
       <div className="sticky top-0 z-50 flex items-center h-14 px-4 glass lg:hidden">
         {isMounted ? (
@@ -80,19 +84,20 @@ export default function MainLayout({
 
       <div className="flex-1 flex max-w-[1440px] mx-auto w-full px-4 md:px-8 py-6 gap-6">
         {/* Desktop Sidebar — always visible on lg+ */}
-        <aside className="hidden lg:flex w-64 flex-col gap-4 sticky top-6 h-fit shrink-0">
+        <aside aria-label="Navegação principal" className="hidden lg:flex w-64 flex-col gap-4 sticky top-6 h-fit shrink-0">
           <Sidebar />
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 min-w-0 overflow-auto">
+         <main id="main-content" className="flex-1 min-w-0 overflow-auto">
+
           <PageTransitionProvider>
             <div className="max-w-[740px]">{children}</div>
           </PageTransitionProvider>
         </main>
 
         {/* Right sidebar — visible on xl+ */}
-        <aside className="hidden xl:flex w-72 flex-col gap-4 sticky top-6 h-fit shrink-0">
+        <aside aria-label="Conteúdo recomendado" className="hidden xl:flex w-72 flex-col gap-4 sticky top-6 h-fit shrink-0">
           <RightSidebar />
         </aside>
       </div>

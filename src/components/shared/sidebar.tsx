@@ -16,6 +16,7 @@ import {
   LogOut,
   SquarePen,
   TrendingUp,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { reportError } from "@/lib/error-reporter";
@@ -297,6 +298,22 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
             )
           )}
 
+          {session?.user?.isAdmin && (
+            <Link
+              href="/moderation"
+              onClick={onNavigate}
+              className={cn(
+                "nav-indicator flex items-center gap-3 px-4 py-3 text-sm font-medium transition-base",
+                pathname === "/moderation"
+                  ? "active text-primary bg-primary/5 font-semibold"
+                  : "text-muted-foreground hover:bg-accent/50"
+              )}
+            >
+              <ShieldCheck className="h-5 w-5" />
+              <span>Moderação</span>
+            </Link>
+          )}
+
           {/* Configurações */}
           <Link
             href="/settings"
@@ -337,7 +354,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }
             }}
-            className="flex items-center justify-center gap-0.5 font-display font-extrabold text-xl tracking-tight opacity-40"
+             className="flex items-center justify-center gap-0.5 font-display font-extrabold text-xl tracking-tight text-foreground"
           >
             <span className="text-primary">Cheer</span>
             <span>Connect</span>

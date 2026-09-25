@@ -68,8 +68,12 @@ export default function EditProfilePage() {
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const [cropMode, setCropMode] = useState<"avatar" | "banner">("avatar");
 
-  const [careerHistory, setCareerHistory] = useState<CareerEntry[]>([]);
-  const [achievements, setAchievements] = useState<Achievement[]>([]);
+   const [careerHistory, setCareerHistory] = useState<CareerEntry[]>([]);
+   const [achievements, setAchievements] = useState<Achievement[]>([]);
+   const [careerCursor, setCareerCursor] = useState<string | null>(null);
+   const [achievementCursor, setAchievementCursor] = useState<string | null>(null);
+   const [isLoadingMoreCareer, setIsLoadingMoreCareer] = useState(false);
+   const [isLoadingMoreAchievements, setIsLoadingMoreAchievements] = useState(false);
 
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -106,25 +110,33 @@ export default function EditProfilePage() {
     }
   }, [form]);
 
-  const fetchCareerHistory = useCallback(async () => {
+  const fetchCareerHistory = useCallback(async (cursor?: string) => {
+    if (cursor) setIsLoadingMoreCareer(true);
     try {
-      const response = await fetch("/api/career");
+      const response = await fetch(`/api/career${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`);
       if (!response.ok) throw new Error();
       const data = await response.json();
-      setCareerHistory(data.careerHistory);
+      setCareerHistory((current) => cursor ? [...current, ...data.careerHistory] : data.careerHistory);
+      setCareerCursor(data.nextCursor || null);
     } catch (error) {
       reportError(error, "EditProfilePage.fetchCareerHistory");
+    } finally {
+      if (cursor) setIsLoadingMoreCareer(false);
     }
   }, []);
 
-  const fetchAchievements = useCallback(async () => {
+  const fetchAchievements = useCallback(async (cursor?: string) => {
+    if (cursor) setIsLoadingMoreAchievements(true);
     try {
-      const response = await fetch("/api/achievements");
+      const response = await fetch(`/api/achievements${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`);
       if (!response.ok) throw new Error();
       const data = await response.json();
-      setAchievements(data.achievements);
+      setAchievements((current) => cursor ? [...current, ...data.achievements] : data.achievements);
+      setAchievementCursor(data.nextCursor || null);
     } catch (error) {
       reportError(error, "EditProfilePage.fetchAchievements");
+    } finally {
+      if (cursor) setIsLoadingMoreAchievements(false);
     }
   }, []);
 
@@ -316,7 +328,7 @@ export default function EditProfilePage() {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Link href="/profile">
-          <Button variant="ghost" size="icon">
+           <Button variant="ghost" size="icon" aria-label="Voltar ao perfil">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
@@ -341,15 +353,21 @@ export default function EditProfilePage() {
 
           <ProfileForm form={form} />
 
-          <CareerSection
-            careerHistory={careerHistory}
-            fetchCareerHistory={fetchCareerHistory}
-          />
+           <CareerSection
+             careerHistory={careerHistory}
+             fetchCareerHistory={fetchCareerHistory}
+             hasMore={Boolean(careerCursor)}
+             onLoadMore={() => careerCursor && fetchCareerHistory(careerCursor)}
+             isLoadingMore={isLoadingMoreCareer}
+           />
 
-          <AchievementSection
-            achievements={achievements}
-            fetchAchievements={fetchAchievements}
-          />
+           <AchievementSection
+             achievements={achievements}
+             fetchAchievements={fetchAchievements}
+             hasMore={Boolean(achievementCursor)}
+             onLoadMore={() => achievementCursor && fetchAchievements(achievementCursor)}
+             isLoadingMore={isLoadingMoreAchievements}
+           />
 
           <div className="flex justify-end gap-3">
             <Link href="/profile">

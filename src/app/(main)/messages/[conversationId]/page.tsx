@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, use } from "react";
+import { useEffect, useState, useCallback, useRef, use } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -39,11 +39,17 @@ export default function ConversationPage({
   const router = useRouter();
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const requestRef = useRef<AbortController | null>(null);
 
   const fetchConversation = useCallback(async () => {
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
+    setIsLoading(true);
     try {
-      const response = await fetch(`/api/conversations/${conversationId}`);
+      const response = await fetch(`/api/conversations/${conversationId}`, {
+        signal: controller.signal,
+      });
       if (!response.ok) {
         if (response.status === 404 || response.status === 403) {
           router.push("/messages");
@@ -53,22 +59,20 @@ export default function ConversationPage({
       }
 
       const data = await response.json();
-      setConversation(data.conversation);
+      if (!controller.signal.aborted) setConversation(data.conversation);
     } catch {
+      if (controller.signal.aborted) return;
       toast.error("Erro ao carregar conversa");
       router.push("/messages");
     } finally {
-      setIsLoading(false);
+      if (!controller.signal.aborted) setIsLoading(false);
     }
   }, [conversationId, router]);
 
   useEffect(() => {
     fetchConversation();
+    return () => requestRef.current?.abort();
   }, [fetchConversation]);
-
-  const handleMessageSent = () => {
-    setRefreshKey((prev) => prev + 1);
-  };
 
   if (isLoading) {
     return (
@@ -168,18 +172,15 @@ export default function ConversationPage({
         </div>
 
         {/* Messages */}
-        <MessageList
-          key={refreshKey}
-          conversationId={conversationId}
-          currentUserId={session.user.id}
-          onNewMessage={handleMessageSent}
-        />
+         <MessageList
+           conversationId={conversationId}
+           currentUserId={session.user.id}
+         />
+
 
         {/* Input */}
-        <MessageInput
-          conversationId={conversationId}
-          onMessageSent={handleMessageSent}
-        />
+         <MessageInput conversationId={conversationId} />
+
       </div>
     </div>
   );

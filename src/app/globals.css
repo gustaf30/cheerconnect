@@ -71,7 +71,7 @@
   --secondary: oklch(0.94 0.02 15);
   --secondary-foreground: oklch(0.25 0.10 25);
   --muted: oklch(0.96 0.01 15);
-  --muted-foreground: oklch(0.45 0.02 25);
+  --muted-foreground: oklch(0.32 0.02 25);
   /* Accent - light rose tint */
   --accent: oklch(0.92 0.03 15);
   --accent-foreground: oklch(0.25 0.10 25);
@@ -1108,6 +1108,18 @@ a,
 }
 
 /* Safe area insets for notched mobile devices */
+:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+button,
+a,
+[role="button"] {
+  min-width: 24px;
+  min-height: 24px;
+}
+
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom);

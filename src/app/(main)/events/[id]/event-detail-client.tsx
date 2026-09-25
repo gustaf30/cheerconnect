@@ -67,6 +67,12 @@ interface EventDetail {
   } | null;
 }
 
+function localDateTime(date: string, time: string): Date {
+  const [year, month, day] = date.split("-").map(Number);
+  const [hour, minute] = time.split(":").map(Number);
+  return new Date(year, month - 1, day, hour, minute);
+}
+
 export default function EventDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -74,7 +80,8 @@ export default function EventDetailPage() {
   const itemVariants = shouldReduceMotion ? noMotion : fadeSlideUp;
 
   const [event, setEvent] = useState<EventDetail | null>(null);
-  const [isCreator, setIsCreator] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
+  const [canDelete, setCanDelete] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -107,8 +114,10 @@ export default function EventDetailPage() {
       }
       if (!res.ok) throw new Error();
       const data = await res.json();
-      setEvent(data.event);
-      setIsCreator(data.isCreator);
+       setEvent(data.event);
+       setCanEdit(Boolean(data.permissions?.canEdit));
+       setCanDelete(Boolean(data.permissions?.canDelete));
+
     } catch {
       setNotFound(true);
     } finally {
@@ -129,10 +138,10 @@ export default function EventDetailPage() {
       name: event.name,
       description: event.description || "",
       location: event.location,
-      startDate: startDate.toISOString().split("T")[0],
-      startTime: startDate.toTimeString().slice(0, 5),
-      endDate: endDate ? endDate.toISOString().split("T")[0] : "",
-      endTime: endDate ? endDate.toTimeString().slice(0, 5) : "",
+       startDate: format(startDate, "yyyy-MM-dd"),
+       startTime: format(startDate, "HH:mm"),
+       endDate: endDate ? format(endDate, "yyyy-MM-dd") : "",
+       endTime: endDate ? format(endDate, "HH:mm") : "",
       type: event.type,
       registrationUrl: event.registrationUrl || "",
     });
@@ -156,19 +165,27 @@ export default function EventDetailPage() {
     if (!editForm.startTime) {
       errors.startTime = "Hora de início é obrigatória";
     }
-    if (editForm.endDate && editForm.startDate && editForm.endDate < editForm.startDate) {
-      errors.endDate = "Data de término deve ser igual ou posterior à data de início";
-    }
-    setEditFormErrors(errors);
+     if (Boolean(editForm.endDate) !== Boolean(editForm.endTime)) {
+       errors.endDate = "Informe data e hora de término juntas";
+       errors.endTime = "Informe data e hora de término juntas";
+     }
+     if (editForm.endDate && editForm.endTime && editForm.startDate && editForm.startTime) {
+       const startDateTime = localDateTime(editForm.startDate, editForm.startTime);
+       const endDateTime = localDateTime(editForm.endDate, editForm.endTime);
+       if (endDateTime < startDateTime) {
+         errors.endDate = "Data e hora de término devem ser posteriores ao início";
+       }
+     }
+     setEditFormErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
     setIsEditing(true);
     try {
-      const startDateTime = new Date(`${editForm.startDate}T${editForm.startTime}`);
-      let endDateTime = null;
-      if (editForm.endDate && editForm.endTime) {
-        endDateTime = new Date(`${editForm.endDate}T${editForm.endTime}`);
-      }
+       const startDateTime = localDateTime(editForm.startDate, editForm.startTime);
+       let endDateTime = null;
+       if (editForm.endDate && editForm.endTime) {
+         endDateTime = localDateTime(editForm.endDate, editForm.endTime);
+       }
 
       const response = await fetch(`/api/events/${event.id}`, {
         method: "PATCH",
@@ -311,16 +328,17 @@ export default function EventDetailPage() {
                   </Button>
                 </a>
               )}
-              {isCreator && (
-                <>
-                  <Button variant="outline" size="icon" onClick={openEditDialog} aria-label="Editar evento">
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="icon" onClick={() => setDeleteDialogOpen(true)} aria-label="Excluir evento" className="text-destructive hover:text-destructive">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </>
-              )}
+               {canEdit && (
+                 <Button variant="outline" size="icon" onClick={openEditDialog} aria-label="Editar evento">
+                   <Pencil className="h-4 w-4" />
+                 </Button>
+               )}
+               {canDelete && (
+                 <Button variant="outline" size="icon" onClick={() => setDeleteDialogOpen(true)} aria-label="Excluir evento" className="text-destructive hover:text-destructive">
+                   <Trash2 className="h-4 w-4" />
+                 </Button>
+               )}
+
             </div>
           </div>
 

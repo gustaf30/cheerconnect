@@ -31,14 +31,18 @@ export async function GET(request: Request) {
           },
         },
       },
-      orderBy: { createdAt: "desc" },
-      take: limit,
+       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+       take: limit + 1,
       ...(cursor && { skip: 1, cursor: { id: cursor } }),
     });
 
-    const nextCursor = invites.length === limit ? invites[invites.length - 1]?.id : null;
+     const hasMore = invites.length > limit;
+     const pageInvites = hasMore ? invites.slice(0, limit) : invites;
 
-    return NextResponse.json({ invites, nextCursor });
+     return NextResponse.json({
+       invites: pageInvites,
+       nextCursor: hasMore ? pageInvites[pageInvites.length - 1]?.id ?? null : null,
+     });
   } catch (error) {
     return internalError("Erro ao buscar convites do usuário", error);
   }

@@ -33,6 +33,7 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXTAUTH_URL || "http://localhost:3000"),
   title: "CheerConnect - Rede Social para Cheerleading",
   description:
     "Conecte-se com atletas, técnicos e equipes de cheerleading. Encontre oportunidades, compartilhe conquistas e faça parte da comunidade.",

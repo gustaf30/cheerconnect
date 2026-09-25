@@ -13,9 +13,14 @@ function createPrismaClient() {
     throw new Error("DATABASE_URL environment variable is required");
   }
 
+  // O teto de conexões é o principal gargalo de vazão sob carga: com 10, as
+  // requisições enfileiram no pool antes de chegar ao Postgres.
+  const parsedMax = Number(process.env.DATABASE_POOL_MAX);
+  const max = Number.isFinite(parsedMax) && parsedMax > 0 ? parsedMax : 10;
+
   const pool = new Pool({
     connectionString,
-    max: 10,
+    max,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
   });

@@ -3,11 +3,11 @@ import { z } from "zod";
 import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import logger from "@/lib/logger";
 import { rateLimit, rateLimitHeaders } from "@/lib/rate-limit";
-import { Resend } from "resend";
-
-const resend = process.env.RESEND_API_KEY
-  ? new Resend(process.env.RESEND_API_KEY)
-  : null;
+import {
+  isEmailDeliveryError,
+  sanitizeEmailHeader,
+  sendEmail,
+} from "@/lib/email";
 
 const FEEDBACK_LIMIT = 3;
 const FEEDBACK_WINDOW = 60_000 * 10; // 3 per 10 minutes
@@ -60,17 +60,10 @@ export async function POST(request: NextRequest) {
     const userName = session.user.name || "Usuário";
     const userEmail = session.user.email || "sem email";
 
-    if (!resend) {
-      logger.info("[feedback] RESEND_API_KEY não configurada — fallback dev");
-      logger.info(`[feedback] De: ${userName} (${userEmail})`);
-      logger.info(`[feedback] Mensagem: ${message}`);
-      return NextResponse.json({ success: true });
-    }
-
-    const { error: sendError } = await resend.emails.send({
-      from: "CheerConnect <onboarding@resend.dev>",
+    await sendEmail({
       to: FEEDBACK_EMAIL,
-      subject: `[Feedback] CheerConnect - ${escapeHtml(userName)}`,
+      subject: sanitizeEmailHeader(`[Feedback] CheerConnect - ${userName}`),
+      text: `De: ${userName} (${userEmail})\n\n${message}`,
       html: `
         <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto;">
           <h2 style="color: #e11d48;">Novo Feedback - CheerConnect</h2>
@@ -81,16 +74,19 @@ export async function POST(request: NextRequest) {
       `,
     });
 
-    if (sendError) {
-      logger.error({ err: sendError }, "[feedback] erro Resend");
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    if (isEmailDeliveryError(err)) {
+      logger.error(
+        { provider: err.provider, reason: err.reason },
+        "[feedback] email delivery failed"
+      );
       return NextResponse.json(
-        { error: "Falha ao enviar feedback" },
-        { status: 500 }
+        { error: "Serviço de email indisponível" },
+        { status: 503 }
       );
     }
 
-    return NextResponse.json({ success: true });
-  } catch (err) {
     return internalError("POST /api/feedback", err);
   }
 }

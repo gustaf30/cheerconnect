@@ -32,7 +32,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { reportError } from "@/lib/error-reporter";
 import { toast } from "sonner";
 import { CitySelector } from "@/components/ui/city-selector";
-import { eventTypes } from "@/lib/constants";
+import { eventTypes, ALLOWED_IMAGE_MIME_TYPES, MAX_IMAGE_SIZE } from "@/lib/constants";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { TeamInfoForm } from "@/components/teams/edit/TeamInfoForm";
 import { MemberList } from "@/components/teams/edit/MemberList";
@@ -256,36 +256,34 @@ export default function TeamEditPage({ params }: PageProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
+    if (!ALLOWED_IMAGE_MIME_TYPES.has(file.type)) {
       toast.error("Selecione uma imagem válida");
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Imagem deve ter no máximo 5MB");
+    if (file.size > MAX_IMAGE_SIZE) {
+      toast.error("Imagem deve ter no máximo 10MB");
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64 = reader.result as string;
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("kind", "logo");
+      const response = await fetch(`/api/teams/${slug}/media`, {
+        method: "POST",
+        body: formData,
+      });
 
-      try {
-        const response = await fetch(`/api/teams/${slug}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ logo: base64 }),
-        });
-
-        if (!response.ok) throw new Error();
-
-        setTeam((prev) => prev ? { ...prev, logo: base64 } : null);
-        toast.success("Logo atualizado!");
-      } catch {
-        toast.error("Erro ao atualizar logo");
-      }
-    };
-    reader.readAsDataURL(file);
+      if (!response.ok) throw new Error();
+      const data = await response.json();
+      setTeam((prev) => prev ? { ...prev, logo: data.team.logo } : null);
+      toast.success("Logo atualizado!");
+    } catch {
+      toast.error("Erro ao atualizar logo");
+    } finally {
+      e.target.value = "";
+    }
   };
 
   const handleCreatePost = async () => {

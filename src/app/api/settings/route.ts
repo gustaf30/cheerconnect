@@ -16,8 +16,11 @@ const updateSettingsSchema = z.object({
       connectionRequest: z.boolean(),
       connectionAccepted: z.boolean(),
       commentReplied: z.boolean(),
-      messageReceived: z.boolean(),
-      mention: z.boolean(),
+       messageReceived: z.boolean(),
+       postReposted: z.boolean(),
+       teamInvite: z.boolean(),
+       mention: z.boolean(),
+
     })
     .partial()
     .optional(),
@@ -40,14 +43,18 @@ export async function GET() {
       where: { id: session.user.id },
       select: {
         email: true,
+        emailVerified: true,
         username: true,
         notifyPostLiked: true,
         notifyPostCommented: true,
         notifyConnectionRequest: true,
         notifyConnectionAccepted: true,
         notifyCommentReplied: true,
-        notifyMessageReceived: true,
-        notifyMention: true,
+         notifyMessageReceived: true,
+         notifyPostReposted: true,
+         notifyTeamInvite: true,
+         notifyMention: true,
+
         profileVisibility: true,
         showEmail: true,
         usernameChangedAt: true,
@@ -82,6 +89,7 @@ export async function GET() {
     return NextResponse.json({
       settings: {
         email: user.email,
+        emailVerified: Boolean(user.emailVerified),
         username: user.username,
         hasPassword,
         notifications: {
@@ -90,8 +98,11 @@ export async function GET() {
           connectionRequest: user.notifyConnectionRequest,
           connectionAccepted: user.notifyConnectionAccepted,
           commentReplied: user.notifyCommentReplied,
-          messageReceived: user.notifyMessageReceived,
-          mention: user.notifyMention,
+           messageReceived: user.notifyMessageReceived,
+           postReposted: user.notifyPostReposted,
+           teamInvite: user.notifyTeamInvite,
+           mention: user.notifyMention,
+
         },
         privacy: {
           profileVisibility: user.profileVisibility,
@@ -181,6 +192,12 @@ export async function PATCH(request: Request) {
       if (data.notifications.messageReceived !== undefined) {
         updateData.notifyMessageReceived = data.notifications.messageReceived;
       }
+      if (data.notifications.postReposted !== undefined) {
+        updateData.notifyPostReposted = data.notifications.postReposted;
+      }
+      if (data.notifications.teamInvite !== undefined) {
+        updateData.notifyTeamInvite = data.notifications.teamInvite;
+      }
       if (data.notifications.mention !== undefined) {
         updateData.notifyMention = data.notifications.mention;
       }
@@ -202,23 +219,43 @@ export async function PATCH(request: Request) {
       data: updateData,
       select: {
         email: true,
+        emailVerified: true,
         username: true,
+        usernameChangedAt: true,
         notifyPostLiked: true,
         notifyPostCommented: true,
         notifyConnectionRequest: true,
         notifyConnectionAccepted: true,
         notifyCommentReplied: true,
-        notifyMessageReceived: true,
-        notifyMention: true,
+         notifyMessageReceived: true,
+         notifyPostReposted: true,
+         notifyTeamInvite: true,
+         notifyMention: true,
+
         profileVisibility: true,
         showEmail: true,
       },
     });
 
+    const hasPassword = await prisma.user.count({
+      where: { id: session.user.id, password: { not: null } },
+    }) > 0;
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+    const canChangeUsername = !user.usernameChangedAt ||
+      (Date.now() - user.usernameChangedAt.getTime()) >= thirtyDaysMs;
+    const nextUsernameChangeDate = user.usernameChangedAt
+      ? new Date(user.usernameChangedAt.getTime() + thirtyDaysMs)
+      : null;
+    const daysUntilUsernameChange = !canChangeUsername && nextUsernameChangeDate
+      ? Math.ceil((nextUsernameChangeDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      : 0;
+
     return NextResponse.json({
       settings: {
         email: user.email,
+        emailVerified: Boolean(user.emailVerified),
         username: user.username,
+        hasPassword,
         notifications: {
           postLiked: user.notifyPostLiked,
           postCommented: user.notifyPostCommented,
@@ -226,12 +263,17 @@ export async function PATCH(request: Request) {
           connectionAccepted: user.notifyConnectionAccepted,
           commentReplied: user.notifyCommentReplied,
           messageReceived: user.notifyMessageReceived,
+          postReposted: user.notifyPostReposted,
+          teamInvite: user.notifyTeamInvite,
           mention: user.notifyMention,
         },
         privacy: {
           profileVisibility: user.profileVisibility,
           showEmail: user.showEmail,
         },
+        canChangeUsername,
+        nextUsernameChangeDate,
+        daysUntilUsernameChange,
       },
     });
   } catch (error) {

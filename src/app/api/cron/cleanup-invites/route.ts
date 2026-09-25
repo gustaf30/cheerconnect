@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function POST(request: NextRequest) {
+async function runCleanup(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
@@ -33,4 +33,12 @@ export async function POST(request: NextRequest) {
     deleted: deleted.count,
     timestamp: now.toISOString(),
   });
+}
+
+export async function GET(request: NextRequest) {
+  return runCleanup(request);
+}
+
+export async function POST(request: NextRequest) {
+  return runCleanup(request);
 }

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { MapPin, Briefcase, UserPlus, UserMinus, Clock, Check, Pencil, MessageSquare } from "lucide-react";
+import { MapPin, Briefcase, UserPlus, UserMinus, Clock, Check, Pencil, MessageSquare, Ban } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { useAnimatedNumber } from "@/hooks/use-animated-number";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,6 +19,8 @@ interface ProfileHeaderProps {
     id: string;
     name: string;
     username: string;
+    email?: string | null;
+    showEmail?: boolean;
     avatar: string | null;
     banner: string | null;
     bio: string | null;
@@ -28,6 +30,7 @@ interface ProfileHeaderProps {
     skills: string[];
   };
   isOwnProfile: boolean;
+  isBlockedByMe?: boolean;
   connectionStatus: "none" | "pending" | "connected" | "received";
   connectionsCount: number;
   postsCount: number;
@@ -36,6 +39,7 @@ interface ProfileHeaderProps {
 export function ProfileHeader({
   user,
   isOwnProfile,
+  isBlockedByMe = false,
   connectionStatus,
   connectionsCount,
   postsCount,
@@ -44,6 +48,8 @@ export function ProfileHeader({
   const [status, setStatus] = useState(connectionStatus);
   const [isLoading, setIsLoading] = useState(false);
   const [isStartingConversation, setIsStartingConversation] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(isBlockedByMe);
+  const [isBlocking, setIsBlocking] = useState(false);
   const shouldReduceMotion = useReducedMotion();
   const animatedConnectionsCount = useAnimatedNumber(connectionsCount);
   const animatedPostsCount = useAnimatedNumber(postsCount);
@@ -89,6 +95,24 @@ export function ProfileHeader({
       toast.error("Erro ao processar conexão");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleBlock = async () => {
+    setIsBlocking(true);
+    try {
+      const response = await fetch(`/api/users/${user.id}/block`, {
+        method: isBlocked ? "DELETE" : "POST",
+      });
+      if (!response.ok) throw new Error();
+      setIsBlocked((current) => !current);
+      if (!isBlocked) setStatus("none");
+      toast.success(isBlocked ? "Usuário desbloqueado" : "Usuário bloqueado");
+      router.refresh();
+    } catch {
+      toast.error("Erro ao atualizar bloqueio");
+    } finally {
+      setIsBlocking(false);
     }
   };
 
@@ -148,15 +172,15 @@ export function ProfileHeader({
 
           <div className="mt-4 sm:mt-0 flex gap-2">
             {isOwnProfile ? (
-              <Link href="/profile/edit">
-                <Button variant="outline" className="hover:border-primary/50 hover:text-primary transition-fast">
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Editar perfil
-                </Button>
-              </Link>
+               <Button asChild variant="outline" className="hover:border-primary/50 hover:text-primary transition-fast">
+                 <Link href="/profile/edit">
+                   <Pencil className="h-4 w-4 mr-2" />
+                   Editar perfil
+                 </Link>
+               </Button>
             ) : (
               <>
-                {status === "connected" && (
+                {!isBlocked && status === "connected" && (
                   <Button
                     onClick={handleStartConversation}
                     disabled={isStartingConversation}
@@ -167,46 +191,60 @@ export function ProfileHeader({
                     Mensagem
                   </Button>
                 )}
-                <motion.div
-                  whileHover={shouldReduceMotion ? {} : { scale: 1.05 }}
-                  whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                >
-                  <Button
-                    onClick={handleConnection}
-                    disabled={isLoading}
-                    variant={status === "connected" ? "outline" : status === "none" ? "premium" : "default"}
-                    className={cn(
-                      "transition-slow",
-                      status === "pending" && "animate-pulse-ring"
-                    )}
+                {!isBlocked && (
+                  <motion.div
+                    whileHover={shouldReduceMotion ? {} : { scale: 1.05 }}
+                    whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
                   >
-                    {status === "none" && (
-                      <>
-                        <UserPlus className="h-4 w-4 mr-2" />
-                        Conectar
-                      </>
-                    )}
-                    {status === "pending" && (
-                      <>
-                        <Clock className="h-4 w-4 mr-2" />
-                        Pendente
-                      </>
-                    )}
-                    {status === "received" && (
-                      <>
-                        <Check className="h-4 w-4 mr-2" />
-                        Aceitar
-                      </>
-                    )}
-                    {status === "connected" && (
-                      <>
-                        <UserMinus className="h-4 w-4 mr-2" />
-                        Conectado
-                      </>
-                    )}
-                  </Button>
-                </motion.div>
+                    <Button
+                      onClick={handleConnection}
+                      disabled={isLoading}
+                      variant={status === "connected" ? "outline" : status === "none" ? "premium" : "default"}
+                      className={cn(
+                        "transition-slow",
+                        status === "pending" && "animate-pulse-ring"
+                      )}
+                    >
+                      {status === "none" && (
+                        <>
+                          <UserPlus className="h-4 w-4 mr-2" />
+                          Conectar
+                        </>
+                      )}
+                      {status === "pending" && (
+                        <>
+                          <Clock className="h-4 w-4 mr-2" />
+                          Pendente
+                        </>
+                      )}
+                      {status === "received" && (
+                        <>
+                          <Check className="h-4 w-4 mr-2" />
+                          Aceitar
+                        </>
+                      )}
+                      {status === "connected" && (
+                        <>
+                          <UserMinus className="h-4 w-4 mr-2" />
+                          Conectado
+                        </>
+                      )}
+                    </Button>
+                  </motion.div>
+                )}
+                <Button
+                  onClick={handleBlock}
+                  disabled={isBlocking}
+                  variant="ghost"
+                  size="icon"
+                  aria-label={isBlocked ? "Desbloquear usuário" : "Bloquear usuário"}
+                  title={isBlocked ? "Desbloquear usuário" : "Bloquear usuário"}
+                  className={isBlocked ? "text-primary" : "text-muted-foreground hover:text-destructive"}
+                >
+                  <Ban className="h-4 w-4" />
+                </Button>
+
               </>
             )}
           </div>
@@ -215,7 +253,13 @@ export function ProfileHeader({
         <div className="mt-4 space-y-3">
           <div>
             <h1 className="heading-section">{user.name}</h1>
-            <p className="text-muted-foreground font-mono">@{user.username}</p>
+             <p className="text-muted-foreground font-mono">@{user.username}</p>
+             {user.showEmail && user.email && (
+               <a href={`mailto:${user.email}`} className="block text-sm text-primary hover:underline">
+                 {user.email}
+               </a>
+             )}
+
           </div>
 
           {/* Posições */}

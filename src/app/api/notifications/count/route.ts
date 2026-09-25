@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAuth, internalError } from "@/lib/api-utils";
+import { requireAuth, internalError, getBlockedUserIds } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 // GET /api/notifications/count - Buscar contagem de notificações não lidas
@@ -8,9 +8,11 @@ export async function GET() {
     const { session, error } = await requireAuth();
     if (error) return error;
 
+    const blockedUserIds = await getBlockedUserIds(session.user.id);
     const count = await prisma.notification.count({
       where: {
         userId: session.user.id,
+        actorId: { notIn: blockedUserIds },
         isRead: false,
         type: { not: "MESSAGE_RECEIVED" },
       },

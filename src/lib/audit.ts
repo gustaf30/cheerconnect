@@ -6,7 +6,7 @@ interface LogActivityParams {
   action: string;
   entityType: string;
   entityId: string;
-  actorId: string;
+  actorId?: string | null;
   metadata?: Record<string, unknown>;
 }
 
@@ -18,8 +18,10 @@ export function logActivity(params: LogActivityParams): void {
         action: params.action,
         entityType: params.entityType,
         entityId: params.entityId,
-        actorId: params.actorId,
-        metadata: params.metadata as Prisma.InputJsonValue | undefined,
+         actorId: params.actorId,
+         retentionUntil: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+         metadata: params.metadata as Prisma.InputJsonValue | undefined,
+
       },
     })
     .catch((err) => {

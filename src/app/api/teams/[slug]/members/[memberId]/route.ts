@@ -3,11 +3,18 @@ import { z } from "zod";
 import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/audit";
+import { getTeamPermissions, normalizeTeamPermissions } from "@/lib/team-permissions";
+import { Prisma } from "@prisma/client";
 
 const updateMemberSchema = z.object({
-  role: z.string().optional(),
+  role: z.string().trim().max(100).optional(),
   hasPermission: z.boolean().optional(),
   isAdmin: z.boolean().optional(),
+  canEdit: z.boolean().optional(),
+  canPost: z.boolean().optional(),
+  canInvite: z.boolean().optional(),
+  canManageMembers: z.boolean().optional(),
+  canDeleteTeam: z.boolean().optional(),
 });
 
 // PATCH /api/teams/[slug]/members/[memberId] - Atualizar papel/permissões do membro
@@ -40,8 +47,8 @@ export async function PATCH(
 
     const currentUserMember = team.members[0];
 
-    // Verificar se o usuário atual tem permissão
-    if (!currentUserMember?.hasPermission) {
+    const currentPermissions = getTeamPermissions(currentUserMember);
+    if (!currentPermissions.canManageMembers) {
       return NextResponse.json(
         { error: "Você não tem permissão para gerenciar membros" },
         { status: 403 }
@@ -60,49 +67,64 @@ export async function PATCH(
     const body = await request.json();
     const data = updateMemberSchema.parse(body);
 
-    // Se tentando atualizar próprias permissões (não apenas papel), bloquear
-    // Bloquear apenas se os valores de permissão estão realmente mudando
-    if (memberToUpdate.userId === session.user.id) {
-      const permissionChanged = data.hasPermission !== undefined &&
-        data.hasPermission !== memberToUpdate.hasPermission;
-      const adminChanged = data.isAdmin !== undefined &&
-        data.isAdmin !== memberToUpdate.isAdmin;
+    const nextPermissions = normalizeTeamPermissions({
+      hasPermission: memberToUpdate.hasPermission,
+      isAdmin: memberToUpdate.isAdmin,
+      canEdit: memberToUpdate.canEdit,
+      canPost: memberToUpdate.canPost,
+      canInvite: memberToUpdate.canInvite,
+      canManageMembers: memberToUpdate.canManageMembers,
+      canDeleteTeam: memberToUpdate.canDeleteTeam,
+      ...data,
+    });
+    const permissionChanged = [
+      "hasPermission",
+      "isAdmin",
+      "canEdit",
+      "canPost",
+      "canInvite",
+      "canManageMembers",
+      "canDeleteTeam",
+    ].some((key) => {
+      const requested = data[key as keyof typeof data];
+      const current = memberToUpdate[key as keyof typeof memberToUpdate];
+      return requested !== undefined && requested !== current;
+    });
 
-      if (permissionChanged || adminChanged) {
-        return NextResponse.json(
-          { error: "Você não pode alterar suas próprias permissões" },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Se o membro alvo é admin, apenas outro admin pode modificá-lo
-    if (memberToUpdate.isAdmin && !currentUserMember.isAdmin) {
+    if (memberToUpdate.userId === session.user.id && permissionChanged) {
       return NextResponse.json(
-        { error: "Apenas administradores podem gerenciar outros administradores" },
-        { status: 403 }
+        { error: "Você não pode alterar suas próprias permissões" },
+        { status: 400 }
       );
     }
 
-    // Se atualizando permissões de alguém com hasPermission, precisa ser isAdmin
-    if (memberToUpdate.hasPermission && !currentUserMember.isAdmin) {
-      return NextResponse.json(
-        { error: "Apenas administradores podem gerenciar membros com permissão" },
-        { status: 403 }
-      );
-    }
-
-    // Apenas admins podem conceder hasPermission ou isAdmin
-    if ((data.hasPermission || data.isAdmin) && !currentUserMember.isAdmin) {
+    const canGrantElevated = Boolean(
+      currentUserMember?.isAdmin || currentUserMember?.canManageMembers === true
+    );
+    if (!canGrantElevated && (data.isAdmin || data.hasPermission || data.canManageMembers || data.canDeleteTeam)) {
       return NextResponse.json(
         { error: "Apenas administradores podem conceder permissões especiais" },
         { status: 403 }
       );
     }
 
+    if (memberToUpdate.isAdmin && !canGrantElevated) {
+      return NextResponse.json(
+        { error: "Apenas administradores podem gerenciar outros administradores" },
+        { status: 403 }
+      );
+    }
+
+    if (memberToUpdate.hasPermission && !canGrantElevated) {
+      return NextResponse.json(
+        { error: "Apenas administradores podem gerenciar membros com permissão" },
+        { status: 403 }
+      );
+    }
+
     // Usar transação para prevenir condição de corrida ao remover último admin
     const updatedMember = await prisma.$transaction(async (tx) => {
-      if (data.isAdmin === false && memberToUpdate.isAdmin) {
+      if (nextPermissions.isAdmin === false && memberToUpdate.isAdmin) {
         const adminCount = await tx.teamMember.count({
           where: {
             teamId: team.id,
@@ -120,8 +142,7 @@ export async function PATCH(
         where: { id: memberId },
         data: {
           ...(data.role !== undefined && { role: data.role }),
-          ...(data.hasPermission !== undefined && { hasPermission: data.hasPermission }),
-          ...(data.isAdmin !== undefined && { isAdmin: data.isAdmin }),
+          ...nextPermissions,
         },
         include: {
           user: {
@@ -135,7 +156,7 @@ export async function PATCH(
           },
         },
       });
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     logActivity({
       action: "MEMBER_UPDATED",
@@ -200,9 +221,12 @@ export async function DELETE(
     }
 
     const currentUserMember = team.members[0];
+    const currentPermissions = getTeamPermissions(currentUserMember);
+    const canGrantElevated = Boolean(
+      currentUserMember?.isAdmin || currentUserMember?.canManageMembers === true
+    );
 
-    // Verificar se o usuário atual tem permissão
-    if (!currentUserMember?.hasPermission) {
+    if (!currentPermissions.canManageMembers) {
       return NextResponse.json(
         { error: "Você não tem permissão para remover membros" },
         { status: 403 }
@@ -235,7 +259,7 @@ export async function DELETE(
     }
 
     // Se o membro alvo é admin, apenas outro admin pode removê-lo
-    if (memberToRemove.isAdmin && !currentUserMember.isAdmin) {
+    if (memberToRemove.isAdmin && !canGrantElevated) {
       return NextResponse.json(
         { error: "Apenas administradores podem remover outros administradores" },
         { status: 403 }
@@ -243,7 +267,7 @@ export async function DELETE(
     }
 
     // Se removendo alguém com hasPermission, precisa ser isAdmin
-    if (memberToRemove.hasPermission && !currentUserMember.isAdmin) {
+    if (memberToRemove.hasPermission && !canGrantElevated) {
       return NextResponse.json(
         { error: "Apenas administradores podem remover membros com permissão" },
         { status: 403 }
@@ -274,7 +298,7 @@ export async function DELETE(
           leftAt: new Date(),
         },
       });
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     logActivity({
       action: "MEMBER_REMOVED",

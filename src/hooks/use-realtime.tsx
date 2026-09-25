@@ -47,6 +47,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     if (status !== "authenticated") return;
 
     let isPageVisible = !document.hidden;
+    let stopped = false;
+    let activeUrl = "";
 
     const getStreamUrl = () => {
       const idle = !isPageVisible;
@@ -54,12 +56,19 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     };
 
     const connect = () => {
-      const es = new EventSource(getStreamUrl());
+      if (stopped) return;
+      const url = getStreamUrl();
+      if (eventSourceRef.current && activeUrl === url) return;
+      clearTimeout(retryTimeoutRef.current);
+      eventSourceRef.current?.close();
+      activeUrl = url;
+      const es = new EventSource(url);
       eventSourceRef.current = es;
 
-      es.onopen = () => {
-        retryDelayRef.current = 1000;
-      };
+       es.onopen = () => {
+         if (eventSourceRef.current !== es) return;
+         retryDelayRef.current = 1000;
+       };
 
       es.onmessage = (event) => {
         try {
@@ -74,14 +83,16 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         }
       };
 
-      es.onerror = () => {
-        es.close();
-        eventSourceRef.current = null;
-        retryTimeoutRef.current = setTimeout(() => {
-          retryDelayRef.current = Math.min(retryDelayRef.current * 2, 30000);
-          connect();
-        }, retryDelayRef.current);
-      };
+       es.onerror = () => {
+         if (stopped || eventSourceRef.current !== es) return;
+         es.close();
+         eventSourceRef.current = null;
+         activeUrl = "";
+         const delay = Math.min(retryDelayRef.current * 2, 30000);
+         retryDelayRef.current = delay;
+         const jitter = Math.floor(Math.random() * 250);
+         retryTimeoutRef.current = setTimeout(connect, delay + jitter);
+       };
     };
 
     connect();
@@ -120,7 +131,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
+      stopped = true;
       eventSourceRef.current?.close();
+      eventSourceRef.current = null;
       clearTimeout(retryTimeoutRef.current);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);

@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, getBlockedUserIds } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
-import { deletePostAssets } from "@/lib/cloudinary";
+import { deletePostMediaAssets } from "@/lib/media-assets";
 import { extractHashtags, extractMentions } from "@/lib/parsers";
-import logger from "@/lib/logger";
 
 const updatePostSchema = z.object({
   content: z.string().min(1, "Conteúdo é obrigatório").max(5000),
@@ -18,7 +15,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const { session, error } = await requireAuth();
+    if (error) return error;
     const { id } = await params;
 
     const post = await prisma.post.findUnique({
@@ -111,17 +109,34 @@ export async function GET(
       );
     }
 
+    const blockedUserIds = await getBlockedUserIds(session.user.id);
+    if (blockedUserIds.includes(post.author.id)) {
+      return NextResponse.json(
+        { error: "Post não encontrado" },
+        { status: 404 }
+      );
+    }
+
+    const visibleComments = post.comments.filter(
+      (comment) => !blockedUserIds.includes(comment.author.id)
+    );
+    const visibleOriginalPost =
+      post.originalPost && !blockedUserIds.includes(post.originalPost.author.id)
+        ? post.originalPost
+        : null;
+
     return NextResponse.json({
       post: {
         ...post,
+        comments: visibleComments,
         isLiked: Array.isArray(post.likes) && post.likes.length > 0,
         likes: undefined,
-        originalPost: post.originalPost
+        originalPost: visibleOriginalPost
           ? {
-              ...post.originalPost,
+              ...visibleOriginalPost,
               isLiked:
-                Array.isArray(post.originalPost.likes) &&
-                post.originalPost.likes.length > 0,
+                Array.isArray(visibleOriginalPost.likes) &&
+                visibleOriginalPost.likes.length > 0,
               likes: undefined,
             }
           : null,
@@ -145,7 +160,7 @@ export async function DELETE(
 
     const post = await prisma.post.findUnique({
       where: { id },
-      select: { authorId: true, images: true, videoUrl: true },
+      select: { authorId: true },
     });
 
     if (!post) {
@@ -162,12 +177,7 @@ export async function DELETE(
       );
     }
 
-    // Excluir assets do Cloudinary (fire-and-forget, não bloqueia o delete)
-    try {
-      await deletePostAssets(post);
-    } catch (err) {
-      logger.error({ err }, "Falha ao excluir assets do post no Cloudinary");
-    }
+    await deletePostMediaAssets(id, session.user.id);
 
     await prisma.post.delete({
       where: { id },

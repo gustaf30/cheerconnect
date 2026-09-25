@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAuth, internalError } from "@/lib/api-utils";
+import { requireAuth, internalError, getBlockedUserIds } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 // GET /api/messages/count - Buscar contagem de mensagens não lidas
@@ -10,11 +10,11 @@ export async function GET() {
 
     const userId = session.user.id;
 
-    // Contar mensagens não lidas onde o usuário é o destinatário (não o remetente)
+    const blockedUserIds = await getBlockedUserIds(userId);
     const count = await prisma.message.count({
       where: {
         isRead: false,
-        senderId: { not: userId },
+        senderId: { notIn: [userId, ...blockedUserIds] },
         conversation: {
           OR: [
             { participant1Id: userId },
@@ -24,7 +24,7 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json({ count });
+    return NextResponse.json({ count }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return internalError("Erro ao buscar contagem de mensagens não lidas", error);
   }

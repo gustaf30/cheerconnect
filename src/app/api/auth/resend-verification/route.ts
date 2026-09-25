@@ -3,10 +3,10 @@ import { z } from "zod";
 import { handleZodError, internalError } from "@/lib/api-utils";
 import logger from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
-import { sendVerificationEmail } from "@/lib/email";
+import { isEmailDeliveryError, sendVerificationEmail } from "@/lib/email";
 
 const resendSchema = z.object({
-  email: z.string().email("Email inválido"),
+  email: z.string().trim().toLowerCase().email("Email inválido"),
 });
 
 export async function POST(request: Request) {
@@ -48,7 +48,15 @@ export async function POST(request: Request) {
     try {
       await sendVerificationEmail(email, token);
     } catch (emailError) {
-      logger.error({ err: emailError }, "[resend-verification] falha ao enviar email");
+      if (isEmailDeliveryError(emailError)) {
+        logger.error(
+          { provider: emailError.provider, reason: emailError.reason },
+          "[resend-verification] email delivery failed"
+        );
+        return genericResponse;
+      }
+
+      logger.error("[resend-verification] unexpected email delivery error");
     }
 
     return genericResponse;

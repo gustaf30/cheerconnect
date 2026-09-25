@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { PASSWORD_MIN_LENGTH, PASSWORD_REGEX, PASSWORD_ERROR } from "@/lib/constants";
+import { logSecurityEvent } from "@/lib/security-events";
 
 const changePasswordSchema = z
   .object({
@@ -66,6 +67,8 @@ export async function POST(request: Request) {
       where: { id: session.user.id },
       data: { password: hashedPassword, tokenVersion: { increment: 1 } },
     });
+
+    logSecurityEvent("auth.password_changed", { userId: session.user.id });
 
     return NextResponse.json({ success: true });
   } catch (error) {

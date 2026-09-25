@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { publishRealtimeEvent } from "@/lib/realtime-bus";
 
 // POST /api/teams/invites/[id]/reject - Rejeitar convite
 export async function POST(
@@ -38,13 +39,21 @@ export async function POST(
       );
     }
 
-    // Atualizar status do convite
-    await prisma.teamInvite.update({
-      where: { id },
+    const rejected = await prisma.teamInvite.updateMany({
+      where: { id, userId: session.user.id, status: "PENDING" },
       data: { status: "REJECTED" },
     });
+    if (rejected.count !== 1) {
+      return NextResponse.json(
+        { error: "Este convite não está mais pendente" },
+        { status: 409 }
+      );
+    }
 
-    return NextResponse.json({ success: true });
+     if (invite.invitedById) {
+       publishRealtimeEvent({ userId: invite.invitedById, type: "notification" });
+     }
+     return NextResponse.json({ success: true });
   } catch (error) {
     return internalError("Erro ao rejeitar convite", error);
   }

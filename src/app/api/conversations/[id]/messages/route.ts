@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAuth, handleZodError, internalError, getConversationWithAccessCheck, parsePaginationLimit } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, getConversationWithAccessCheck, parsePaginationLimit, areUsersBlocked, areUsersConnected } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { publishRealtimeEvent } from "@/lib/realtime-bus";
 
 const sendMessageSchema = z.object({
   content: z.string().min(1, "Mensagem não pode estar vazia").max(2000, "Mensagem muito longa"),
@@ -39,7 +40,7 @@ export async function GET(
         cursor: { id: cursor },
         skip: 1,
       }),
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       include: {
         sender: {
           select: {
@@ -59,7 +60,7 @@ export async function GET(
     return NextResponse.json({
       messages: resultMessages,
       nextCursor,
-    });
+    }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return internalError("Erro ao buscar mensagens", error);
   }
@@ -93,6 +94,20 @@ export async function POST(
       conversation.participant1Id === userId
         ? conversation.participant2Id
         : conversation.participant1Id;
+
+    if (await areUsersBlocked(userId, recipientId)) {
+      return NextResponse.json(
+        { error: "Não é possível enviar mensagens para este usuário" },
+        { status: 403 }
+      );
+    }
+
+    if (!(await areUsersConnected(userId, recipientId))) {
+      return NextResponse.json(
+        { error: "A conexão entre os usuários não está mais ativa" },
+        { status: 403 }
+      );
+    }
 
     // Buscar informações do remetente e destinatário para notificação
     const [sender, recipient] = await Promise.all([
@@ -128,8 +143,14 @@ export async function POST(
 
       // Atualizar conversa com informações da última mensagem
       const preview = content.length > 50 ? content.substring(0, 50) + "..." : content;
-      await tx.conversation.update({
-        where: { id: conversationId },
+      await tx.conversation.updateMany({
+        where: {
+          id: conversationId,
+          OR: [
+            { lastMessageAt: null },
+            { lastMessageAt: { lt: msg.createdAt } },
+          ],
+        },
         data: {
           lastMessageAt: msg.createdAt,
           lastMessagePreview: preview,
@@ -152,6 +173,9 @@ export async function POST(
 
       return msg;
     });
+
+    publishRealtimeEvent({ userId: recipientId, conversationId, type: "message" });
+    publishRealtimeEvent({ userId: recipientId, conversationId, type: "notification" });
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (error) {

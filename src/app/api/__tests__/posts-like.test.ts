@@ -63,7 +63,7 @@ describe("POST /api/posts/[id]/like", () => {
     expect(data.error).toBeDefined();
   });
 
-  it("unlikes when post is already liked (P2002 on create)", async () => {
+  it("keeps the like idempotent when it already exists", async () => {
     const session = mockSession();
     mockGetServerSession.mockResolvedValue(session);
 
@@ -80,17 +80,15 @@ describe("POST /api/posts/[id]/like", () => {
         clientVersion: "5.0.0",
       })
     );
-    mockPrisma.like.deleteMany.mockResolvedValue({ count: 1 });
+     mockPrisma.like.deleteMany.mockResolvedValue({ count: 1 });
 
-    const request = new Request("http://localhost:3000/api/posts/post-1/like", { method: "POST" });
-    const response = await POST(request, makeParams("post-1"));
-    const data = await response.json();
+     const request = new Request("http://localhost:3000/api/posts/post-1/like", { method: "POST" });
+     const response = await POST(request, makeParams("post-1"));
+     const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data.liked).toBe(false);
-    expect(mockPrisma.like.deleteMany).toHaveBeenCalledWith({
-      where: { userId: "test-user-id", postId: "post-1" },
-    });
+     expect(response.status).toBe(200);
+     expect(data.liked).toBe(true);
+     expect(mockPrisma.like.deleteMany).not.toHaveBeenCalled();
   });
 
   it("creates like and returns liked: true", async () => {

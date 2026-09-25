@@ -13,7 +13,7 @@ const iconMap = { Users, Trophy, Calendar, Search } as const;
 export function LandingHero() {
   return (
     <div className="space-y-8">
-      <div className="landing-fade-up inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full border border-primary/20 text-sm font-bold text-primary">
+      <div className="landing-fade-up inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full border border-primary/20 text-sm font-bold text-primary-dark">
         <Sparkles className="h-4 w-4" />
         A maior rede de cheerleading do Brasil
       </div>
@@ -39,7 +39,8 @@ export function LandingHero() {
         style={{ animationDelay: "300ms" }}
       >
         <Link href="/register">
-          <button className="w-full sm:w-auto px-8 py-4 bg-primary hover:bg-primary-hover text-white font-bold rounded-xl transition-base shadow-depth-2 shadow-primary/20 hover:shadow-depth-3 hover:shadow-primary/30 flex items-center justify-center gap-2 group">
+           <button className="w-full sm:w-auto px-8 py-4 bg-primary-dark hover:bg-primary-hover text-white font-bold rounded-xl transition-base shadow-depth-2 shadow-primary/20 hover:shadow-depth-3 hover:shadow-primary/30 flex items-center justify-center gap-2 group">
+
             Comece agora
             <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-fast" />
           </button>
@@ -146,7 +147,8 @@ export function LandingCTA() {
   return (
     <div
       ref={ref}
-      className={`rounded-xl border border-border bg-primary text-white overflow-hidden relative ${isInView ? "landing-scale-in" : ""}`}
+       className={`rounded-xl border border-border bg-primary-dark text-white overflow-hidden relative ${isInView ? "landing-scale-in" : ""}`}
+
       style={isInView ? undefined : { opacity: 0 }}
     >
       <div className="absolute inset-0 split-pattern" />

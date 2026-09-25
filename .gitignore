@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/playwright-report/
+/test-results/
 error.md
 
 # next.js
@@ -53,7 +55,6 @@ tasks/
 CLAUDE.md
 .superdesign/
 .playwright-mcp/
-docs/
 dbml/
 doc.md
 
@@ -65,3 +66,4 @@ nul
 .vscode/
 *.swp
 *.swo
+.env*

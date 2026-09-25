@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
-import { requireAuth, handleZodError, internalError, parsePaginationLimit } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, parsePaginationLimit, getBlockedUserIds } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { externalHttpUrlSchema } from "@/lib/validation";
+import { normalizeTeamPermissions } from "@/lib/team-permissions";
 
 const createTeamSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -10,7 +12,7 @@ const createTeamSchema = z.object({
   location: z.string().optional().nullable(),
   category: z.enum(["ALLSTAR", "SCHOOL", "COLLEGE", "RECREATIONAL", "PROFESSIONAL"]).default("ALLSTAR"),
   level: z.string().optional().nullable(),
-  website: z.string().url().optional().nullable().or(z.literal("")),
+  website: externalHttpUrlSchema.optional().nullable().or(z.literal("")),
   instagram: z.string().optional().nullable(),
 });
 
@@ -37,15 +39,20 @@ export async function GET(request: Request) {
     const { session, error } = await requireAuth();
     if (error) return error;
 
-    const { searchParams } = new URL(request.url);
-    const mode = searchParams.get("mode");
+     const { searchParams } = new URL(request.url);
+     const mode = searchParams.get("mode");
+     const blockedIds = await getBlockedUserIds(session.user.id);
 
     if (mode === "suggestions") {
-      return handleTeamSuggestions(session.user.id);
+       return handleTeamSuggestions(session.user.id, blockedIds);
     }
 
     const query = searchParams.get("q")?.slice(0, 200) || "";
     const category = searchParams.get("category");
+    const parsedCategory = z.enum(["ALLSTAR", "SCHOOL", "COLLEGE", "RECREATIONAL", "PROFESSIONAL"]).safeParse(category || undefined);
+    if (category && !parsedCategory.success) {
+      return NextResponse.json({ error: "Categoria de equipe inválida" }, { status: 400 });
+    }
     const location = searchParams.get("location");
     const limit = parsePaginationLimit(searchParams);
     const cursor = searchParams.get("cursor");
@@ -69,7 +76,8 @@ export async function GET(request: Request) {
                 ],
               }
             : {},
-          category ? { category: category as never } : {},
+           parsedCategory.success ? { category: parsedCategory.data } : {},
+
           locationParts.length > 0
             ? {
                 OR: locationParts.map((part) => ({
@@ -79,27 +87,29 @@ export async function GET(request: Request) {
             : {},
         ],
       },
-      take: limit,
+      take: limit + 1,
       ...(cursor && {
         skip: 1,
         cursor: { id: cursor },
       }),
-      orderBy: { name: "asc" },
+       orderBy: [{ name: "asc" }, { id: "asc" }],
       select: teamSelect,
     });
 
+    const hasMore = teams.length > limit;
+    const pageTeams = hasMore ? teams.slice(0, limit) : teams;
     return NextResponse.json({
-      teams,
-      nextCursor: teams.length === limit ? teams[teams.length - 1]?.id : null,
+      teams: pageTeams,
+      nextCursor: hasMore ? pageTeams[pageTeams.length - 1]?.id ?? null : null,
     }, {
-      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
+      headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
     return internalError("Erro ao buscar equipes", error);
   }
 }
 
-async function handleTeamSuggestions(userId: string) {
+async function handleTeamSuggestions(userId: string, blockedIds: string[]) {
   const MAX = 12;
 
   // Buscar info do usuário, conexões e equipes próprias em paralelo
@@ -121,9 +131,9 @@ async function handleTeamSuggestions(userId: string) {
     }),
   ]);
 
-  const connectedIds = acceptedConnections.map((c) =>
-    c.senderId === userId ? c.receiverId : c.senderId
-  );
+  const connectedIds = acceptedConnections
+    .map((c) => c.senderId === userId ? c.receiverId : c.senderId)
+    .filter((id) => !blockedIds.includes(id));
   const myTeamIds = myMemberships.map((m) => m.teamId);
   const seen = new Set<string>();
   const results: Array<Record<string, unknown>> = [];
@@ -143,12 +153,17 @@ async function handleTeamSuggestions(userId: string) {
     ? prisma.team.findMany({
         where: {
           id: { notIn: myTeamIds },
-          members: {
-            some: {
-              userId: { in: connectedIds },
-              isActive: true,
+          AND: [
+            {
+              members: {
+                some: {
+                  userId: { in: connectedIds },
+                  isActive: true,
+                },
+              },
             },
-          },
+            { members: { none: { userId: { in: blockedIds }, isActive: true } } },
+          ],
         },
         take: 5,
         select: teamSelect,
@@ -164,10 +179,11 @@ async function handleTeamSuggestions(userId: string) {
 
   const regionTeamsPromise = statePart
     ? prisma.team.findMany({
-        where: {
-          id: { notIn: myTeamIds },
-          location: { contains: statePart, mode: "insensitive" },
-        },
+         where: {
+           id: { notIn: myTeamIds },
+           location: { contains: statePart, mode: "insensitive" },
+           members: { none: { userId: { in: blockedIds }, isActive: true } },
+         },
         take: 8,
         select: teamSelect,
       })
@@ -175,7 +191,10 @@ async function handleTeamSuggestions(userId: string) {
 
   // Equipes populares (por número de membros)
   const popularTeamsPromise = prisma.team.findMany({
-    where: { id: { notIn: myTeamIds } },
+    where: {
+      id: { notIn: myTeamIds },
+      members: { none: { userId: { in: blockedIds }, isActive: true } },
+    },
     take: MAX,
     orderBy: { members: { _count: "desc" } },
     select: teamSelect,
@@ -228,8 +247,7 @@ export async function POST(request: Request) {
               create: {
                 userId: session.user.id,
                 role: "",
-                hasPermission: true,
-                isAdmin: true,
+                ...normalizeTeamPermissions({ isAdmin: true }),
               },
             },
           },

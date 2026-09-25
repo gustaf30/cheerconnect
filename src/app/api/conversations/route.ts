@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
-import { requireAuth, handleZodError, internalError, parsePaginationLimit } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, parsePaginationLimit, areUsersBlocked, areUsersConnected, getBlockedUserIds } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { canonicalPairKey } from "@/lib/validation";
 
 const createConversationSchema = z.object({
   participantId: z.string().min(1, "participantId é obrigatório"),
@@ -19,11 +20,26 @@ export async function GET(request: Request) {
     const cursor = searchParams.get("cursor");
     const limit = parsePaginationLimit(searchParams);
 
+    const blockedIds = await getBlockedUserIds(userId);
     const conversations = await prisma.conversation.findMany({
       where: {
-        OR: [
-          { participant1Id: userId },
-          { participant2Id: userId },
+        AND: [
+          {
+            OR: [
+              { participant1Id: userId },
+              { participant2Id: userId },
+            ],
+          },
+          ...(blockedIds.length > 0
+            ? [{
+                NOT: {
+                  OR: [
+                    { participant1Id: { in: blockedIds } },
+                    { participant2Id: { in: blockedIds } },
+                  ],
+                },
+              }]
+            : []),
         ],
       },
       include: {
@@ -54,15 +70,19 @@ export async function GET(request: Request) {
           },
         },
       },
-      orderBy: {
-        lastMessageAt: { sort: "desc", nulls: "last" },
-      },
-      take: limit,
+       orderBy: [
+         { lastMessageAt: { sort: "desc", nulls: "last" } },
+         { id: "asc" },
+       ],
+       take: limit + 1,
+
       ...(cursor && { skip: 1, cursor: { id: cursor } }),
     });
 
     // Transformar para incluir o "outro" participante e contagem de não lidas
-    const transformedConversations = conversations.map((conv) => {
+     const hasMore = conversations.length > limit;
+    const pageConversations = hasMore ? conversations.slice(0, limit) : conversations;
+    const transformedConversations = pageConversations.map((conv) => {
       const otherParticipant =
         conv.participant1Id === userId ? conv.participant2 : conv.participant1;
 
@@ -76,9 +96,12 @@ export async function GET(request: Request) {
       };
     });
 
-    const nextCursor = conversations.length === limit ? conversations[conversations.length - 1]?.id : null;
+    const nextCursor = hasMore ? pageConversations[pageConversations.length - 1]?.id ?? null : null;
 
-    return NextResponse.json({ conversations: transformedConversations, nextCursor });
+    return NextResponse.json(
+      { conversations: transformedConversations, nextCursor },
+      { headers: { "Cache-Control": "private, no-store" } }
+    );
   } catch (error) {
     return internalError("Erro ao buscar conversas", error);
   }
@@ -103,6 +126,13 @@ export async function POST(request: Request) {
       );
     }
 
+    if (await areUsersBlocked(userId, participantId)) {
+      return NextResponse.json(
+        { error: "Não é possível iniciar conversa com este usuário" },
+        { status: 403 }
+      );
+    }
+
     // Verificar se o participante existe
     const participant = await prisma.user.findUnique({
       where: { id: participantId },
@@ -116,18 +146,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verificar se existe conexão aceita entre os usuários
-    const connection = await prisma.connection.findFirst({
-      where: {
-        status: "ACCEPTED",
-        OR: [
-          { senderId: userId, receiverId: participantId },
-          { senderId: participantId, receiverId: userId },
-        ],
-      },
-    });
-
-    if (!connection) {
+    const connected = await areUsersConnected(userId, participantId);
+    if (!connected) {
       return NextResponse.json(
         { error: "Você precisa estar conectado com este usuário para enviar mensagens" },
         { status: 403 }
@@ -150,6 +170,7 @@ export async function POST(request: Request) {
         data: {
           participant1Id: userId,
           participant2Id: participantId,
+          pairKey: canonicalPairKey(userId, participantId),
         },
         include: {
           participant1: { select: participantSelect },
@@ -162,18 +183,27 @@ export async function POST(request: Request) {
         err.code === "P2002"
       ) {
         // Conversa já existe — buscar e retornar
-        conversation = await prisma.conversation.findFirst({
-          where: {
-            OR: [
-              { participant1Id: userId, participant2Id: participantId },
-              { participant1Id: participantId, participant2Id: userId },
-            ],
-          },
+        conversation = await prisma.conversation.findUnique({
+          where: { pairKey: canonicalPairKey(userId, participantId) },
           include: {
             participant1: { select: participantSelect },
             participant2: { select: participantSelect },
           },
         });
+        if (!conversation) {
+          conversation = await prisma.conversation.findFirst({
+            where: {
+              OR: [
+                { participant1Id: userId, participant2Id: participantId },
+                { participant1Id: participantId, participant2Id: userId },
+              ],
+            },
+            include: {
+              participant1: { select: participantSelect },
+              participant2: { select: participantSelect },
+            },
+          });
+        }
 
         if (!conversation) {
           return NextResponse.json(

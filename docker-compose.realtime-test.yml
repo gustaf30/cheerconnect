@@ -1,0 +1,25 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: cheerconnect-realtime-redis
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "PING"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  # Ponte REST compatível com o protocolo do Upstash, para que o cliente
+  # @upstash/redis possa falar com um Redis local sem depender da nuvem.
+  rest:
+    image: hiett/serverless-redis-http
+    container_name: cheerconnect-realtime-rest
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: ${SRH_TOKEN:-testtoken}
+      SRH_CONNECTION_STRING: redis://redis:6379
+    ports:
+      - "${SRH_PORT:-8079}:80"

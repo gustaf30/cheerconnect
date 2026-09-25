@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
-import { requireAuth, handleZodError, internalError, getBlockedUserIds, parsePaginationLimit } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, getBlockedUserIds, parsePaginationLimit, areUsersBlocked } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { canonicalPairKey } from "@/lib/validation";
+import { publishRealtimeEvent } from "@/lib/realtime-bus";
+import { withSerializableRetry } from "@/lib/transaction-retry";
 
 const createConnectionSchema = z.object({
   receiverId: z.string(),
@@ -15,18 +18,38 @@ export async function GET(request: Request) {
     if (error) return error;
 
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get("status") || "ACCEPTED";
+    const parsedStatus = z.enum(["PENDING", "ACCEPTED", "REJECTED"]).safeParse(
+      searchParams.get("status") || "ACCEPTED"
+    );
+    if (!parsedStatus.success) {
+      return NextResponse.json({ error: "Status de conexão inválido" }, { status: 400 });
+    }
+    const status = parsedStatus.data;
     const cursor = searchParams.get("cursor");
     const limit = parsePaginationLimit(searchParams);
 
     const blockedIds = await getBlockedUserIds(session.user.id);
 
-    let connections = await prisma.connection.findMany({
+    const connections = await prisma.connection.findMany({
       where: {
         status: status as "PENDING" | "ACCEPTED" | "REJECTED",
-        OR: [
-          { senderId: session.user.id },
-          { receiverId: session.user.id },
+        AND: [
+          {
+            OR: [
+              { senderId: session.user.id },
+              { receiverId: session.user.id },
+            ],
+          },
+          ...(blockedIds.length > 0
+            ? [{
+                NOT: {
+                  OR: [
+                    { senderId: session.user.id, receiverId: { in: blockedIds } },
+                    { receiverId: session.user.id, senderId: { in: blockedIds } },
+                  ],
+                },
+              }]
+            : []),
         ],
       },
       include: {
@@ -52,21 +75,23 @@ export async function GET(request: Request) {
         },
       },
       orderBy: { updatedAt: "desc" },
-      take: limit,
+      take: limit + 1,
       ...(cursor && { skip: 1, cursor: { id: cursor } }),
     });
 
-    // Filtrar conexões com usuários bloqueados
-    if (blockedIds.length > 0) {
-      const blockedSet = new Set(blockedIds);
-      connections = connections.filter(c => {
-        const otherId = c.senderId === session.user.id ? c.receiverId : c.senderId;
-        return !blockedSet.has(otherId);
-      });
-    }
+    const filteredConnections = blockedIds.length > 0
+      ? connections.filter((connection) => {
+          const otherId = connection.senderId === session.user.id
+            ? connection.receiverId
+            : connection.senderId;
+          return !blockedIds.includes(otherId);
+        })
+      : connections;
+    const hasMore = filteredConnections.length > limit;
+    const pageConnections = hasMore ? filteredConnections.slice(0, limit) : filteredConnections;
 
     // Formatar conexões para mostrar o outro usuário
-    const formattedConnections = connections.map((connection) => ({
+    const formattedConnections = pageConnections.map((connection) => ({
       id: connection.id,
       status: connection.status,
       createdAt: connection.createdAt,
@@ -77,7 +102,7 @@ export async function GET(request: Request) {
       isSender: connection.senderId === session.user.id,
     }));
 
-    const nextCursor = connections.length === limit ? connections[connections.length - 1]?.id : null;
+    const nextCursor = hasMore ? pageConnections[pageConnections.length - 1]?.id ?? null : null;
 
     return NextResponse.json({ connections: formattedConnections, nextCursor });
   } catch (error) {
@@ -101,6 +126,13 @@ export async function POST(request: Request) {
       );
     }
 
+    if (await areUsersBlocked(session.user.id, receiverId)) {
+      return NextResponse.json(
+        { error: "Não é possível interagir com este usuário" },
+        { status: 403 }
+      );
+    }
+
     // Verificar se o usuário existe
     const receiver = await prisma.user.findUnique({
       where: { id: receiverId },
@@ -115,9 +147,7 @@ export async function POST(request: Request) {
 
     // Verificar se já existe conexão na direção inversa (receiverId -> senderId)
     const reverseConnection = await prisma.connection.findUnique({
-      where: {
-        senderId_receiverId: { senderId: receiverId, receiverId: session.user.id },
-      },
+      where: { pairKey: canonicalPairKey(session.user.id, receiverId) },
     });
 
     if (reverseConnection) {
@@ -142,11 +172,12 @@ export async function POST(request: Request) {
     // Tentar criar diretamente — catch P2002 para unique constraint (senderId, receiverId)
     let connection;
     try {
-      connection = await prisma.$transaction(async (tx) => {
+       connection = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
         const conn = await tx.connection.create({
           data: {
             senderId: session.user.id,
             receiverId,
+            pairKey: canonicalPairKey(session.user.id, receiverId),
           },
         });
 
@@ -165,7 +196,7 @@ export async function POST(request: Request) {
         }
 
         return conn;
-      });
+       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
@@ -179,7 +210,8 @@ export async function POST(request: Request) {
       throw err;
     }
 
-    return NextResponse.json({ connection }, { status: 201 });
+     publishRealtimeEvent({ userId: receiverId, type: "notification" });
+     return NextResponse.json({ connection }, { status: 201 });
   } catch (error) {
     return handleZodError(error) ?? internalError("Erro ao criar conexão", error);
   }

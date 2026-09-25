@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, internalError } from "@/lib/api-utils";
+import { logSecurityEvent } from "@/lib/security-events";
 
 // POST /api/users/[id]/block — Block a user
 export async function POST(
@@ -60,9 +61,25 @@ export async function POST(
           ],
         },
       }),
+      prisma.teamInvite.deleteMany({
+        where: {
+          OR: [
+            { userId: blockedUserId, invitedById: userId },
+            { userId, invitedById: blockedUserId },
+            {
+              userId: blockedUserId,
+              team: { members: { some: { userId, isActive: true } } },
+            },
+            {
+              userId,
+              team: { members: { some: { userId: blockedUserId, isActive: true } } },
+            },
+          ],
+        },
+      }),
     ]);
 
-    // NOTE: Blocking filters for feed, search, and connections — tracked for post-launch implementation.
+    logSecurityEvent("user.blocked", { actorId: userId, blockedUserId });
 
     return NextResponse.json({ success: true });
   } catch (err) {
@@ -94,6 +111,8 @@ export async function DELETE(
     }
 
     await prisma.block.delete({ where: { id: block.id } });
+
+    logSecurityEvent("user.unblocked", { actorId: userId, blockedUserId });
 
     return NextResponse.json({ success: true });
   } catch (err) {

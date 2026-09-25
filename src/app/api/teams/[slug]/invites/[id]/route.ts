@@ -21,7 +21,8 @@ export async function DELETE(
           where: {
             userId: session.user.id,
             isActive: true,
-            OR: [{ hasPermission: true }, { isAdmin: true }],
+             canManageMembers: true,
+
           },
         },
       },
@@ -38,19 +39,12 @@ export async function DELETE(
       );
     }
 
-    // Encontrar o convite
-    const invite = await prisma.teamInvite.findUnique({
-      where: { id },
-    });
-
-    if (!invite || invite.teamId !== team.id) {
-      return NextResponse.json({ error: "Convite não encontrado" }, { status: 404 });
-    }
-
-    // Excluir o convite
-    await prisma.teamInvite.delete({
-      where: { id },
-    });
+     const result = await prisma.teamInvite.deleteMany({
+       where: { id, teamId: team.id, status: "PENDING" },
+     });
+     if (result.count === 0) {
+       return NextResponse.json({ error: "Convite não encontrado" }, { status: 404 });
+     }
 
     return NextResponse.json({ success: true });
   } catch (error) {

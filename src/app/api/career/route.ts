@@ -2,21 +2,41 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuth, handleZodError, internalError, parsePaginationLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { assertDateOrder, dateStringSchema } from "@/lib/validation";
 import { Position } from "@prisma/client";
 
 const positionEnum = z.enum(["FLYER", "BASE", "BACKSPOT", "FRONTSPOT", "TUMBLER", "COACH", "CHOREOGRAPHER", "JUDGE", "OTHER"]);
 
-const careerSchema = z.object({
-  role: z.enum(["ATHLETE", "COACH", "ASSISTANT_COACH", "CHOREOGRAPHER", "TEAM_MANAGER", "JUDGE", "OTHER"]),
-  positions: z.array(positionEnum).max(10).default([]),
-  startDate: z.string().transform((str) => new Date(str)),
-  endDate: z.string().transform((str) => new Date(str)).optional().nullable(),
-  isCurrent: z.boolean().default(false),
-  teamName: z.string().min(1, "Nome do time é obrigatório"),
-  teamId: z.string().optional().nullable(),
-  description: z.string().optional().nullable(),
-  location: z.string().optional().nullable(),
-});
+const careerSchema = z
+  .object({
+    role: z.enum(["ATHLETE", "COACH", "ASSISTANT_COACH", "CHOREOGRAPHER", "TEAM_MANAGER", "JUDGE", "OTHER"]),
+    positions: z.array(positionEnum).max(10).default([]),
+    startDate: dateStringSchema,
+    endDate: dateStringSchema.optional().nullable(),
+    isCurrent: z.boolean().default(false),
+    teamName: z.string().trim().min(1, "Nome do time é obrigatório").max(150),
+    teamId: z.string().optional().nullable(),
+    description: z.string().trim().max(2000).optional().nullable(),
+    location: z.string().trim().max(200).optional().nullable(),
+  })
+  .superRefine((data, context) => {
+    try {
+      assertDateOrder(data.startDate, data.endDate);
+    } catch (error) {
+      context.addIssue({
+        code: "custom",
+        path: ["endDate"],
+        message: error instanceof Error ? error.message : "Datas inválidas",
+      });
+    }
+    if (data.isCurrent && data.endDate) {
+      context.addIssue({
+        code: "custom",
+        path: ["endDate"],
+        message: "Experiência atual não pode ter data de término",
+      });
+    }
+  });
 
 // GET /api/career - Buscar histórico de carreira do usuário
 export async function GET(request: Request) {
@@ -40,17 +60,22 @@ export async function GET(request: Request) {
           },
         },
       },
-      orderBy: [
-        { isCurrent: "desc" },
-        { startDate: "desc" },
-      ],
-      take: limit,
+       orderBy: [
+         { isCurrent: "desc" },
+         { startDate: "desc" },
+         { id: "desc" },
+       ],
+       take: limit + 1,
       ...(cursor && { skip: 1, cursor: { id: cursor } }),
     });
 
-    const nextCursor = careerHistory.length === limit ? careerHistory[careerHistory.length - 1]?.id : null;
+     const hasMore = careerHistory.length > limit;
+     const pageCareerHistory = hasMore ? careerHistory.slice(0, limit) : careerHistory;
 
-    return NextResponse.json({ careerHistory, nextCursor });
+     return NextResponse.json({
+       careerHistory: pageCareerHistory,
+       nextCursor: hasMore ? pageCareerHistory[pageCareerHistory.length - 1]?.id ?? null : null,
+     });
   } catch (error) {
     return internalError("Erro ao buscar carreira", error);
   }

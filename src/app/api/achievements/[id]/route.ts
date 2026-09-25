@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { dateStringSchema } from "@/lib/validation";
 
 const updateAchievementSchema = z.object({
-  title: z.string().min(1).optional(),
-  description: z.string().optional().nullable(),
-  date: z.string().transform((str) => new Date(str)).optional(),
-  category: z.string().optional().nullable(),
+  title: z.string().trim().min(1).max(150).optional(),
+  description: z.string().trim().max(2000).optional().nullable(),
+  date: dateStringSchema.optional(),
+  category: z.string().trim().max(100).optional().nullable(),
 });
 
 // PATCH /api/achievements/[id] - Atualizar conquista

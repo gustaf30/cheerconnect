@@ -1,5 +1,6 @@
-import { requireAuth, internalError } from "@/lib/api-utils";
+import { requireAuth, internalError, isSessionTokenValid, getBlockedUserIds } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { subscribeRealtimeEvents } from "@/lib/realtime-bus";
 
 export const dynamic = "force-dynamic";
 
@@ -13,19 +14,45 @@ export async function GET(request: Request) {
     // Modo idle (aba invisível) usa intervalo maior para economizar bateria
     const url = new URL(request.url);
     const isIdle = url.searchParams.get("idle") === "true";
-    const pollInterval = isIdle ? 15000 : 5000;
+    const pollInterval = isIdle ? 60000 : 30000;
 
     const stream = new ReadableStream({
       async start(controller) {
-        const encoder = new TextEncoder();
-        let prevNotificationCount = -1;
+         const encoder = new TextEncoder();
+         controller.enqueue(encoder.encode("retry: 5000\n\n"));
+         let prevNotificationCount = -1;
         let prevMessageCount = -1;
         let prevLastMessageAt = "";
+         let stopped = false;
+         let polling = false;
+         const intervalRef: { current?: ReturnType<typeof setInterval> } = {};
+        let unsubscribe: () => void = () => {};
+         let blockedUserIds = await getBlockedUserIds(userId);
 
-        const poll = async () => {
+        const close = () => {
+          if (stopped) return;
+          stopped = true;
+          if (intervalRef.current) clearInterval(intervalRef.current);
+          unsubscribe();
           try {
+            controller.close();
+          } catch {
+            return;
+          }
+        };
+
+         const poll = async () => {
+           if (stopped || polling) return;
+           polling = true;
+           try {
+             blockedUserIds = await getBlockedUserIds(userId);
             if (request.signal.aborted) {
-              controller.close();
+              close();
+              return;
+            }
+
+            if (!(await isSessionTokenValid(userId, session.user.tokenVersion))) {
+              close();
               return;
             }
 
@@ -34,6 +61,7 @@ export async function GET(request: Request) {
                 prisma.notification.count({
                   where: {
                     userId,
+                    actorId: { notIn: blockedUserIds },
                     isRead: false,
                     type: { not: "MESSAGE_RECEIVED" },
                   },
@@ -41,7 +69,9 @@ export async function GET(request: Request) {
                 prisma.message.count({
                   where: {
                     isRead: false,
-                    senderId: { not: userId },
+                    senderId: { notIn: [userId, ...blockedUserIds] },
+
+
                     conversation: {
                       OR: [
                         { participant1Id: userId },
@@ -66,7 +96,6 @@ export async function GET(request: Request) {
               lastConversation?.lastMessageAt?.toISOString() ?? null;
             const lastMessageAtStr = lastMessageAt ?? "";
 
-            // Só emite dados quando valores mudam
             if (
               notificationCount !== prevNotificationCount ||
               messageCount !== prevMessageCount ||
@@ -82,35 +111,34 @@ export async function GET(request: Request) {
                 lastMessageAt,
               });
               controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-            } else {
-              controller.enqueue(encoder.encode(`: heartbeat\n\n`));
-            }
-          } catch {
-            // Ignora erros silenciosamente
-          }
-        };
+             } else {
+               controller.enqueue(encoder.encode(`: heartbeat\n\n`));
+             }
+           } catch {
+             return;
+           } finally {
+             polling = false;
+           }
+         };
 
-        // Envia dados iniciais imediatamente
-        await poll();
+         unsubscribe = subscribeRealtimeEvents((event) => {
+           if (event.userId === userId) void poll();
+         });
+         await poll();
+         if (stopped) return;
 
-        const intervalId = setInterval(poll, pollInterval);
-
-        request.signal.addEventListener("abort", () => {
-          clearInterval(intervalId);
-          try {
-            controller.close();
-          } catch {
-            // Já fechado
-          }
-        });
+         intervalRef.current = setInterval(poll, pollInterval);
+        request.signal.addEventListener("abort", close);
       },
     });
+
 
     return new Response(stream, {
       headers: {
         "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
+         "Cache-Control": "private, no-cache, no-transform",
+         "X-Accel-Buffering": "no",
+         Connection: "keep-alive",
       },
     });
   } catch (error) {

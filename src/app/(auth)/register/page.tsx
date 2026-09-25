@@ -73,8 +73,8 @@ export default function RegisterPage() {
         return;
       }
 
-      toast.success("Conta criada! Faça login para começar.");
-      router.push("/login");
+      toast.success("Conta criada! Verifique seu email para ativá-la.");
+      router.push("/verify-email");
     } catch {
       toast.error("Erro ao criar conta. Tente novamente.");
     } finally {
@@ -118,93 +118,108 @@ export default function RegisterPage() {
         className="space-y-6"
       >
         <motion.div variants={itemVariants} className="floating-label-group relative flex flex-col">
-          <input
-            type="text"
-            placeholder=" "
-            disabled={isLoading}
-            {...form.register("name")}
+           <input
+             id="register-name"
+             type="text"
+             placeholder=" "
+             disabled={isLoading}
+             aria-invalid={Boolean(form.formState.errors.name)}
+             aria-describedby={form.formState.errors.name ? "register-name-error" : undefined}
+             {...form.register("name")}
             className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-fast outline-none text-foreground font-medium"
           />
-          <label className="absolute left-0 pointer-events-none transition-slow font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
-            Nome Completo
-          </label>
+           <label htmlFor="register-name" className="absolute left-0 pointer-events-none transition-slow font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
+             Nome Completo
+           </label>
           {form.formState.errors.name && (
-            <p className="text-destructive text-sm mt-1">
-              {form.formState.errors.name.message}
-            </p>
+             <p id="register-name-error" role="alert" className="text-destructive text-sm mt-1">
+               {form.formState.errors.name.message}
+             </p>
           )}
         </motion.div>
 
         <motion.div variants={itemVariants} className="floating-label-group relative flex flex-col">
-          <input
-            type="email"
-            placeholder=" "
-            disabled={isLoading}
-            {...form.register("email")}
+           <input
+             id="register-email"
+             type="email"
+             placeholder=" "
+             disabled={isLoading}
+             aria-invalid={Boolean(form.formState.errors.email)}
+             aria-describedby={form.formState.errors.email ? "register-email-error" : undefined}
+             {...form.register("email")}
             className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-fast outline-none text-foreground font-medium"
           />
-          <label className="absolute left-0 pointer-events-none transition-slow font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
-            Endereço de Email
-          </label>
+           <label htmlFor="register-email" className="absolute left-0 pointer-events-none transition-slow font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
+             Endereço de Email
+           </label>
           {form.formState.errors.email && (
-            <p className="text-destructive text-sm mt-1">
-              {form.formState.errors.email.message}
-            </p>
+             <p id="register-email-error" role="alert" className="text-destructive text-sm mt-1">
+               {form.formState.errors.email.message}
+             </p>
           )}
         </motion.div>
 
         <motion.div variants={itemVariants} className="floating-label-group relative flex flex-col">
-          <input
-            type="text"
-            placeholder=" "
-            disabled={isLoading}
-            {...form.register("username")}
+           <input
+             id="register-username"
+             type="text"
+             placeholder=" "
+             disabled={isLoading}
+             aria-invalid={Boolean(form.formState.errors.username)}
+             aria-describedby={form.formState.errors.username ? "register-username-error" : undefined}
+             {...form.register("username")}
             className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-fast outline-none text-foreground font-medium"
           />
-          <label className="absolute left-0 pointer-events-none transition-slow font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
-            Username
-          </label>
+           <label htmlFor="register-username" className="absolute left-0 pointer-events-none transition-slow font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
+             Username
+           </label>
           {form.formState.errors.username && (
-            <p className="text-destructive text-sm mt-1">
-              {form.formState.errors.username.message}
-            </p>
+             <p id="register-username-error" role="alert" className="text-destructive text-sm mt-1">
+               {form.formState.errors.username.message}
+             </p>
           )}
         </motion.div>
 
         <motion.div variants={itemVariants} className="grid grid-cols-2 gap-4">
           <div className="floating-label-group relative flex flex-col">
-            <input
-              type="password"
-              placeholder=" "
-              disabled={isLoading}
-              {...form.register("password")}
+             <input
+               id="register-password"
+               type="password"
+               placeholder=" "
+               disabled={isLoading}
+               aria-invalid={Boolean(form.formState.errors.password)}
+               aria-describedby={form.formState.errors.password ? "register-password-error" : undefined}
+               {...form.register("password")}
               className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-fast outline-none text-foreground font-medium"
             />
-            <label className="absolute left-0 pointer-events-none transition-slow font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
-              Senha
-            </label>
+             <label htmlFor="register-password" className="absolute left-0 pointer-events-none transition-slow font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
+               Senha
+             </label>
             {form.formState.errors.password && (
-              <p className="text-destructive text-sm mt-1">
-                {form.formState.errors.password.message}
-              </p>
+               <p id="register-password-error" role="alert" className="text-destructive text-sm mt-1">
+                 {form.formState.errors.password.message}
+               </p>
             )}
           </div>
 
           <div className="floating-label-group relative flex flex-col">
-            <input
-              type="password"
-              placeholder=" "
-              disabled={isLoading}
-              {...form.register("confirmPassword")}
+             <input
+               id="register-confirm-password"
+               type="password"
+               placeholder=" "
+               disabled={isLoading}
+               aria-invalid={Boolean(form.formState.errors.confirmPassword)}
+               aria-describedby={form.formState.errors.confirmPassword ? "register-confirm-password-error" : undefined}
+               {...form.register("confirmPassword")}
               className="peer w-full bg-transparent border-0 border-b-2 border-border py-3 focus:border-primary transition-fast outline-none text-foreground font-medium"
             />
-            <label className="absolute left-0 pointer-events-none transition-slow font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
-              Confirmar Senha
-            </label>
+             <label htmlFor="register-confirm-password" className="absolute left-0 pointer-events-none transition-slow font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">
+               Confirmar Senha
+             </label>
             {form.formState.errors.confirmPassword && (
-              <p className="text-destructive text-sm mt-1">
-                {form.formState.errors.confirmPassword.message}
-              </p>
+               <p id="register-confirm-password-error" role="alert" className="text-destructive text-sm mt-1">
+                 {form.formState.errors.confirmPassword.message}
+               </p>
             )}
           </div>
         </motion.div>

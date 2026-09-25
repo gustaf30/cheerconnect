@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
-import { requireAuth, handleZodError, internalError } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, areUsersBlocked } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { publishRealtimeEvent } from "@/lib/realtime-bus";
 
 const repostSchema = z.object({
   content: z.string().max(5000).optional(),
@@ -36,6 +37,13 @@ export async function POST(
       return NextResponse.json(
         { error: "Post não encontrado" },
         { status: 404 }
+      );
+    }
+
+    if (await areUsersBlocked(session.user.id, originalPost.authorId)) {
+      return NextResponse.json(
+        { error: "Não é possível interagir com esta publicação" },
+        { status: 403 }
       );
     }
 
@@ -87,7 +95,8 @@ export async function POST(
     // Criar o repost — captura P2002 para unique constraint (authorId, originalPostId)
     let repost;
     try {
-      repost = await prisma.post.create({
+       repost = await prisma.$transaction(async (tx) => {
+         const createdRepost = await tx.post.create({
         data: {
           content: content || "",
           authorId: session.user.id,
@@ -138,9 +147,11 @@ export async function POST(
               reposts: true,
             },
           },
-        },
-      });
-    } catch (err) {
+         },
+       });
+         return createdRepost;
+       });
+     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
         err.code === "P2002"
@@ -168,8 +179,9 @@ export async function POST(
       });
     }
 
-    return NextResponse.json({
-      post: {
+     publishRealtimeEvent({ userId: originalPost.authorId, type: "notification" });
+     return NextResponse.json({
+       post: {
         ...repost,
         isLiked: false,
         originalPost: repost.originalPost
@@ -196,27 +208,17 @@ export async function DELETE(
 
     const { id: postId } = await params;
 
-    // Encontrar o repost do usuário para este post original
-    const repost = await prisma.post.findFirst({
-      where: {
-        authorId: session.user.id,
-        originalPostId: postId,
-      },
-    });
+     const result = await prisma.post.deleteMany({
+       where: {
+         authorId: session.user.id,
+         originalPostId: postId,
+       },
+     });
+     if (result.count === 0) {
+       return NextResponse.json({ error: "Repost não encontrado" }, { status: 404 });
+     }
 
-    if (!repost) {
-      return NextResponse.json(
-        { error: "Repost não encontrado" },
-        { status: 404 }
-      );
-    }
-
-    // Excluir o repost
-    await prisma.post.delete({
-      where: { id: repost.id },
-    });
-
-    return NextResponse.json({ success: true });
+     return NextResponse.json({ success: true });
   } catch (error) {
     return internalError("Erro ao excluir repost", error);
   }

@@ -25,6 +25,7 @@ import {
 import { toast } from "sonner";
 import { CitySelector } from "@/components/ui/city-selector";
 import { careerRoleOptions, positionOptions } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
 interface CareerEntry {
@@ -42,9 +43,17 @@ interface CareerEntry {
 interface CareerSectionProps {
   careerHistory: CareerEntry[];
   fetchCareerHistory: () => void;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
+  isLoadingMore?: boolean;
 }
 
-export function CareerSection({ careerHistory, fetchCareerHistory }: CareerSectionProps) {
+function parseDateOnly(value: string): Date {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+export function CareerSection({ careerHistory, fetchCareerHistory, hasMore, onLoadMore, isLoadingMore }: CareerSectionProps) {
   const [careerDialogOpen, setCareerDialogOpen] = useState(false);
   const [editingCareer, setEditingCareer] = useState<CareerEntry | null>(null);
   const [careerForm, setCareerForm] = useState({
@@ -94,6 +103,10 @@ export function CareerSection({ careerHistory, fetchCareerHistory }: CareerSecti
       toast.error("Preencha os campos obrigatórios");
       return;
     }
+    if (!careerForm.isCurrent && careerForm.endDate && parseDateOnly(careerForm.endDate) < parseDateOnly(careerForm.startDate)) {
+      toast.error("A data de término deve ser igual ou posterior à data de início");
+      return;
+    }
 
     setIsSavingCareer(true);
     try {
@@ -111,9 +124,12 @@ export function CareerSection({ careerHistory, fetchCareerHistory }: CareerSecti
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) throw new Error();
+       if (!response.ok) {
+         const data = await response.json().catch(() => null);
+         throw new Error(data?.error || "Erro ao salvar experiência");
+       }
 
-      toast.success(editingCareer ? "Experiência atualizada!" : "Experiência adicionada!");
+       toast.success(editingCareer ? "Experiência atualizada!" : "Experiência adicionada!");
       setCareerDialogOpen(false);
       fetchCareerHistory();
     } catch {
@@ -191,16 +207,16 @@ export function CareerSection({ careerHistory, fetchCareerHistory }: CareerSecti
                       </p>
                     )}
                     <p className="text-xs text-muted-foreground mt-1">
-                      <time dateTime={new Date(career.startDate).toISOString()}>
-                        {format(new Date(career.startDate), "MMM yyyy", { locale: ptBR })}
-                      </time>
+                       <time dateTime={career.startDate}>
+                         {format(parseDateOnly(career.startDate.slice(0, 10)), "MMM yyyy", { locale: ptBR })}
+                       </time>
                       {" - "}
                       {career.isCurrent
                         ? "Presente"
-                        : career.endDate
-                        ? <time dateTime={new Date(career.endDate).toISOString()}>
-                            {format(new Date(career.endDate), "MMM yyyy", { locale: ptBR })}
-                          </time>
+                         : career.endDate
+                         ? <time dateTime={career.endDate}>
+                             {format(parseDateOnly(career.endDate.slice(0, 10)), "MMM yyyy", { locale: ptBR })}
+                           </time>
                         : ""}
                     </p>
                   </div>
@@ -210,8 +226,9 @@ export function CareerSection({ careerHistory, fetchCareerHistory }: CareerSecti
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() => openCareerDialog(career)}
-                    >
+                       onClick={() => openCareerDialog(career)}
+                       aria-label="Editar experiência"
+                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
@@ -219,16 +236,22 @@ export function CareerSection({ careerHistory, fetchCareerHistory }: CareerSecti
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => setDeleteCareerTargetId(career.id)}
-                    >
+                       onClick={() => setDeleteCareerTargetId(career.id)}
+                       aria-label="Remover experiência"
+                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
               ))}
-            </div>
-          )}
-        </div>
+             </div>
+           )}
+           {hasMore && (
+             <Button type="button" variant="outline" className="mt-4 w-full" onClick={onLoadMore} disabled={isLoadingMore}>
+               {isLoadingMore ? "Carregando..." : "Carregar mais"}
+             </Button>
+           )}
+         </div>
       </div>
 
       {/* Dialog de Currículo */}
@@ -241,21 +264,22 @@ export function CareerSection({ careerHistory, fetchCareerHistory }: CareerSecti
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Nome do Time *</label>
-              <Input
-                value={careerForm.teamName}
+               <label htmlFor="career-team-name" className="text-sm font-medium">Nome do Time *</label>
+               <Input
+                 id="career-team-name"
+                 value={careerForm.teamName}
                 onChange={(e) => setCareerForm({ ...careerForm, teamName: e.target.value })}
                 placeholder="Ex: Sharks Allstars"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Função *</label>
-              <Select
-                value={careerForm.role}
+               <label htmlFor="career-role" className="text-sm font-medium">Função *</label>
+               <Select
+                 value={careerForm.role}
                 onValueChange={(value) => setCareerForm({ ...careerForm, role: value })}
               >
-                <SelectTrigger>
+                 <SelectTrigger id="career-role">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -272,31 +296,39 @@ export function CareerSection({ careerHistory, fetchCareerHistory }: CareerSecti
               <label className="text-sm font-medium">Posições</label>
               <div className="flex flex-wrap gap-2">
                 {positionOptions.map((pos) => (
-                  <Badge
-                    key={pos.value}
-                    variant={careerForm.positions.includes(pos.value) ? "default" : "outline"}
-                    className="cursor-pointer"
-                    onClick={() => toggleCareerPosition(pos.value)}
-                  >
-                    {pos.label}
-                  </Badge>
+                   <button
+                     key={pos.value}
+                     type="button"
+                     className={cn(
+                       "rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors",
+                       careerForm.positions.includes(pos.value)
+                         ? "border-primary bg-primary text-primary-foreground"
+                         : "border-border bg-background text-foreground hover:bg-accent"
+                     )}
+                     aria-pressed={careerForm.positions.includes(pos.value)}
+                     onClick={() => toggleCareerPosition(pos.value)}
+                   >
+                     {pos.label}
+                   </button>
                 ))}
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Data de Início *</label>
-                <Input
-                  type="date"
+                 <label htmlFor="career-start-date" className="text-sm font-medium">Data de Início *</label>
+                 <Input
+                   id="career-start-date"
+                   type="date"
                   value={careerForm.startDate}
                   onChange={(e) => setCareerForm({ ...careerForm, startDate: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Data de Término</label>
-                <Input
-                  type="date"
+                 <label htmlFor="career-end-date" className="text-sm font-medium">Data de Término</label>
+                 <Input
+                   id="career-end-date"
+                   type="date"
                   value={careerForm.endDate}
                   onChange={(e) => setCareerForm({ ...careerForm, endDate: e.target.value })}
                   disabled={careerForm.isCurrent}

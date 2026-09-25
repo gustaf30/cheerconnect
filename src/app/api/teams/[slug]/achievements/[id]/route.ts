@@ -22,7 +22,8 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
           where: {
             userId: session.user.id,
             isActive: true,
-            OR: [{ hasPermission: true }, { isAdmin: true }],
+             canEdit: true,
+
           },
         },
       },

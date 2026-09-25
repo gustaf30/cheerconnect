@@ -7,6 +7,7 @@ import { ptBR } from "date-fns/locale";
 import { MapPin, Globe, Instagram, Calendar, Users, Settings, UserPlus } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isSessionTokenValid, getBlockedUserIds } from "@/lib/api-utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,13 +39,18 @@ export async function generateMetadata({ params }: TeamPageProps): Promise<Metad
 
 export default async function TeamPage({ params }: TeamPageProps) {
   const { slug } = await params;
-  const session = await getServerSession(authOptions);
+  const rawSession = await getServerSession(authOptions);
+  const session = rawSession?.user?.id && await isSessionTokenValid(rawSession.user.id, rawSession.user.tokenVersion)
+    ? rawSession
+    : null;
+  if (!session?.user?.id) notFound();
+  const blockedIds = await getBlockedUserIds(session.user.id);
 
   const team = await prisma.team.findUnique({
     where: { slug },
     include: {
       members: {
-        where: { isActive: true },
+         where: { isActive: true, userId: { notIn: blockedIds } },
         include: {
           user: {
             select: {
@@ -62,8 +68,9 @@ export default async function TeamPage({ params }: TeamPageProps) {
         orderBy: { date: "desc" },
         take: 10,
       },
-      posts: {
-        orderBy: { createdAt: "desc" },
+       posts: {
+         where: { authorId: { notIn: blockedIds } },
+         orderBy: { createdAt: "desc" },
         take: 10,
         include: {
           author: {
@@ -90,9 +97,10 @@ export default async function TeamPage({ params }: TeamPageProps) {
         },
       },
       events: {
-        where: {
-          startDate: { gte: new Date() },
-        },
+         where: {
+           startDate: { gte: new Date() },
+           creatorId: { notIn: blockedIds },
+         },
         orderBy: { startDate: "asc" },
         take: 5,
       },

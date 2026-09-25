@@ -3,6 +3,10 @@ import { requireAuth, internalError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { cloudinary, deleteCloudinaryAsset } from "@/lib/cloudinary";
 import { validateFileType } from "@/lib/file-validation";
+import { registerCompletedMediaAsset } from "@/lib/media-assets";
+import { canonicalMediaFolder } from "@/lib/media-url";
+import { MediaPurpose } from "@prisma/client";
+import { MAX_IMAGE_DIMENSION, MAX_IMAGE_PIXELS } from "@/lib/constants";
 import logger from "@/lib/logger";
 
 // POST /api/users/me/banner - Upload de banner para o Cloudinary
@@ -39,6 +43,19 @@ export async function POST(request: Request) {
       );
     }
 
+    if (
+      !validation.width ||
+      !validation.height ||
+      validation.width > MAX_IMAGE_DIMENSION ||
+      validation.height > MAX_IMAGE_DIMENSION ||
+      validation.width * validation.height > MAX_IMAGE_PIXELS
+    ) {
+      return NextResponse.json(
+        { error: "Dimensões de imagem inválidas ou grandes demais" },
+        { status: 400 }
+      );
+    }
+
     // Buscar publicId do banner atual para excluir depois
     const currentUser = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -49,8 +66,20 @@ export async function POST(request: Request) {
     const base64 = `data:${validation.mimeType};base64,${buffer.toString("base64")}`;
 
     const result = await cloudinary.uploader.upload(base64, {
-      folder: "cheerconnect/banners",
+      folder: `${canonicalMediaFolder(session.user.id)}/banner`,
       resource_type: "image",
+    });
+
+    await registerCompletedMediaAsset({
+      ownerId: session.user.id,
+      url: result.secure_url,
+      publicId: result.public_id,
+      purpose: MediaPurpose.BANNER,
+      resourceType: "image",
+      bytes: file.size,
+      width: result.width,
+      height: result.height,
+      mimeType: validation.mimeType || undefined,
     });
 
     // Atualizar usuário no banco

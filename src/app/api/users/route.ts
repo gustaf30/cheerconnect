@@ -29,6 +29,9 @@ export async function GET(request: Request) {
 
     const query = searchParams.get("q")?.slice(0, 200) || "";
     const position = searchParams.get("position");
+    if (position && !Object.values(Position).includes(position as Position)) {
+      return NextResponse.json({ error: "Posição inválida" }, { status: 400 });
+    }
     const location = searchParams.get("location");
     const limit = parsePaginationLimit(searchParams);
     const cursor = searchParams.get("cursor");
@@ -67,7 +70,7 @@ export async function GET(request: Request) {
             : {},
         ],
       },
-      take: limit,
+      take: limit + 1,
       ...(cursor && {
         skip: 1,
         cursor: { id: cursor },
@@ -76,11 +79,13 @@ export async function GET(request: Request) {
       select: userSelect,
     });
 
+    const hasMore = users.length > limit;
+    const pageUsers = hasMore ? users.slice(0, limit) : users;
     return NextResponse.json({
-      users,
-      nextCursor: users.length === limit ? users[users.length - 1]?.id : null,
+      users: pageUsers,
+      nextCursor: hasMore ? pageUsers[pageUsers.length - 1]?.id ?? null : null,
     }, {
-      headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" },
+      headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
     return internalError("Erro ao buscar usuários", error);
@@ -176,6 +181,7 @@ async function handleSuggestions(userId: string) {
   const fallbackPromise = prisma.user.findMany({
     where: {
       id: { notIn: excludeIds },
+      profileVisibility: "PUBLIC",
     },
     take: MAX,
     orderBy: { createdAt: "desc" },
@@ -194,5 +200,8 @@ async function handleSuggestions(userId: string) {
   add(sameRegion);
   add(fallback);
 
-  return NextResponse.json({ users: results, nextCursor: null });
+  return NextResponse.json(
+    { users: results, nextCursor: null },
+    { headers: { "Cache-Control": "private, no-store" } }
+  );
 }

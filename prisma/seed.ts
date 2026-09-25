@@ -16,12 +16,28 @@ const prisma = new PrismaClient({ adapter });
 // Helper para datas relativas
 const daysAgo = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 const daysFromNow = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+const pairKey = (firstId: string, secondId: string) => firstId < secondId ? `${firstId}:${secondId}` : `${secondId}:${firstId}`;
+const teamPermissions = (hasPermission: boolean, isAdmin: boolean) => ({
+  hasPermission: hasPermission || isAdmin,
+  isAdmin,
+  canEdit: hasPermission || isAdmin,
+  canPost: hasPermission || isAdmin,
+  canInvite: hasPermission || isAdmin,
+  canManageMembers: isAdmin,
+  canDeleteTeam: isAdmin,
+});
 
 async function main() {
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_DESTRUCTIVE_SEED !== "true") {
+    throw new Error("Refusing to run destructive seed in production");
+  }
   console.log("🌱 Iniciando seed do banco de dados...");
 
   // 1. Limpar dados existentes (ordem reversa de dependências)
   console.log("🗑️  Limpando dados existentes...");
+  await prisma.mediaAsset.deleteMany();
+  await prisma.privacyRequest.deleteMany();
+  await prisma.activityLog.deleteMany();
   await prisma.message.deleteMany();
   await prisma.conversation.deleteMany();
   await prisma.notification.deleteMany();
@@ -222,7 +238,7 @@ async function main() {
   ];
 
   await Promise.all(
-    connectionsData.map((data) => prisma.connection.create({ data }))
+    connectionsData.map((data) => prisma.connection.create({ data: { ...data, pairKey: pairKey(data.senderId, data.receiverId) } }))
   );
 
   // 4. Criar equipes
@@ -321,7 +337,9 @@ async function main() {
   ];
 
   await Promise.all(
-    teamMembersData.map((data) => prisma.teamMember.create({ data }))
+    teamMembersData.map((data) => prisma.teamMember.create({
+      data: { ...data, ...teamPermissions(data.hasPermission, data.isAdmin) },
+    }))
   );
 
   // 6. Criar team follows
@@ -879,6 +897,7 @@ async function main() {
     data: {
       participant1Id: gustavo.id,
       participant2Id: maria.id,
+      pairKey: pairKey(gustavo.id, maria.id),
       lastMessageAt: daysAgo(0),
       lastMessagePreview: "Combinado! Até amanhã então 😊",
     },
@@ -902,6 +921,7 @@ async function main() {
     data: {
       participant1Id: gustavo.id,
       participant2Id: ana.id,
+      pairKey: pairKey(gustavo.id, ana.id),
       lastMessageAt: daysAgo(1),
       lastMessagePreview: "Perfeito, obrigado Ana!",
     },
@@ -923,6 +943,7 @@ async function main() {
     data: {
       participant1Id: gustavo.id,
       participant2Id: lucas.id,
+      pairKey: pairKey(gustavo.id, lucas.id),
       lastMessageAt: daysAgo(0),
       lastMessagePreview: "Bora treinar junto essa semana?",
     },
@@ -942,6 +963,7 @@ async function main() {
     data: {
       participant1Id: gustavo.id,
       participant2Id: carla.id,
+      pairKey: pairKey(gustavo.id, carla.id),
       lastMessageAt: daysAgo(3),
       lastMessagePreview: "Vou te mandar o vídeo da contagem",
     },
@@ -960,6 +982,7 @@ async function main() {
     data: {
       participant1Id: maria.id,
       participant2Id: joao.id,
+      pairKey: pairKey(maria.id, joao.id),
       lastMessageAt: daysAgo(1),
       lastMessagePreview: "Te vejo no treino!",
     },
@@ -980,6 +1003,7 @@ async function main() {
     data: {
       participant1Id: ana.id,
       participant2Id: carla.id,
+      pairKey: pairKey(ana.id, carla.id),
       lastMessageAt: daysAgo(0),
       lastMessagePreview: "A coreografia ficou perfeita! 💃",
     },
@@ -1043,7 +1067,9 @@ async function main() {
   ];
 
   await Promise.all(
-    teamInvitesData.map((data) => prisma.teamInvite.create({ data }))
+    teamInvitesData.map((data) => prisma.teamInvite.create({
+      data: { ...data, ...teamPermissions(data.hasPermission, data.isAdmin) },
+    }))
   );
 
   console.log("✅ Seed concluído com sucesso!");

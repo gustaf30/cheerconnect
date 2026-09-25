@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Search as SearchIcon, MapPin, Sparkles } from "lucide-react";
+import { Search as SearchIcon, MapPin, Sparkles, Hash, FileText } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,8 @@ import { CitySelector } from "@/components/ui/city-selector";
 import { getInitials } from "@/lib/utils";
 import { positionLabels } from "@/lib/constants";
 import { ErrorState } from "@/components/shared/error-state";
+import { PostCard } from "@/components/feed/post-card";
+import type { PostData } from "@/types";
 
 interface User {
   id: string;
@@ -53,6 +55,7 @@ function SearchContent() {
   const [position, setPosition] = useState<string>("");
   const [locationFilter, setLocationFilter] = useState("");
   const [users, setUsers] = useState<User[]>([]);
+  const [posts, setPosts] = useState<PostData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
@@ -67,17 +70,31 @@ function SearchContent() {
       setHasSearched(true);
 
       try {
-        const params = new URLSearchParams();
-        if (searchQuery) params.set("q", searchQuery);
-        if (searchPosition && searchPosition !== " ")
-          params.set("position", searchPosition);
-        if (searchLocation) params.set("location", searchLocation);
+        const normalizedQuery = searchQuery.trim();
+        const userParams = new URLSearchParams();
+        if (normalizedQuery) userParams.set("q", normalizedQuery);
+        if (searchPosition && searchPosition !== " ") userParams.set("position", searchPosition);
+        if (searchLocation) userParams.set("location", searchLocation);
 
-        const response = await fetch(`/api/users?${params.toString()}`);
-        if (!response.ok) throw new Error();
+        const isHashtag = normalizedQuery.startsWith("#");
+        const userRequest = isHashtag
+          ? Promise.resolve({ ok: true, json: async () => ({ users: [] }) })
+          : fetch(`/api/users?${userParams.toString()}`);
+        const postParams = new URLSearchParams({ filter: "all", limit: "20" });
+        if (isHashtag) {
+          postParams.set("tag", normalizedQuery.slice(1));
+        } else if (normalizedQuery) {
+          postParams.set("q", normalizedQuery);
+        }
+        const postRequest = normalizedQuery
+          ? fetch(`/api/posts?${postParams.toString()}`)
+          : Promise.resolve({ ok: true, json: async () => ({ posts: [] }) });
 
-        const data = await response.json();
-        setUsers(data.users);
+        const [userResponse, postResponse] = await Promise.all([userRequest, postRequest]);
+        if (!userResponse.ok || !postResponse.ok) throw new Error();
+        const [userData, postData] = await Promise.all([userResponse.json(), postResponse.json()]);
+        setUsers(userData.users || []);
+        setPosts(postData.posts || []);
       } catch {
         setError("Erro ao buscar. Tente novamente.");
       } finally {
@@ -192,6 +209,12 @@ function SearchContent() {
     </motion.div>
   );
 
+  const renderPostList = (postList: PostData[]) => (
+    <div className="space-y-3">
+      {postList.map((post) => <PostCard key={post.id} post={post} />)}
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <h1 className="heading-section font-display">Buscar</h1>
@@ -204,7 +227,9 @@ function SearchContent() {
               <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Buscar por nome ou username..."
+                 placeholder="Buscar por nome, username ou hashtag..."
+                 aria-label="Termo de busca"
+
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -260,13 +285,29 @@ function SearchContent() {
           ))}
         </div>
       ) : hasSearched ? (
-        users.length === 0 ? (
-          <div className="bento-card-static p-8 text-center text-muted-foreground">
-            Nenhum usuário encontrado. Tente outros termos de busca.
-          </div>
-        ) : (
-          renderUserList(users)
-        )
+        <div className="space-y-6">
+          {users.length > 0 && (
+            <section className="space-y-3">
+              <h2 className="heading-card flex items-center gap-2">
+                <SearchIcon className="h-4 w-4" /> Pessoas
+              </h2>
+              {renderUserList(users)}
+            </section>
+          )}
+          {posts.length > 0 && (
+            <section className="space-y-3">
+              <h2 className="heading-card flex items-center gap-2">
+                {query.startsWith("#") ? <Hash className="h-4 w-4" /> : <FileText className="h-4 w-4" />} Publicações
+              </h2>
+              {renderPostList(posts)}
+            </section>
+          )}
+          {users.length === 0 && posts.length === 0 && (
+            <div className="bento-card-static p-8 text-center text-muted-foreground">
+              Nenhum resultado encontrado. Tente outros termos de busca.
+            </div>
+          )}
+        </div>
       ) : isLoadingSuggestions ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (

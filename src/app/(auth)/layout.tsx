@@ -4,7 +4,7 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row overflow-hidden bg-gradient-to-br from-background to-secondary">
+    <main className="min-h-screen flex flex-col lg:flex-row overflow-hidden bg-gradient-to-br from-background to-secondary">
       {/* Left Brand Panel */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-primary flex-col justify-center px-16 xl:px-24 text-white overflow-hidden">
         {/* Abstract pattern */}
@@ -53,6 +53,6 @@ export default function AuthLayout({
           </p>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

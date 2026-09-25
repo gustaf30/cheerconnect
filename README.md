@@ -23,7 +23,7 @@
 | Upload de Mídia | Cloudinary |
 | Animações | Framer Motion |
 | Rate Limiting | Upstash Redis |
-| Email | Resend |
+| Email | Gmail SMTP (Email.js) + Resend opcional |
 | Testes | Vitest + Testing Library |
 | Containerização | Docker + Docker Compose |
 | Analytics | Vercel Analytics + Speed Insights |
@@ -70,6 +70,7 @@
 - Criação de eventos com tipo (competição, workshop, camp, tryout, etc.)
 - Detalhes com data, local, descrição e equipe organizadora
 - Listagem com eventos futuros e passados
+- Calendário mensal com navegação, visão semanal, seleção por dia e filtros
 
 ### Perfil
 
@@ -106,10 +107,11 @@
 ### Segurança
 
 - **Rate limiting** com Upstash Redis (fallback para memória)
-- **Bloqueio de usuários**
-- **Sistema de denúncias** (reports)
+- **Bloqueio de usuários** com restrição de conexões, mensagens e conversas
+- **Sistema de denúncias** (reports) e interface de moderação administrativa
 - Middleware de autenticação protegendo rotas
-- Validação e sanitização de inputs com Zod
+- Exportação de dados, solicitações de privacidade e exclusão de assets
+- Validação de upload por magic bytes, tamanho, dimensões e ownership
 
 ---
 
@@ -117,7 +119,7 @@
 
 ### Pré-requisitos
 
-- [Node.js](https://nodejs.org/) 18+
+- [Node.js](https://nodejs.org/) 22.12+
 - [Docker](https://www.docker.com/) (para PostgreSQL)
 
 ### Configuração
@@ -132,6 +134,10 @@ npm install
 
 # 3. Configure as variáveis de ambiente
 cp .env.example .env
+# Gere segredos locais antes de iniciar o Compose:
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+# Use um valor diferente para NEXTAUTH_SECRET e CRON_SECRET
+# O Compose local permite HTTP apenas em localhost; produção deve usar HTTPS.
 # Edite o .env com suas credenciais (veja a seção "Variáveis de Ambiente")
 
 # 4. Inicie o PostgreSQL
@@ -169,16 +175,22 @@ npm run dev          # Inicia servidor de desenvolvimento (localhost:3000)
 npm run build        # Build para produção
 npm run start        # Inicia servidor de produção
 npm run lint         # Executa ESLint
+npm run typecheck    # Verifica tipos TypeScript
 
 # Testes
 npm run test         # Vitest em modo watch
 npm run test:run     # Vitest execução única
+npm run test:coverage # Relatório de cobertura com thresholds
+npm run test:e2e     # Smoke E2E com Playwright/Chromium
 
 # Banco de dados (Prisma)
 npx prisma migrate dev       # Cria e executa migrações
 npx prisma generate          # Regenera o Prisma Client
 npx prisma studio            # GUI para inspecionar o banco
 npx prisma db seed            # Popula com dados de teste
+npm run prisma:validate       # Valida o schema
+npm run docs:validate         # Confere rotas contra OpenAPI
+npm run docs:sync             # Sincroniza operações ausentes no OpenAPI
 
 # Docker
 docker compose up -d                                          # Inicia containers
@@ -260,7 +272,7 @@ cheerconnect/
 │   │   ├── prisma.ts              # Singleton do Prisma Client
 │   │   ├── rate-limit.ts          # Rate limiting (Upstash / in-memory)
 │   │   └── ...                    # Outros utilitários
-│   ├── middleware.ts              # Proteção de rotas
+│   ├── proxy.ts                   # Proteção de rotas (Next.js 16)
 │   ├── test/                      # Helpers de teste
 │   └── types/                     # Tipos TypeScript
 ├── docker-compose.yml
@@ -279,20 +291,30 @@ Crie um arquivo `.env` na raiz do projeto (ou copie de `.env.example`):
 | Variável | Obrigatória | Descrição |
 |----------|:-----------:|-----------|
 | `DATABASE_URL` | Sim | URL de conexão PostgreSQL |
-| `NEXTAUTH_SECRET` | Sim | Chave secreta para JWT do NextAuth |
+| `NEXTAUTH_SECRET` | Sim | Chave secreta para JWT do NextAuth (mínimo de 32 caracteres) |
 | `NEXTAUTH_URL` | Não* | URL base da aplicação (`http://localhost:3000` em dev) |
 | `CLOUDINARY_CLOUD_NAME` | Sim | Cloud name do Cloudinary (upload de mídia) |
 | `CLOUDINARY_API_KEY` | Sim | API key do Cloudinary |
 | `CLOUDINARY_API_SECRET` | Sim | API secret do Cloudinary |
+| `EMAIL_PROVIDER` | Não* | `smtp` (padrão), `resend` ou `log` (somente dev) |
+| `SMTP_HOST` | Não | Host SMTP; padrão `smtp.gmail.com` |
+| `SMTP_PORT` | Não | Porta SMTP; padrão `587` |
+| `SMTP_SECURE` | Não | `true` para TLS direto; padrão `false` na porta 587 |
+| `SMTP_USER` | Sim* | Conta Gmail autenticada |
+| `SMTP_PASSWORD` | Sim* | Senha de app do Gmail; nunca versionar |
+| `EMAIL_FROM` | Não* | Remetente; obrigatório para `resend` e padrão `CheerConnect <SMTP_USER>` no SMTP |
+| `RESEND_API_KEY` | Não | Ativa o provider `resend` quando `EMAIL_PROVIDER=resend` |
 | `GOOGLE_CLIENT_ID` | Não | Client ID para login com Google |
 | `GOOGLE_CLIENT_SECRET` | Não | Client secret para login com Google |
 | `UPSTASH_REDIS_REST_URL` | Não | URL do Upstash Redis (rate limiting) |
 | `UPSTASH_REDIS_REST_TOKEN` | Não | Token do Upstash Redis |
-| `RESEND_API_KEY` | Não | API key do Resend (envio de emails) |
+| `CRON_SECRET` | Sim* | Segredo das rotinas de manutenção agendada |
 
-\* Auto-detectada na Vercel via `VERCEL_URL`.
+\* `NEXTAUTH_URL` pode ser omitida na Vercel, onde `VERCEL_URL` é usada. `CRON_SECRET` é obrigatória em produção; o Compose injeta `ALLOW_INSECURE_LOCALHOST=true` somente para o ambiente local. `SMTP_USER` e `SMTP_PASSWORD` são necessárias quando `EMAIL_PROVIDER=smtp`; `EMAIL_FROM` é necessária quando `EMAIL_PROVIDER=resend`. Use uma senha de app do Gmail, nunca a senha da conta.
 
-Variáveis opcionais possuem fallback: rate limiting usa memória, email loga no console, e Google OAuth simplesmente não aparece na tela de login.
+Para usar Gmail, ative a verificação em duas etapas, crie uma senha de aplicativo e preencha `SMTP_USER` e `SMTP_PASSWORD`. Use `EMAIL_FROM=CheerConnect <seu-email@gmail.com>` ou deixe vazio para usar `SMTP_USER` como remetente. Nunca envie essa senha para o chat ou commit.
+
+Sem provider configurado, o email faz fallback de log somente em desenvolvimento. Em produção, a ausência de configuração ou uma falha de entrega retorna erro. O Resend permanece disponível para uma configuração futura com `EMAIL_PROVIDER=resend`.
 
 ---
 
@@ -326,7 +348,7 @@ src/
 | Banco de Dados | [Supabase](https://supabase.com) (PostgreSQL) |
 | Upload de Mídia | [Cloudinary](https://cloudinary.com) |
 | Rate Limiting | [Upstash](https://upstash.com) (Redis) |
-| Email | [Resend](https://resend.com) |
+| Email | Gmail SMTP (padrão) ou [Resend](https://resend.com) (opcional) |
 
 ### Notas Importantes
 
@@ -358,6 +380,15 @@ O seed (`npx prisma db seed`) popula o banco com:
 
 ---
 
-## Licença
+## Arquitetura e privacidade
+
+- [Documento de arquitetura](docs/architecture.md)
+- [Diagrama entidade-relacionamento](docs/erd.md)
+- [ADRs](docs/adr/)
+- `RUN_DB_TESTS=true npm run test:run` habilita testes de integração PostgreSQL.
+- `npm run test:e2e` usa Playwright; os testes autenticados exigem `E2E_EMAIL` e `E2E_PASSWORD`.
+- `vercel.json` agenda manutenção diária; `CRON_SECRET` deve ser definido no ambiente.
+
+## Licência
 
 Projeto de TCC — Todos os direitos reservados.

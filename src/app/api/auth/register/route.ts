@@ -5,13 +5,14 @@ import { handleZodError, internalError } from "@/lib/api-utils";
 import logger from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { PASSWORD_MIN_LENGTH, PASSWORD_REGEX, PASSWORD_ERROR } from "@/lib/constants";
-import { sendVerificationEmail } from "@/lib/email";
+import { isEmailDeliveryError, sendVerificationEmail } from "@/lib/email";
 
 const registerSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
-  email: z.string().email("Email inválido"),
+  email: z.string().trim().toLowerCase().email("Email inválido"),
   username: z
     .string()
+    .trim()
     .min(3, "Username deve ter pelo menos 3 caracteres")
     .regex(
       /^[a-zA-Z0-9_]+$/,
@@ -54,25 +55,48 @@ export async function POST(request: Request) {
       },
     });
 
-    // Gerar token de verificação de email
     const token = crypto.randomUUID();
-    await prisma.verificationToken.create({
-      data: {
-        identifier: email,
-        token,
-        expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 horas
-      },
-    });
+    try {
+      await prisma.verificationToken.create({
+        data: {
+          identifier: email,
+          token,
+          expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+      });
+    } catch (tokenError) {
+      await prisma.user.delete({ where: { id: user.id } }).catch(() => undefined);
+      throw tokenError;
+    }
 
-    // Enviar email de verificação (não falhar o registro se o email falhar)
+    // Em produção, a indisponibilidade de email retorna 503; em dev, não bloqueia o registro
     try {
       await sendVerificationEmail(email, token);
     } catch (emailError) {
-      logger.error({ err: emailError }, "[register] falha ao enviar email de verificação");
+      if (isEmailDeliveryError(emailError)) {
+        logger.error(
+          { provider: emailError.provider, reason: emailError.reason },
+          "[register] email delivery failed"
+        );
+
+        try {
+          await prisma.verificationToken.deleteMany({ where: { identifier: email } });
+          await prisma.user.delete({ where: { id: user.id } });
+        } catch {
+          logger.error("[register] failed to roll back user after email error");
+        }
+
+        return NextResponse.json(
+          { error: "Serviço de email indisponível" },
+          { status: 503 }
+        );
+      }
+
+      logger.error("[register] unexpected email delivery error");
     }
 
     return NextResponse.json(
-      { success: true, userId: user.id },
+      { success: true, userId: user.id, requiresEmailVerification: true },
       { status: 201 }
     );
   } catch (error) {

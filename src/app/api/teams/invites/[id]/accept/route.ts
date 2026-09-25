@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
-import { requireAuth, internalError } from "@/lib/api-utils";
+import { requireAuth, internalError, areUsersBlocked } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/audit";
+import { normalizeTeamPermissions } from "@/lib/team-permissions";
+import { publishRealtimeEvent } from "@/lib/realtime-bus";
+import { withSerializableRetry } from "@/lib/transaction-retry";
 
 // POST /api/teams/invites/[id]/accept - Aceitar convite
 export async function POST(
@@ -40,6 +43,16 @@ export async function POST(
       );
     }
 
+    if (
+      invite.invitedById &&
+      (await areUsersBlocked(session.user.id, invite.invitedById))
+    ) {
+      return NextResponse.json(
+        { error: "Não é possível aceitar um convite de um usuário bloqueado" },
+        { status: 403 }
+      );
+    }
+
     // Verificar se o convite ainda está pendente
     if (invite.status !== "PENDING") {
       return NextResponse.json(
@@ -60,13 +73,25 @@ export async function POST(
       );
     }
 
+    const permissions = normalizeTeamPermissions({
+      hasPermission: invite.hasPermission,
+      isAdmin: invite.isAdmin,
+      canEdit: invite.canEdit,
+      canPost: invite.canPost,
+      canInvite: invite.canInvite,
+      canManageMembers: invite.canManageMembers,
+      canDeleteTeam: invite.canDeleteTeam,
+    });
+
     // Usar transação para atualizar convite e criar/atualizar membro
-    await prisma.$transaction(async (tx) => {
-      // Atualizar status do convite
-      await tx.teamInvite.update({
-        where: { id },
+     await withSerializableRetry(() => prisma.$transaction(async (tx) => {
+      const claimed = await tx.teamInvite.updateMany({
+        where: { id, userId: session.user.id, status: "PENDING" },
         data: { status: "ACCEPTED" },
       });
+      if (claimed.count !== 1) {
+        throw new Error("INVITE_NOT_PENDING");
+      }
 
       // Verificar se existe registro de membro inativo
       const existingMember = await tx.teamMember.findUnique({
@@ -85,8 +110,7 @@ export async function POST(
           data: {
             isActive: true,
             role: invite.role,
-            hasPermission: invite.hasPermission,
-            isAdmin: invite.isAdmin,
+            ...permissions,
             joinedAt: new Date(),
             leftAt: null,
           },
@@ -98,15 +122,14 @@ export async function POST(
             userId: session.user.id,
             teamId: invite.teamId,
             role: invite.role,
-            hasPermission: invite.hasPermission,
-            isAdmin: invite.isAdmin,
+            ...permissions,
             isActive: true,
           },
         });
-      }
-    });
+       }
+     }));
 
-    logActivity({
+     logActivity({
       action: "INVITE_ACCEPTED",
       entityType: "team_invite",
       entityId: id,
@@ -119,11 +142,17 @@ export async function POST(
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      team: invite.team,
-    });
+     if (invite.invitedById) {
+       publishRealtimeEvent({ userId: invite.invitedById, type: "notification" });
+     }
+     return NextResponse.json({
+       success: true,
+       team: invite.team,
+     });
   } catch (error) {
+    if (error instanceof Error && error.message === "INVITE_NOT_PENDING") {
+      return NextResponse.json({ error: "Este convite não está mais pendente" }, { status: 409 });
+    }
     return internalError("Erro ao aceitar convite", error);
   }
 }

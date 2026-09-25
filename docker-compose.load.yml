@@ -1,0 +1,106 @@
+# Pilha de carga isolada da LOAD-001.
+#
+# `app` e `app-degraded` usam a mesma imagem construída a partir do Dockerfile do
+# projeto, então o que é medido aqui é o mesmo código de produção. O k6 roda na
+# mesma rede e alcança o app pelo nome do serviço, dispensando host.docker.internal.
+#
+# O app-degraded aponta para um Redis inalcançável: é a fase de resiliência,
+# que valida que os limiares continuam valendo com a dependência fora.
+
+x-app-common: &app-common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  restart: "no"
+  environment: &app-env
+    NODE_ENV: production
+    DATABASE_URL: postgresql://load:load@postgres:5432/cheerconnect_load
+    # Precisa ser https: o auth.ts força useSecureCookies em produção, enquanto o
+    # getToken do proxy deriva o nome do cookie do protocolo do NEXTAUTH_URL. Com
+    # http os dois lados divergem e toda rota autenticada responde 401. Ver
+    # relatório da LOAD-001.
+    NEXTAUTH_URL: https://app:3000
+    NEXTAUTH_SECRET: load-test-secret-not-real-0123456789
+    EMAIL_PROVIDER: log
+    CRON_SECRET: load-test-cron-secret
+    DATABASE_POOL_MAX: ${LOAD_DB_POOL:-10}
+    CLOUDINARY_CLOUD_NAME: load-test
+    CLOUDINARY_API_KEY: load-test
+    CLOUDINARY_API_SECRET: load-test
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cheerconnect-load-postgres
+    environment:
+      POSTGRES_USER: load
+      POSTGRES_PASSWORD: load
+      POSTGRES_DB: cheerconnect_load
+    ports:
+      - "${LOAD_PG_PORT:-55432}:5432"
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=300"
+      - "-c"
+      - "shared_buffers=256MB"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U load -d cheerconnect_load"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  app:
+    <<: *app-common
+    image: cheerconnect-load-app:latest
+    container_name: cheerconnect-load-app
+    environment:
+      <<: *app-env
+      UPSTASH_REDIS_REST_URL: ${LOAD_REDIS_URL:-}
+      UPSTASH_REDIS_REST_TOKEN: ${LOAD_REDIS_TOKEN:-}
+    ports:
+      - "${LOAD_APP_PORT:-3100}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+
+  app-degraded:
+    <<: *app-common
+    image: cheerconnect-load-app-degraded:latest
+    container_name: cheerconnect-load-app-degraded
+    environment:
+      <<: *app-env
+      # O NEXTAUTH_URL precisa casar com o hostname pelo qual o app é chamado;
+      # herdar o de `app` faz o NextAuth recusar o login com 401.
+      NEXTAUTH_URL: https://app-degraded:3000
+      # Porta que não aceita conexão: simula queda de Redis/rede.
+      UPSTASH_REDIS_REST_URL: http://127.0.0.1:1
+      UPSTASH_REDIS_REST_TOKEN: token-inexistente
+    ports:
+      - "${LOAD_APP_DEGRADED_PORT:-3101}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+
+  k6:
+    image: grafana/k6:latest
+    container_name: cheerconnect-load-k6
+    profiles: ["k6"]
+    working_dir: /scripts
+    volumes:
+      - ./tests/load:/scripts:ro
+    command: ["run", "/scripts/main.js"]
+    depends_on:
+      app:
+        condition: service_healthy

@@ -104,6 +104,12 @@ describe("GET /api/posts", () => {
         team: null, originalPost: null,
         _count: { likes: 0, comments: 0, reposts: 0 }, likes: [], createdAt: new Date(),
       },
+      {
+        id: "post-3", content: "C", authorId: "u1",
+        author: { id: "u1", name: "A", username: "a", avatar: null, positions: [] },
+        team: null, originalPost: null,
+        _count: { likes: 0, comments: 0, reposts: 0 }, likes: [], createdAt: new Date(),
+      },
     ];
     mockPrisma.post.findMany.mockResolvedValue(mockPosts);
 

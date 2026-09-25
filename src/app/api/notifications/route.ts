@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAuth, handleZodError, internalError, parsePaginationLimit } from "@/lib/api-utils";
+import { requireAuth, handleZodError, internalError, getBlockedUserIds, parsePaginationLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 // GET /api/notifications - Listar notificações do usuário (cursor-based)
@@ -11,13 +11,16 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const unreadOnly = searchParams.get("unreadOnly") === "true";
+    const blockedUserIds = await getBlockedUserIds(session.user.id);
     const limit = parsePaginationLimit(searchParams);
     const cursor = searchParams.get("cursor");
 
     const notifications = await prisma.notification.findMany({
       where: {
         userId: session.user.id,
+        actorId: { notIn: blockedUserIds },
         type: { not: "MESSAGE_RECEIVED" },
+
         ...(unreadOnly && { isRead: false }),
       },
       include: {
@@ -45,7 +48,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       notifications: data,
       meta: { nextCursor },
-    });
+    }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return internalError("Erro ao buscar notificações", error);
   }

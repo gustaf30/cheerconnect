@@ -1,11 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+vi.mock('@/lib/logger', () => ({
+  default: { error: vi.fn() },
+}));
+
 describe('validateEnv', () => {
   const originalEnv = process.env;
 
   const validEnv = {
     DATABASE_URL: 'postgresql://localhost:5432/testdb',
-    NEXTAUTH_SECRET: 'super-secret-key',
+    NEXTAUTH_SECRET: 'super-secret-key-012345678901234567890',
     NEXTAUTH_URL: 'http://localhost:3000',
     CLOUDINARY_CLOUD_NAME: 'my-cloud',
     CLOUDINARY_API_KEY: 'api-key-123',
@@ -54,6 +58,35 @@ describe('validateEnv', () => {
     expect(result.GOOGLE_CLIENT_SECRET).toBeUndefined();
   });
 
+  it('passes with Gmail SMTP vars', async () => {
+    Object.assign(process.env, validEnv, {
+      EMAIL_PROVIDER: 'smtp',
+      SMTP_HOST: 'smtp.gmail.com',
+      SMTP_PORT: '587',
+      SMTP_SECURE: 'false',
+      SMTP_USER: 'sender@gmail.com',
+      SMTP_PASSWORD: 'app-password',
+      EMAIL_FROM: 'CheerConnect <sender@gmail.com>',
+    });
+    const { validateEnv } = await import('../env');
+    const result = validateEnv();
+    expect(result.EMAIL_PROVIDER).toBe('smtp');
+    expect(result.SMTP_PORT).toBe(587);
+    expect(result.SMTP_SECURE).toBe('false');
+  });
+
+  it('rejects an invalid SMTP port', async () => {
+    Object.assign(process.env, validEnv, { SMTP_PORT: '70000' });
+    const { validateEnv } = await import('../env');
+    expect(() => validateEnv()).toThrow('Invalid environment variables');
+  });
+
+  it('rejects an invalid SMTP_SECURE value', async () => {
+    Object.assign(process.env, validEnv, { SMTP_SECURE: 'yes' });
+    const { validateEnv } = await import('../env');
+    expect(() => validateEnv()).toThrow('Invalid environment variables');
+  });
+
   it('throws when DATABASE_URL is missing', async () => {
     Object.assign(process.env, validEnv);
     delete process.env.DATABASE_URL;
@@ -96,6 +129,20 @@ describe('validateEnv', () => {
 
   it('throws when NEXTAUTH_SECRET is empty string', async () => {
     Object.assign(process.env, validEnv, { NEXTAUTH_SECRET: '' });
+    const { validateEnv } = await import('../env');
+    expect(() => validateEnv()).toThrow('Invalid environment variables');
+  });
+
+  it('throws when NEXTAUTH_SECRET is too short', async () => {
+    Object.assign(process.env, validEnv, { NEXTAUTH_SECRET: 'short' });
+    const { validateEnv } = await import('../env');
+    expect(() => validateEnv()).toThrow('Invalid environment variables');
+  });
+
+  it('throws when NEXTAUTH_SECRET is copied from the example placeholder', async () => {
+    Object.assign(process.env, validEnv, {
+      NEXTAUTH_SECRET: 'generate-with: node -e "console.log(1)"',
+    });
     const { validateEnv } = await import('../env');
     expect(() => validateEnv()).toThrow('Invalid environment variables');
   });

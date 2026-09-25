@@ -4,10 +4,14 @@
  * catching spoofed MIME types and dangerous formats like SVG.
  */
 
+import { getImageDimensions } from "@/lib/image-dimensions";
+
 interface ValidationResult {
   valid: boolean;
   detectedType: "image" | "video" | null;
   mimeType: string | null;
+  width?: number;
+  height?: number;
 }
 
 // Assinaturas de magic bytes para tipos de arquivo permitidos
@@ -54,9 +58,22 @@ function isMp4(buffer: Buffer): boolean {
 }
 
 function isSvg(buffer: Buffer): boolean {
-  // Verifica primeiros 256 bytes por marcadores SVG
   const head = buffer.subarray(0, Math.min(256, buffer.length)).toString("utf-8").toLowerCase();
   return head.includes("<svg") || head.includes("<?xml");
+}
+
+function resultFor(
+  buffer: Buffer,
+  detectedType: "image" | "video",
+  mimeType: string
+): ValidationResult {
+  const dimensions = detectedType === "image" ? getImageDimensions(buffer) : null;
+  return {
+    valid: true,
+    detectedType,
+    mimeType,
+    ...(dimensions || {}),
+  };
 }
 
 export function validateFileType(buffer: Buffer): ValidationResult {
@@ -70,18 +87,18 @@ export function validateFileType(buffer: Buffer): ValidationResult {
   // Verifica assinaturas padrão
   for (const sig of SIGNATURES) {
     if (matchesSignature(buffer, sig)) {
-      return { valid: true, detectedType: sig.type, mimeType: sig.mimeType };
+      return resultFor(buffer, sig.type, sig.mimeType);
     }
   }
 
   // Verifica WebP (assinatura composta)
   if (isWebP(buffer)) {
-    return { valid: true, detectedType: "image", mimeType: "image/webp" };
+    return resultFor(buffer, "image", "image/webp");
   }
 
   // Verifica MP4 (assinatura composta)
   if (isMp4(buffer)) {
-    return { valid: true, detectedType: "video", mimeType: "video/mp4" };
+    return resultFor(buffer, "video", "video/mp4");
   }
 
   return invalid;

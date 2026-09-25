@@ -33,7 +33,7 @@ export function usePostInteractions({
   const [justLiked, setJustLiked] = useState(false);
 
   // Repost
-  const [hasReposted, setHasReposted] = useState(false);
+  const [hasReposted, setHasReposted] = useState(targetPost.hasReposted ?? false);
   const [repostsCount, setRepostsCount] = useState(targetPost._count.reposts || 0);
   const [isReposting, setIsReposting] = useState(false);
 

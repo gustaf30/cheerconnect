@@ -1,18 +1,33 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAuth, handleZodError, internalError, parsePaginationLimit } from "@/lib/api-utils";
+import { EventType, Prisma } from "@prisma/client";
+import { requireAuth, handleZodError, internalError, parsePaginationLimit, getBlockedUserIds } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
+import { assertDateOrder, dateStringSchema, externalHttpUrlSchema } from "@/lib/validation";
+import { getTeamPermissions } from "@/lib/team-permissions";
 
-const createEventSchema = z.object({
-  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
-  description: z.string().optional().nullable(),
-  location: z.string().min(1, "Localização é obrigatória"),
-  startDate: z.string().transform((str) => new Date(str)),
-  endDate: z.string().transform((str) => new Date(str)).optional().nullable(),
-  type: z.enum(["COMPETITION", "TRYOUT", "CAMP", "WORKSHOP", "SHOWCASE", "OTHER"]),
-  teamId: z.string().optional().nullable(),
-  registrationUrl: z.string().url().optional().nullable(),
-});
+const createEventSchema = z
+  .object({
+    name: z.string().trim().min(2, "Nome deve ter pelo menos 2 caracteres").max(150),
+    description: z.string().trim().max(5000).optional().nullable(),
+    location: z.string().trim().min(1, "Localização é obrigatória").max(200),
+    startDate: dateStringSchema,
+    endDate: dateStringSchema.optional().nullable(),
+    type: z.enum(["COMPETITION", "TRYOUT", "CAMP", "WORKSHOP", "SHOWCASE", "OTHER"]),
+    teamId: z.string().optional().nullable(),
+    registrationUrl: externalHttpUrlSchema.optional().nullable(),
+  })
+  .superRefine((data, context) => {
+    try {
+      assertDateOrder(data.startDate, data.endDate);
+    } catch (error) {
+      context.addIssue({
+        code: "custom",
+        path: ["endDate"],
+        message: error instanceof Error ? error.message : "Datas inválidas",
+      });
+    }
+  });
 
 const eventSelect = {
   id: true,
@@ -48,67 +63,125 @@ export async function GET(request: Request) {
     const { session, error } = await requireAuth();
     if (error) return error;
 
-    const { searchParams } = new URL(request.url);
-    const mode = searchParams.get("mode");
+     const { searchParams } = new URL(request.url);
+     const mode = searchParams.get("mode");
+     const blockedIds = await getBlockedUserIds(session.user.id);
 
     if (mode === "suggestions") {
-      return handleEventSuggestions(session.user.id);
+       return handleEventSuggestions(session.user.id, blockedIds);
     }
 
-    const type = searchParams.get("type");
     const q = searchParams.get("q")?.slice(0, 200);
     const location = searchParams.get("location");
+    const scope = searchParams.get("scope") || "upcoming";
+    if (!["upcoming", "past", "all"].includes(scope)) {
+      return NextResponse.json({ error: "Escopo de eventos inválido" }, { status: 400 });
+    }
+    const type = searchParams.get("type");
+    if (type && !Object.values(EventType).includes(type as EventType)) {
+      return NextResponse.json({ error: "Tipo de evento inválido" }, { status: 400 });
+    }
     const limit = parsePaginationLimit(searchParams);
     const cursor = searchParams.get("cursor");
+    const now = new Date();
 
-    // Separar localização em partes de cidade/estado para busca OR
-    // ex.: "Ponta Grossa, Paraná" → ["Ponta Grossa", "Paraná"]
     const locationParts = location
       ?.split(",")
-      .map((p) => p.trim())
+      .map((part) => part.trim())
       .filter(Boolean) || [];
 
+    const dateFilters: Prisma.EventWhereInput[] = [];
+     if (scope === "past") {
+       dateFilters.push({
+         OR: [
+           { endDate: { lt: now } },
+           { endDate: null, startDate: { lt: now } },
+         ],
+       });
+     } else if (scope === "upcoming") {
+       dateFilters.push({
+         OR: [
+           { endDate: { gte: now } },
+           { endDate: null, startDate: { gte: now } },
+         ],
+       });
+     }
+
+    const from = searchParams.get("from");
+    const to = searchParams.get("to");
+    if (from) {
+      const parsed = dateStringSchema.safeParse(from);
+      if (!parsed.success) {
+        return NextResponse.json({ error: "Data inicial inválida" }, { status: 400 });
+      }
+       dateFilters.push({
+         OR: [
+           { startDate: { gte: parsed.data } },
+           { startDate: { lt: parsed.data }, endDate: { gte: parsed.data } },
+         ],
+       });
+    }
+    if (to) {
+      const parsed = dateStringSchema.safeParse(to);
+      if (!parsed.success) {
+        return NextResponse.json({ error: "Data final inválida" }, { status: 400 });
+      }
+       dateFilters.push({
+         OR: [
+           { endDate: { lte: parsed.data } },
+           { endDate: null, startDate: { lte: parsed.data } },
+         ],
+       });
+    }
+    if (from && to && new Date(from) > new Date(to)) {
+      return NextResponse.json({ error: "A data inicial deve ser anterior à final" }, { status: 400 });
+    }
+
+    const filters: Prisma.EventWhereInput[] = [...dateFilters];
+    if (type) filters.push({ type: type as EventType });
+    if (q) {
+      filters.push({
+        OR: [
+          { name: { contains: q, mode: "insensitive" } },
+          { description: { contains: q, mode: "insensitive" } },
+        ],
+      });
+    }
+    if (locationParts.length > 0) {
+      filters.push({
+        OR: locationParts.map((part) => ({
+          location: { contains: part, mode: "insensitive" },
+        })),
+      });
+    }
+
+     if (blockedIds.length > 0) filters.push({ creatorId: { notIn: blockedIds } });
+
+     const orderBy = scope === "past"
+      ? [{ startDate: "desc" as const }, { id: "desc" as const }]
+      : [{ startDate: "asc" as const }, { id: "asc" as const }];
     const events = await prisma.event.findMany({
-      where: {
-        startDate: { gte: new Date() },
-        ...(type ? { type: type as never } : {}),
-        ...(q
-          ? {
-              OR: [
-                { name: { contains: q, mode: "insensitive" } },
-                { description: { contains: q, mode: "insensitive" } },
-              ],
-            }
-          : {}),
-        ...(locationParts.length > 0
-          ? {
-              OR: locationParts.map((part) => ({
-                location: { contains: part, mode: "insensitive" as const },
-              })),
-            }
-          : {}),
-      },
-      take: limit,
-      ...(cursor && {
-        skip: 1,
-        cursor: { id: cursor },
-      }),
-      orderBy: { startDate: "asc" },
+      where: filters.length > 0 ? { AND: filters } : {},
+      take: limit + 1,
+      ...(cursor && { skip: 1, cursor: { id: cursor } }),
+      orderBy,
       select: eventSelect,
     });
 
+    const hasMore = events.length > limit;
+    const data = hasMore ? events.slice(0, limit) : events;
     return NextResponse.json({
-      events,
-      nextCursor: events.length === limit ? events[events.length - 1]?.id : null,
+      events: data,
+      nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null,
     }, {
-      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
+      headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
     return internalError("Erro ao buscar eventos", error);
   }
 }
 
-async function handleEventSuggestions(userId: string) {
+async function handleEventSuggestions(userId: string, blockedIds: string[]) {
   const MAX = 12;
   const now = new Date();
 
@@ -142,8 +215,9 @@ async function handleEventSuggestions(userId: string) {
   const teamEventsPromise = myTeamIds.length > 0
     ? prisma.event.findMany({
         where: {
-          teamId: { in: myTeamIds },
-          startDate: { gte: now },
+           teamId: { in: myTeamIds },
+           creatorId: { notIn: blockedIds },
+           startDate: { gte: now },
         },
         take: 5,
         orderBy: { startDate: "asc" },
@@ -161,8 +235,9 @@ async function handleEventSuggestions(userId: string) {
   const regionEventsPromise = statePart
     ? prisma.event.findMany({
         where: {
-          startDate: { gte: now },
-          location: { contains: statePart, mode: "insensitive" },
+           startDate: { gte: now },
+           creatorId: { notIn: blockedIds },
+           location: { contains: statePart, mode: "insensitive" },
         },
         take: 8,
         orderBy: { startDate: "asc" },
@@ -172,7 +247,7 @@ async function handleEventSuggestions(userId: string) {
 
   // Upcoming events (fallback)
   const upcomingPromise = prisma.event.findMany({
-    where: { startDate: { gte: now } },
+     where: { startDate: { gte: now }, creatorId: { notIn: blockedIds } },
     take: MAX,
     orderBy: { startDate: "asc" },
     select: eventSelect,
@@ -188,7 +263,10 @@ async function handleEventSuggestions(userId: string) {
   add(regionEvents);
   add(upcoming);
 
-  return NextResponse.json({ events: results, nextCursor: null });
+  return NextResponse.json(
+    { events: results, nextCursor: null },
+    { headers: { "Cache-Control": "private, no-store" } }
+  );
 }
 
 // POST /api/events - Criar novo evento
@@ -207,10 +285,11 @@ export async function POST(request: Request) {
           teamId: data.teamId,
           userId: session.user.id,
           isActive: true,
-          OR: [{ hasPermission: true }, { isAdmin: true }],
+           canPost: true,
+
         },
       });
-      if (!membership) {
+      if (!getTeamPermissions(membership).canPost) {
         return NextResponse.json(
           { error: "Você não tem permissão para criar eventos para esta equipe" },
           { status: 403 }

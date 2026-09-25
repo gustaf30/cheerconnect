@@ -40,6 +40,7 @@ import { getInitials } from "@/lib/utils";
 import { eventTypeLabels, eventTypes } from "@/lib/constants";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ErrorState } from "@/components/shared/error-state";
+import { EventCalendar } from "@/components/events/event-calendar";
 
 interface Event {
   id: string;
@@ -65,6 +66,12 @@ interface Event {
   } | null;
 }
 
+function localDateTime(date: string, time: string): Date {
+  const [year, month, day] = date.split("-").map(Number);
+  const [hour, minute] = time.split(":").map(Number);
+  return new Date(year, month - 1, day, hour, minute);
+}
+
 export default function EventsPage() {
   const { data: session } = useSession();
   const [events, setEvents] = useState<Event[]>([]);
@@ -75,6 +82,8 @@ export default function EventsPage() {
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
+  const [scope, setScope] = useState<"upcoming" | "past" | "all">("upcoming");
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
 
   // Sugestões
   const [suggestions, setSuggestions] = useState<Event[]>([]);
@@ -132,26 +141,28 @@ export default function EventsPage() {
     fetchSuggestions();
   }, []);
 
-  const fetchEvents = useCallback(async () => {
+  const fetchEvents = useCallback(async (cursor?: string) => {
     setError(null);
     setIsLoading(true);
     try {
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ scope, limit: "20" });
       if (typeFilter && typeFilter !== " ") params.set("type", typeFilter);
       if (searchQuery) params.set("q", searchQuery);
       if (locationFilter) params.set("location", locationFilter);
+      if (cursor) params.set("cursor", cursor);
 
       const response = await fetch(`/api/events?${params.toString()}`);
       if (!response.ok) throw new Error();
 
       const data = await response.json();
-      setEvents(data.events);
+      setEvents((current) => cursor ? [...current, ...data.events] : data.events);
+      setNextCursor(data.nextCursor || null);
     } catch {
       setError("Erro ao carregar eventos");
     } finally {
       setIsLoading(false);
     }
-  }, [typeFilter, searchQuery, locationFilter]);
+  }, [typeFilter, searchQuery, locationFilter, scope]);
 
   const handleCreateEvent = async () => {
     const errors: Record<string, string> = {};
@@ -167,19 +178,27 @@ export default function EventsPage() {
     if (!eventForm.startTime) {
       errors.startTime = "Hora de início é obrigatória";
     }
-    if (eventForm.endDate && eventForm.startDate && eventForm.endDate < eventForm.startDate) {
-      errors.endDate = "Data de término deve ser igual ou posterior à data de início";
-    }
-    setEventFormErrors(errors);
+     if (Boolean(eventForm.endDate) !== Boolean(eventForm.endTime)) {
+       errors.endDate = "Informe data e hora de término juntas";
+       errors.endTime = "Informe data e hora de término juntas";
+     }
+     if (eventForm.endDate && eventForm.endTime && eventForm.startDate && eventForm.startTime) {
+       const startDateTime = localDateTime(eventForm.startDate, eventForm.startTime);
+       const endDateTime = localDateTime(eventForm.endDate, eventForm.endTime);
+       if (endDateTime < startDateTime) {
+         errors.endDate = "Data e hora de término devem ser posteriores ao início";
+       }
+     }
+     setEventFormErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
     setIsCreating(true);
     try {
-      const startDateTime = new Date(`${eventForm.startDate}T${eventForm.startTime}`);
-      let endDateTime = null;
-      if (eventForm.endDate && eventForm.endTime) {
-        endDateTime = new Date(`${eventForm.endDate}T${eventForm.endTime}`);
-      }
+       const startDateTime = localDateTime(eventForm.startDate, eventForm.startTime);
+       let endDateTime = null;
+       if (eventForm.endDate && eventForm.endTime) {
+         endDateTime = localDateTime(eventForm.endDate, eventForm.endTime);
+       }
 
       const response = await fetch("/api/events", {
         method: "POST",
@@ -231,10 +250,10 @@ export default function EventsPage() {
       name: event.name,
       description: event.description || "",
       location: event.location,
-      startDate: startDate.toISOString().split("T")[0],
-      startTime: startDate.toTimeString().slice(0, 5),
-      endDate: endDate ? endDate.toISOString().split("T")[0] : "",
-      endTime: endDate ? endDate.toTimeString().slice(0, 5) : "",
+       startDate: format(startDate, "yyyy-MM-dd"),
+       startTime: format(startDate, "HH:mm"),
+       endDate: endDate ? format(endDate, "yyyy-MM-dd") : "",
+       endTime: endDate ? format(endDate, "HH:mm") : "",
       type: event.type,
       registrationUrl: event.registrationUrl || "",
     });
@@ -257,19 +276,27 @@ export default function EventsPage() {
     if (!editForm.startTime) {
       errors.startTime = "Hora de início é obrigatória";
     }
-    if (editForm.endDate && editForm.startDate && editForm.endDate < editForm.startDate) {
-      errors.endDate = "Data de término deve ser igual ou posterior à data de início";
-    }
-    setEditFormErrors(errors);
+     if (Boolean(editForm.endDate) !== Boolean(editForm.endTime)) {
+       errors.endDate = "Informe data e hora de término juntas";
+       errors.endTime = "Informe data e hora de término juntas";
+     }
+     if (editForm.endDate && editForm.endTime && editForm.startDate && editForm.startTime) {
+       const startDateTime = localDateTime(editForm.startDate, editForm.startTime);
+       const endDateTime = localDateTime(editForm.endDate, editForm.endTime);
+       if (endDateTime < startDateTime) {
+         errors.endDate = "Data e hora de término devem ser posteriores ao início";
+       }
+     }
+     setEditFormErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
     setIsEditing(true);
     try {
-      const startDateTime = new Date(`${editForm.startDate}T${editForm.startTime}`);
-      let endDateTime = null;
-      if (editForm.endDate && editForm.endTime) {
-        endDateTime = new Date(`${editForm.endDate}T${editForm.endTime}`);
-      }
+       const startDateTime = localDateTime(editForm.startDate, editForm.startTime);
+       let endDateTime = null;
+       if (editForm.endDate && editForm.endTime) {
+         endDateTime = localDateTime(editForm.endDate, editForm.endTime);
+       }
 
       const response = await fetch(`/api/events/${editingEvent.id}`, {
         method: "PATCH",
@@ -352,7 +379,7 @@ export default function EventsPage() {
   const itemVariants = shouldReduceMotion ? noMotion : fadeSlideUp;
 
   const handleSearch = () => {
-    const hasFilters = searchQuery || (typeFilter && typeFilter !== " ") || locationFilter;
+    const hasFilters = searchQuery || (typeFilter && typeFilter !== " ") || locationFilter || scope !== "upcoming";
     if (!hasFilters) {
       setShowingSuggestions(true);
       return;
@@ -553,7 +580,18 @@ export default function EventsPage() {
                 placeholder="Cidade"
               />
             </div>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
+             <Select value={scope} onValueChange={(value: "upcoming" | "past" | "all") => setScope(value)}>
+               <SelectTrigger className="w-full sm:w-40">
+                 <SelectValue />
+               </SelectTrigger>
+               <SelectContent>
+                 <SelectItem value="upcoming">Próximos</SelectItem>
+                 <SelectItem value="past">Passados</SelectItem>
+                 <SelectItem value="all">Todos</SelectItem>
+               </SelectContent>
+             </Select>
+             <Select value={typeFilter} onValueChange={setTypeFilter}>
+
               <SelectTrigger className="w-full sm:w-48">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Tipo" />
@@ -572,9 +610,12 @@ export default function EventsPage() {
               Buscar
             </Button>
           </div>
-      </div>
+       </div>
 
-      {showingSuggestions ? (
+       <EventCalendar query={searchQuery} type={typeFilter} location={locationFilter} />
+
+       {showingSuggestions ? (
+
         isLoadingSuggestions ? (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
@@ -626,9 +667,18 @@ export default function EventsPage() {
         </div>
       ) : (
         renderGroupedEvents(groupedEvents, true)
-      )}
+       )}
 
-      {/* Dialog de Criação de Evento */}
+       {!showingSuggestions && nextCursor && (
+         <div className="flex justify-center">
+           <Button variant="outline" onClick={() => fetchEvents(nextCursor)} disabled={isLoading}>
+             Carregar mais eventos
+           </Button>
+         </div>
+       )}
+
+       {/* Dialog de Criação de Evento */}
+
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>

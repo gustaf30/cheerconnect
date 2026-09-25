@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, internalError, parsePaginationLimit } from "@/lib/api-utils";
+import { requireAuth, internalError, parsePaginationLimit, getBlockedUserIds, areUsersBlocked } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 // GET /api/comments/[id]/replies - Buscar respostas de um comentário
@@ -14,19 +14,35 @@ export async function GET(
     const { id: commentId } = await params;
     const { searchParams } = new URL(request.url);
 
-    const offset = parseInt(searchParams.get("offset") || "0");
-    const limit = parsePaginationLimit(searchParams, 10);
+     const rawOffset = searchParams.get("offset");
+     const offset = rawOffset === null ? 0 : Number(rawOffset);
+     const cursor = searchParams.get("cursor");
+     if (rawOffset !== null && (!Number.isInteger(offset) || offset < 0)) {
+       return NextResponse.json({ error: "Offset inválido" }, { status: 400 });
+     }
+     const limit = parsePaginationLimit(searchParams, 10);
 
     // Verificar se o comentário existe
     const comment = await prisma.comment.findUnique({
       where: { id: commentId },
-      select: { id: true, parentId: true },
+      select: {
+        id: true,
+        parentId: true,
+        post: { select: { authorId: true } },
+      },
     });
 
     if (!comment) {
       return NextResponse.json(
         { error: "Comentário não encontrado" },
         { status: 404 }
+      );
+    }
+
+    if (await areUsersBlocked(session.user.id, comment.post.authorId)) {
+      return NextResponse.json(
+        { error: "Não é possível acessar estas respostas" },
+        { status: 403 }
       );
     }
 
@@ -38,9 +54,11 @@ export async function GET(
       );
     }
 
+    const blockedUserIds = await getBlockedUserIds(session.user.id);
+
     // Buscar respostas
     const replies = await prisma.comment.findMany({
-      where: { parentId: commentId },
+      where: { parentId: commentId, authorId: { notIn: blockedUserIds } },
       include: {
         author: {
           select: {
@@ -61,13 +79,14 @@ export async function GET(
           },
         },
       },
-      orderBy: { createdAt: "asc" },
-      skip: offset,
-      take: limit,
+       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+       ...(cursor ? { skip: 1, cursor: { id: cursor } } : { skip: offset }),
+       take: limit + 1,
     });
 
-    // Transformar respostas
-    const transformedReplies = replies.map((reply) => ({
+     const hasMore = replies.length > limit;
+     const pageReplies = hasMore ? replies.slice(0, limit) : replies;
+     const transformedReplies = pageReplies.map((reply) => ({
       id: reply.id,
       content: reply.content,
       createdAt: reply.createdAt,
@@ -78,9 +97,10 @@ export async function GET(
       parentId: reply.parentId,
     }));
 
-    return NextResponse.json({
-      replies: transformedReplies,
-    });
+     return NextResponse.json({
+       replies: transformedReplies,
+       nextCursor: hasMore ? pageReplies[pageReplies.length - 1]?.id ?? null : null,
+     });
   } catch (error) {
     return internalError("Erro ao buscar respostas", error);
   }

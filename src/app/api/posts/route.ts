@@ -3,19 +3,35 @@ import { z } from "zod";
 import { requireAuth, handleZodError, internalError, getBlockedUserIds, getConnectedUserIds, parsePaginationLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { extractHashtags, extractMentions } from "@/lib/parsers";
+import { linkPostMediaAssets } from "@/lib/media-assets";
+import { isHttpUrl } from "@/lib/validation";
 
 const CLOUDINARY_URL_PREFIX = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/`;
-const cloudinaryUrl = z.string().url("URL inválida").refine(
-  (url) => url.startsWith(CLOUDINARY_URL_PREFIX),
-  "URL deve ser do Cloudinary"
-);
+const cloudinaryUrl = z
+  .string()
+  .url("URL inválida")
+  .refine(isHttpUrl, "URL deve usar http ou https")
+  .refine(
+    (url) => url.startsWith(CLOUDINARY_URL_PREFIX),
+    "URL deve ser do Cloudinary"
+  );
 
-const createPostSchema = z.object({
-  content: z.string().min(1, "Conteúdo é obrigatório").max(5000),
-  images: z.array(cloudinaryUrl).max(4).optional(),
-  videoUrl: cloudinaryUrl.optional(),
-  teamId: z.string().optional(),
-});
+const createPostSchema = z
+  .object({
+    content: z.string().min(1, "Conteúdo é obrigatório").max(5000),
+    images: z.array(cloudinaryUrl).max(4).refine((images) => new Set(images).size === images.length, "Arquivos duplicados não são permitidos").optional(),
+    videoUrl: cloudinaryUrl.optional(),
+    teamId: z.string().optional(),
+  })
+  .superRefine((data, context) => {
+    if (data.images && data.images.length > 0 && data.videoUrl) {
+      context.addIssue({
+        code: "custom",
+        path: ["videoUrl"],
+        message: "Não é possível enviar imagens e vídeo no mesmo post",
+      });
+    }
+  });
 
 // GET /api/posts - Buscar posts do feed
 export async function GET(request: Request) {
@@ -27,7 +43,11 @@ export async function GET(request: Request) {
     const cursor = searchParams.get("cursor");
     const limit = parsePaginationLimit(searchParams);
     const filter = searchParams.get("filter") || "following";
+    if (!["following", "all"].includes(filter)) {
+      return NextResponse.json({ error: "Filtro de feed inválido" }, { status: 400 });
+    }
     const query = searchParams.get("q")?.slice(0, 200);
+    const tag = searchParams.get("tag")?.replace(/^#/, "").slice(0, 200);
 
     const blockedIds = await getBlockedUserIds(session.user.id);
 
@@ -40,8 +60,9 @@ export async function GET(request: Request) {
       conditions.push({ authorId: { notIn: blockedIds } });
     }
 
-    // Filtro de busca textual (conteúdo do post)
-    if (query) {
+    if (tag) {
+      conditions.push({ tags: { some: { tag: { name: tag.toLowerCase() } } } });
+    } else if (query) {
       conditions.push({ content: { contains: query, mode: "insensitive" } });
     }
 
@@ -73,7 +94,7 @@ export async function GET(request: Request) {
 
     const posts = await prisma.post.findMany({
       where: whereClause,
-      take: limit,
+      take: limit + 1,
       ...(cursor && {
         skip: 1,
         cursor: { id: cursor },
@@ -133,6 +154,11 @@ export async function GET(request: Request) {
               where: { userId: session.user.id },
               select: { id: true },
             },
+            reposts: {
+              where: { authorId: session.user.id },
+              select: { id: true },
+              take: 1,
+            },
           },
         },
         _count: {
@@ -147,25 +173,38 @@ export async function GET(request: Request) {
           select: { id: true },
           take: 1,
         },
+        reposts: {
+          where: { authorId: session.user.id },
+          select: { id: true },
+          take: 1,
+        },
       },
     });
 
     const formattedPosts = posts.map((post) => ({
       ...post,
       isLiked: post.likes.length > 0,
+      hasReposted: (post.reposts?.length ?? 0) > 0,
       likes: undefined,
-      originalPost: post.originalPost
-        ? {
-            ...post.originalPost,
-            isLiked: post.originalPost.likes.length > 0,
-            likes: undefined,
-          }
-        : null,
+      reposts: undefined,
+      originalPost:
+        post.originalPost && !blockedIds.includes(post.originalPost.author.id)
+          ? {
+              ...post.originalPost,
+              isLiked: post.originalPost.likes.length > 0,
+              hasReposted: (post.originalPost.reposts?.length ?? 0) > 0,
+              likes: undefined,
+              reposts: undefined,
+            }
+          : null,
     }));
 
+    const hasMore = posts.length > limit;
+    const pagePosts = hasMore ? posts.slice(0, limit) : posts;
+    const pageFormattedPosts = formattedPosts.slice(0, limit);
     return NextResponse.json({
-      posts: formattedPosts,
-      nextCursor: posts.length === limit ? posts[posts.length - 1]?.id : null,
+      posts: pageFormattedPosts,
+      nextCursor: hasMore ? pagePosts[pagePosts.length - 1]?.id ?? null : null,
     }, {
       headers: { "Cache-Control": "private, no-store" },
     });
@@ -182,11 +221,12 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const { content, images, videoUrl, teamId } = createPostSchema.parse(body);
+    const blockedUserIds = await getBlockedUserIds(session.user.id);
 
     // Verificar se o usuário tem permissão para postar pela equipe
     if (teamId) {
       const membership = await prisma.teamMember.findFirst({
-        where: { userId: session.user.id, teamId, isActive: true, hasPermission: true },
+        where: { userId: session.user.id, teamId, isActive: true, canPost: true },
       });
       if (!membership) {
         return NextResponse.json(
@@ -223,6 +263,20 @@ export async function POST(request: Request) {
       },
     });
 
+    try {
+      await linkPostMediaAssets(
+        post.id,
+        session.user.id,
+        [...(images || []), ...(videoUrl ? [videoUrl] : [])]
+      );
+    } catch (mediaError) {
+      await prisma.post.delete({ where: { id: post.id } }).catch(() => undefined);
+      if (mediaError instanceof Error) {
+        return NextResponse.json({ error: mediaError.message }, { status: 400 });
+      }
+      throw mediaError;
+    }
+
     // Processar hashtags e menções do conteúdo
     const hashtags = extractHashtags(content);
     const mentionUsernames = extractMentions(content);
@@ -244,7 +298,10 @@ export async function POST(request: Request) {
         // Processar menções
         if (mentionUsernames.length > 0) {
           const mentionedUsers = await tx.user.findMany({
-            where: { username: { in: mentionUsernames } },
+            where: {
+              username: { in: mentionUsernames },
+              id: { notIn: blockedUserIds },
+            },
             select: { id: true, username: true, notifyMention: true },
           });
 

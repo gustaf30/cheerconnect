@@ -26,8 +26,7 @@ export async function GET() {
         { tags: [] },
         {
           headers: {
-            "Cache-Control":
-              "public, s-maxage=300, stale-while-revalidate=600",
+            "Cache-Control": "private, no-store",
           },
         }
       );
@@ -50,8 +49,8 @@ export async function GET() {
       { tags: result },
       {
         headers: {
-          "Cache-Control":
-            "public, s-maxage=300, stale-while-revalidate=600",
+           "Cache-Control": "private, no-store",
+
         },
       }
     );

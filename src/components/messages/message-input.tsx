@@ -38,6 +38,14 @@ export function MessageInput({ conversationId, onMessageSent }: MessageInputProp
         throw new Error(data.error || "Erro ao enviar mensagem");
       }
 
+      const result = await response.json();
+      if (result.message) {
+        window.dispatchEvent(
+          new CustomEvent("cheerconnect:message-sent", {
+            detail: { conversationId, message: result.message },
+          })
+        );
+      }
       setContent("");
       onMessageSent?.();
       textareaRef.current?.focus();
@@ -65,7 +73,9 @@ export function MessageInput({ conversationId, onMessageSent }: MessageInputProp
         value={content}
         onChange={(e) => setContent(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Digite sua mensagem..."
+         placeholder="Digite sua mensagem..."
+         aria-label="Mensagem"
+
         className="min-h-[44px] max-h-32 resize-none"
         rows={1}
         disabled={isSending}
