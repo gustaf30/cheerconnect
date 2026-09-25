@@ -102,6 +102,9 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+      - name: Aplica migrations na base de carga
+        run: npx prisma migrate deploy
+
       - name: Semeia a base de carga
         run: node scripts/load-seed.mjs
 
