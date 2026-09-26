@@ -81,7 +81,14 @@ export default function PostDetailPage() {
           </div>
         </div>
       ) : post ? (
-        <PostCard post={post} onDelete={handleDelete} />
+        <>
+          {/* A página precisa de um heading de nível 1 para que leitor de tela
+              anuncie onde está. Publicação não tem título, então o heading é o
+              autor; visualmente o card já mostra quem é, e repetir o nome em
+              destaque mudaria o desenho da tela. */}
+          <h1 className="sr-only">Publicação de {post.author.name ?? post.author.username}</h1>
+          <PostCard post={post} onDelete={handleDelete} />
+        </>
       ) : null}
     </div>
   );

@@ -19,7 +19,12 @@ const badgeVariants = cva(
         ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
         link: "text-primary underline-offset-4 [a&]:hover:underline",
         gradient: "bg-gradient-to-r from-primary to-[oklch(0.65_0.18_30)] text-white hover:shadow-md hover:shadow-primary/20",
-        subtle: "bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15",
+          // `text-primary` sobre `bg-primary/10` dá 4.6:1 no claro (raspando o
+          // mínimo de 4.5) e 2.5:1 no escuro, e com `size="sm"` cai para 10px,
+          // que exige 4.5:1 nos dois temas. `primary-on-tint` é o tom legível
+          // sobre tom primário e já varia por tema.
+          subtle: "bg-primary/10 text-primary-on-tint border border-primary/20 hover:bg-primary/15",
+
       },
       size: {
         sm: "px-1.5 py-0 text-[10px]",

@@ -159,7 +159,11 @@ export function EventCalendar({ query = "", type = "", location = "" }: EventCal
               <span className="block text-xs font-medium">{format(day, "d")}</span>
               <span className="mt-1 block space-y-0.5">
                 {dayEvents.slice(0, 3).map((event) => (
-                  <span key={event.id} className="block truncate rounded bg-primary/10 px-1 py-0.5 text-[10px] text-primary">
+                  // `text-primary` sobre `bg-primary/10` a 10px dá 4.3:1 no claro e
+                  // 2.5:1 no escuro, e reprova o AA nos dois. `primary-on-tint` é
+                  // o tom de primary legível como texto sobre tom primário, e já
+                  // varia por tema.
+                  <span key={event.id} className="block truncate rounded bg-primary/10 px-1 py-0.5 text-[10px] text-primary-on-tint">
                     {event.name}
                   </span>
                 ))}

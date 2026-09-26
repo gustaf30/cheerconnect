@@ -183,11 +183,11 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
               <div className="border-t border-border/50 pt-3 space-y-2">
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-muted-foreground">Conexões</span>
-                  <span className="stat-number text-primary">{animatedConnections}</span>
+                  <span className="stat-number text-primary-as-text">{animatedConnections}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-muted-foreground">Conquistas</span>
-                  <span className="stat-number text-primary">{animatedAchievements}</span>
+                  <span className="stat-number text-primary-as-text">{animatedAchievements}</span>
                 </div>
               </div>
             </div>
@@ -234,7 +234,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
                 className={cn(
                   "nav-indicator flex items-center gap-3 px-4 py-3 text-sm font-medium transition-base",
                   isActive
-                    ? "active text-primary bg-primary/5 font-semibold"
+                    ? "active text-primary-as-text bg-primary/5 font-semibold"
                     : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
                 )}
               >
@@ -260,7 +260,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
             className={cn(
               "xl:hidden nav-indicator flex items-center gap-3 px-4 py-3 text-sm font-medium transition-base",
               pathname === "/trending"
-                ? "active text-primary bg-primary/5 font-semibold"
+                ? "active text-primary-as-text bg-primary/5 font-semibold"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
             )}
           >
@@ -277,7 +277,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
                 className={cn(
                   "nav-indicator flex items-center gap-3 px-4 py-3 text-sm font-medium transition-base",
                   (pathname === "/notifications" || pathname?.startsWith("/notifications/"))
-                    ? "active text-primary bg-primary/5 font-semibold"
+                    ? "active text-primary-as-text bg-primary/5 font-semibold"
                     : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
                 )}
               >
@@ -305,7 +305,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
               className={cn(
                 "nav-indicator flex items-center gap-3 px-4 py-3 text-sm font-medium transition-base",
                 pathname === "/moderation"
-                  ? "active text-primary bg-primary/5 font-semibold"
+                  ? "active text-primary-as-text bg-primary/5 font-semibold"
                   : "text-muted-foreground hover:bg-accent/50"
               )}
             >
@@ -321,7 +321,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
             className={cn(
               "nav-indicator flex items-center gap-3 px-4 py-3 text-sm font-medium transition-base",
               pathname === "/settings" || pathname?.startsWith("/settings/")
-                ? "active text-primary bg-primary/5 font-semibold"
+                ? "active text-primary-as-text bg-primary/5 font-semibold"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
             )}
           >
@@ -356,7 +356,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
             }}
              className="flex items-center justify-center gap-0.5 font-display font-extrabold text-xl tracking-tight text-foreground"
           >
-            <span className="text-primary">Cheer</span>
+            <span className="text-primary-as-text">Cheer</span>
             <span>Connect</span>
           </Link>
         </div>

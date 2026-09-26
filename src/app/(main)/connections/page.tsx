@@ -290,7 +290,7 @@ function ConnectionsContent() {
                 tab === "all" ? "bg-primary/10 ring-1 ring-primary/20" : "hover:bg-muted/50"
               )}
             >
-              <span className={cn("font-mono text-2xl font-bold", tab === "all" ? "text-primary" : "text-muted-foreground")}>{connections.length}</span>
+              <span className={cn("font-mono text-2xl font-bold", tab === "all" ? "text-primary-on-tint" : "text-muted-foreground")}>{connections.length}</span>
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">Conexões</p>
             </button>
             <button
@@ -300,7 +300,7 @@ function ConnectionsContent() {
                 tab === "received" ? "bg-primary/10 ring-1 ring-primary/20" : "hover:bg-muted/50"
               )}
             >
-              <span className={cn("font-mono text-2xl font-bold", tab === "received" ? "text-primary" : "text-muted-foreground")}>{pendingReceived.length}</span>
+              <span className={cn("font-mono text-2xl font-bold", tab === "received" ? "text-primary-on-tint" : "text-muted-foreground")}>{pendingReceived.length}</span>
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">Recebidas</p>
             </button>
             <button
@@ -310,7 +310,7 @@ function ConnectionsContent() {
                 tab === "sent" ? "bg-primary/10 ring-1 ring-primary/20" : "hover:bg-muted/50"
               )}
             >
-              <span className={cn("font-mono text-2xl font-bold", tab === "sent" ? "text-primary" : "text-muted-foreground")}>{pendingSent.length}</span>
+              <span className={cn("font-mono text-2xl font-bold", tab === "sent" ? "text-primary-on-tint" : "text-muted-foreground")}>{pendingSent.length}</span>
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">Enviadas</p>
             </button>
           </div>

@@ -104,7 +104,8 @@ export function PeopleSuggestions() {
                       alt={user.name}
                       className="object-cover"
                     />
-                    <AvatarFallback className="bg-primary/10 text-primary font-display font-semibold text-xs rounded-lg">
+                      <AvatarFallback className="bg-primary/10 text-primary-on-tint font-display font-semibold text-xs rounded-lg">
+
                       {getInitials(user.name)}
                     </AvatarFallback>
                   </Avatar>

@@ -41,8 +41,11 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
-  --color-primary-hover: var(--primary-hover);
-  --color-primary-dark: var(--primary-dark);
+    --color-primary-hover: var(--primary-hover);
+    --color-primary-dark: var(--primary-dark);
+    --color-primary-on-tint: var(--primary-on-tint);
+    --color-primary-as-text: var(--primary-as-text);
+
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -94,9 +97,20 @@
   --sidebar-accent-foreground: oklch(0.25 0.10 25);
   --sidebar-border: oklch(0.90 0.02 15);
   --sidebar-ring: oklch(0.55 0.22 25);
-  /* Extended palette */
-  --primary-hover: oklch(0.40 0.18 25);
-  --primary-dark: oklch(0.25 0.10 25);
+    /* Extended palette */
+    --primary-hover: oklch(0.40 0.18 25);
+    --primary-dark: oklch(0.25 0.10 25);
+    /* Tom de primary legível como TEXTO sobre um tom primário de fundo
+       (bg-primary/10). `--primary` dá 4.3:1 a 10px e reprova o AA; este dá 13:1.
+       É separado de --primary-dark porque aquele é superfície de botão com texto
+       branco, e as duas exigências não cabem no mesmo token. */
+    --primary-on-tint: oklch(0.25 0.10 25);
+    /* Primary usado como TEXTO sobre o fundo da página, e não como superfície.
+       No claro é o próprio --primary, que já passa; o token existe porque no
+       escuro --primary (L 0.50) dá 2.6:1 sobre o fundo e reprova o AA, e
+       escurecê-lo quebraria os botões que o usam como fundo com texto branco. */
+    --primary-as-text: oklch(0.55 0.22 25);
+
 
   /* Premium shadows — refined for subtlety */
   --shadow-glow-sm: 0 0 10px oklch(0.55 0.22 25 / 0.12);
@@ -146,10 +160,10 @@
   --secondary: oklch(0.26 0.015 25);
   --secondary-foreground: oklch(0.93 0 0);
   --muted: oklch(0.25 0.008 25);
-  --muted-foreground: oklch(0.60 0.006 25);
+  --muted-foreground: oklch(0.63 0.006 25);
   --accent: oklch(0.28 0.02 25);
   --accent-foreground: oklch(0.93 0 0);
-  --destructive: oklch(0.60 0.16 22);
+  --destructive: oklch(0.68 0.16 22);
   --border: oklch(0.28 0.012 25);
   --input: oklch(0.28 0.012 25);
   --ring: oklch(0.50 0.17 25);
@@ -171,6 +185,10 @@
   /* Extended palette dark mode */
   --primary-hover: oklch(0.45 0.15 25);
   --primary-dark: oklch(0.60 0.14 25);
+  /* No escuro, --primary é claro demais para ser texto sobre fundo escuro
+     (2.5:1 sobre o tom de fundo). Este é o tom legível nos dois temas. */
+  --primary-on-tint: oklch(0.72 0.12 25);
+  --primary-as-text: oklch(0.70 0.14 25);
 
   /* Premium shadows - dark mode (refined) */
   --shadow-glow-sm: 0 0 8px oklch(0.50 0.17 25 / 0.10);

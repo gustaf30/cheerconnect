@@ -162,7 +162,7 @@ export function PostList({ filter = "following", refreshKey }: PostListProps) {
           <p className="text-muted-foreground">
             Nenhuma publicação ainda
           </p>
-          <p className="text-sm text-muted-foreground/70 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Seja o primeiro a compartilhar algo!
           </p>
         </div>

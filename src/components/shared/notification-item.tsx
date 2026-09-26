@@ -138,7 +138,8 @@ export function NotificationItem({ notification, onRead, onNavigate, showMarkAsR
           <button
             type="button"
             onClick={handleMarkAsRead}
-            className="shrink-0 mt-1 p-1.5 rounded-full text-primary/60 hover:text-primary hover:bg-primary/10 transition-base cursor-pointer opacity-0 group-hover/notif:opacity-100 focus-visible:opacity-100"
+              className="shrink-0 mt-1 p-1.5 rounded-full text-primary-as-text hover:bg-primary/10 transition-base cursor-pointer opacity-0 group-hover/notif:opacity-100 focus-visible:opacity-100"
+
             aria-label="Marcar como lida"
             title="Marcar como lida"
           >

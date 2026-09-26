@@ -15,14 +15,19 @@ interface EventItem {
   type: string;
 }
 
-const typeBadgeColors: Record<string, string> = {
-  COMPETITION: "bg-primary/10 text-primary",
-  WORKSHOP: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  CAMP: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
-  TRYOUT: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  SHOWCASE: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
-  OTHER: "bg-muted text-muted-foreground",
-};
+  // As cores de texto precisam alcançar 4.5:1 sobre o tom de 10% da mesma cor,
+  // porque o chip é text-[9px]. `-600` reprova no claro em dois dos cinco tipos
+  // (emerald 3.3:1, orange 3.2:1); `-700` passa. No escuro, o fundo é quase preto
+  // e o tom claro de `-400` já tem contraste.
+  const typeBadgeColors: Record<string, string> = {
+    COMPETITION: "bg-primary/10 text-primary-on-tint",
+    WORKSHOP: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+    CAMP: "bg-orange-500/10 text-orange-700 dark:text-orange-400",
+    TRYOUT: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
+    SHOWCASE: "bg-violet-500/10 text-violet-700 dark:text-violet-400",
+    OTHER: "bg-muted text-muted-foreground",
+  };
+
 
 function formatDateParts(dateStr: string) {
   const d = new Date(dateStr);
@@ -65,7 +70,7 @@ export function UpcomingEvents() {
         </div>
         <Link
           href="/events"
-          className="text-[10px] text-primary font-medium hover:underline transition-fast"
+          className="text-[10px] text-primary-as-text font-medium hover:underline transition-fast"
         >
           Ver todos
         </Link>
@@ -100,7 +105,7 @@ export function UpcomingEvents() {
               >
                 {/* Date mini card */}
                 <div className="h-10 w-10 rounded-lg bg-primary/5 border border-primary/10 flex flex-col items-center justify-center shrink-0">
-                  <span className="text-[9px] font-bold text-primary leading-none">
+                  <span className="text-[9px] font-bold text-primary-as-text leading-none">
                     {month}
                   </span>
                   <span className="text-sm font-display font-bold text-foreground leading-tight">

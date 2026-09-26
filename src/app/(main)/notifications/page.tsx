@@ -178,7 +178,7 @@ export default function NotificationsPage() {
                 ? "Nenhuma notificação não lida"
                 : "Nenhuma notificação"}
             </p>
-            <p className="text-sm mt-1 opacity-60">
+            <p className="text-sm mt-1 text-muted-foreground">
               {filter === "unread"
                 ? "Você leu todas as suas notificações!"
                 : "Você ainda não recebeu notificações."}
