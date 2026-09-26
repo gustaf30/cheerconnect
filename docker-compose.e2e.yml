@@ -1,0 +1,83 @@
+# Pilha isolada dos testes E2E.
+#
+# Existe porque o E2E é destrutivo: cria e apaga post, conexão, mensagem, equipe e
+# evento. O `playwright.config.ts` usa `npm run dev` como webServer, e o dev
+# server herda o DATABASE_URL do `.env` — que aponta para o Supabase de
+# PRODUÇÃO. Sem esta pilha, o primeiro DELETE do E2E apagaria dado de gente real.
+#
+# Projeto compose próprio (`cheerconnect-e2e`) pelo mesmo motivo do projeto do
+# `test:load`: o `down` não pode compartilhar nome com docker-compose.yml nem com
+# docker-compose.load.yml, senão derruba os containers de desenvolvimento e os de
+# carga junto.
+#
+# O app sai da mesma imagem de produção construída a partir do Dockerfile, então o
+# que o E2E exercita é o código que vai para deploy.
+
+x-app-common: &app-common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  restart: "no"
+  environment: &app-env
+    NODE_ENV: production
+    DATABASE_URL: postgresql://e2e:e2e@postgres:5432/cheerconnect_e2e
+    # O Playwright roda no host e alcança o app por http://localhost, então o
+    # NEXTAUTH_URL precisa ser http e bater com o host de verdade. É o mesmo
+    # cenário de self-hosted sobre HTTP que quebrava toda rota autenticada com
+    # 401; ALLOW_INSECURE_LOCALHOST autoriza o http em produção para host local.
+    NEXTAUTH_URL: http://localhost:3102
+    ALLOW_INSECURE_LOCALHOST: "true"
+    # O schema exige no mínimo 32 caracteres.
+    NEXTAUTH_SECRET: e2e-secret-nao-real-0123456789abcdef
+    EMAIL_PROVIDER: log
+    CRON_SECRET: e2e-cron-secret
+    DATABASE_POOL_MAX: ${E2E_DB_POOL:-10}
+    CLOUDINARY_CLOUD_NAME: e2e-local
+    CLOUDINARY_API_KEY: e2e-local
+    CLOUDINARY_API_SECRET: e2e-local
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cheerconnect-e2e-postgres
+    environment:
+      POSTGRES_USER: e2e
+      POSTGRES_PASSWORD: e2e
+      POSTGRES_DB: cheerconnect_e2e
+    ports:
+      - "${E2E_PG_PORT:-55433}:5432"
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "shared_buffers=256MB"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U e2e -d cheerconnect_e2e"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  app:
+    <<: *app-common
+    image: cheerconnect-e2e-app:latest
+    container_name: cheerconnect-e2e-app
+    # Sem Redis de propósito: o E2E não precisa do broker, e deixar as variáveis
+    # vazias exercita o caminho de fallback em memória, que é o mesmo do dev.
+    environment:
+      <<: *app-env
+      UPSTASH_REDIS_REST_URL: ${E2E_REDIS_URL:-}
+      UPSTASH_REDIS_REST_TOKEN: ${E2E_REDIS_TOKEN:-}
+    ports:
+      - "${E2E_APP_PORT:-3102}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
