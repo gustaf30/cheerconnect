@@ -2,7 +2,12 @@
 
 ## Status
 
-Aceito.
+Substituída pela ADR 005 (realtime distribuído sobre Redis Streams).
+
+A decisão original cobria apenas implantações de instância única. Em ambiente
+serverless o barramento em processo não propaga eventos entre instâncias, e a
+limitação prevista nesta própria ADR — a introdução de um broker distribuído —
+foi concretizada. O texto abaixo é preservado pelo seu valor de registro.
 
 ## Contexto
 
