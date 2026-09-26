@@ -1,0 +1,52 @@
+%% Autenticacao por credenciais e o caminho do cookie de sessao.
+%% Roteiro conferido contra src/app/api/auth/[...nextauth]/route.ts,
+%% src/lib/auth.ts, src/lib/auth-cookies.ts e src/proxy.ts.
+%% A nota sobre o cookie reproduz o defeito corrigido: o nome precisa ser
+%% decidido em um unico lugar, senao a escrita e a leitura divergem e toda rota
+%% autenticada responde 401.
+sequenceDiagram
+    autonumber
+    actor Atleta
+    participant Browser
+    participant Proxy as proxy.ts<br/>(Next.js)
+    participant API as /api/auth/*
+    participant Auth as lib/auth.ts
+    participant Cookie as lib/auth-cookies.ts
+    participant DB as PostgreSQL
+
+    Atleta->>Browser: credenciais (e-mail e senha)
+    Browser->>Proxy: GET /api/auth/csrf
+    Proxy->>Proxy: limita por IP e por rota
+    Proxy->>API: encaminha
+    API->>Auth: getServerSession(authOptions)
+    Auth->>DB: busca o usuario e compara o bcrypt
+    DB-->>Auth: hash e tokenVersion
+    API-->>Browser: csrfToken + cookie de CSRF
+
+    Browser->>Proxy: POST /api/auth/callback/credentials
+    Proxy->>API: encaminha
+    API->>DB: compara a senha com bcrypt
+    alt senha invalida
+        API-->>Browser: 401
+    else senha valida
+        API->>Cookie: usesSecureCookies()
+        Note over Cookie: fonte unica do nome do cookie<br/>https no padrao do NextAuth,<br/>http em implantacao propria
+        Cookie-->>API: true ou false
+        API->>DB: grava sessao
+        API-->>Browser: __Secure-next-auth.session-token<br/>(quando https) e 200
+        Note over API,Browser: o prefixo __Secure- acompanha<br/>o protocolo do NEXTAUTH_URL
+    end
+
+    Browser->>Proxy: GET /api/posts (rota autenticada)
+    Proxy->>Cookie: usesSecureCookies()
+    Cookie-->>Proxy: mesmo criterio da escrita
+    Proxy->>Proxy: getToken() procura o mesmo nome
+    alt token ausente ou expirado
+        Proxy->>DB: valida tokenVersion
+        DB-->>Proxy: versao divergente
+        Proxy-->>Browser: 401 e redireciona para /login
+    else token valido
+        Proxy->>DB: continua a requisicao
+        DB-->>Proxy: dados
+        Proxy-->>Browser: 200
+    end

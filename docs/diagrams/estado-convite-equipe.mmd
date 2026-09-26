@@ -1,0 +1,29 @@
+%% Ciclo de vida de um convite para equipe.
+%% Os quatro estados e as transicoes sao os de TeamInvite.status no schema, e as
+%% condicoes de 400 e 409 estao em src/app/api/teams/invites/[id]/accept,
+%% .../reject e src/app/api/cron/cleanup-invites.
+stateDiagram-v2
+    direction LR
+    [*] --> PENDING: membro com canInvite cria<br/>o convite com expiresAt
+
+    PENDING --> ACCEPTED: o convidado aceita<br/>INSERT em TeamMember
+    PENDING --> REJECTED: o convidado recusa
+    PENDING --> EXPIRED: rotina agendada,<br/>expiresAt vencido
+    PENDING --> [*]: membro com canManageMembers<br/>revoga o convite
+
+    ACCEPTED --> [*]
+    REJECTED --> [*]
+    EXPIRED --> [*]
+
+    note right of PENDING
+        Unico estado a partir do qual
+        qualquer transicao e possivel.
+        Aceitar e recusar usam UPDATE
+        condicional onde status = PENDING.
+    end note
+
+    note right of ACCEPTED
+        A recusa depois do aceite devolve
+        400, porque o convite ja nao esta
+        mais pendente.
+    end note

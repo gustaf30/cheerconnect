@@ -1,0 +1,104 @@
+%% Gerado por scripts/generate-diagrams.mjs — nao editar a mao.
+%% Fonte: prisma/schema.prisma e src/app/api/**/route.ts
+classDiagram
+  direction LR
+  class Team {
+    +String id PK
+    +String name
+    +String slug UK
+    +String description
+    +String logo
+    +String logoPublicId
+    +String banner
+    +String bannerPublicId
+    +String location
+    +DateTime foundedAt
+    +String website
+    +String instagram
+    +TeamCategory category
+    +String level
+    +TeamMember[] members
+    +TeamFollow[] followers
+    +TeamAchievement[] achievements
+    +Post[] posts
+    +Event[] events
+    +CareerHistory[] careerEntries
+    +MediaAsset[] mediaAssets
+    +TeamInvite[] invites
+    +DateTime createdAt
+    +DateTime updatedAt
+    +listar() GET /api/teams
+    +criar() POST /api/teams
+    +buscar() GET /api/teams/[slug]
+    +atualizar() PATCH /api/teams/[slug]
+    +excluir() DELETE /api/teams/[slug]
+    +publicar() POST /api/teams/[slug]/posts
+    +enviarMidia() POST /api/teams/[slug]/media
+  }
+  class TeamMember {
+    +String id PK
+    +String role
+    +String position
+    +DateTime joinedAt
+    +DateTime leftAt
+    +Boolean isActive
+    +Boolean hasPermission
+    +Boolean isAdmin
+    +Boolean canEdit
+    +Boolean canPost
+    +Boolean canInvite
+    +Boolean canManageMembers
+    +Boolean canDeleteTeam
+    +String userId FK -> User
+    +String teamId FK -> Team
+    +listar() GET /api/teams/[slug]/members
+    +alterarFuncao() PATCH /api/teams/[slug]/members/[memberId]
+    +remover() DELETE /api/teams/[slug]/members/[memberId]
+  }
+  class TeamFollow {
+    +String id PK
+    +String userId FK -> User
+    +String teamId FK -> Team
+    +DateTime createdAt
+    +seguir() POST /api/teams/[slug]/follow
+    +deixarDeSeguir() DELETE /api/teams/[slug]/follow
+  }
+  class TeamAchievement {
+    +String id PK
+    +String title
+    +String description
+    +DateTime date
+    +String category
+    +String teamId FK -> Team
+    +DateTime createdAt
+    +listar() GET /api/teams/[slug]/achievements
+    +registrar() POST /api/teams/[slug]/achievements
+    +remover() DELETE /api/teams/[slug]/achievements/[id]
+  }
+  class TeamInvite {
+    +String id PK
+    +String teamId FK -> Team
+    +String userId FK -> User
+    +String invitedById FK -> User
+    +String role
+    +Boolean hasPermission
+    +Boolean isAdmin
+    +Boolean canEdit
+    +Boolean canPost
+    +Boolean canInvite
+    +Boolean canManageMembers
+    +Boolean canDeleteTeam
+    +InviteStatus status
+    +DateTime createdAt
+    +DateTime expiresAt
+    +listar() GET /api/teams/[slug]/invites
+    +convidar() POST /api/teams/[slug]/invites
+    +aceitar() POST /api/teams/invites/[id]/accept
+    +recusar() POST /api/teams/invites/[id]/reject
+    +revogar() DELETE /api/teams/[slug]/invites/[id]
+    +expirarPendentes() POST /api/cron/cleanup-invites
+  }
+  TeamMember "1" *-- "*" Team : team
+  TeamFollow "1" *-- "*" Team : team
+  TeamAchievement "1" *-- "*" Team : team
+  TeamInvite "1" *-- "*" Team : team

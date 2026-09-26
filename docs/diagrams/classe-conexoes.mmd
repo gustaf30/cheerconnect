@@ -1,0 +1,62 @@
+%% Gerado por scripts/generate-diagrams.mjs — nao editar a mao.
+%% Fonte: prisma/schema.prisma e src/app/api/**/route.ts
+classDiagram
+  direction LR
+  class Connection {
+    +String id PK
+    +ConnectionStatus status
+    +String senderId FK -> User
+    +String receiverId FK -> User
+    +String pairKey
+    +DateTime createdAt
+    +DateTime updatedAt
+    +listar() GET /api/connections
+    +solicitar() POST /api/connections
+    +aceitar() POST /api/connections/[id]/accept
+    +remover() DELETE /api/connections/[id]
+  }
+  class Conversation {
+    +String id PK
+    +String participant1Id FK -> User
+    +String participant2Id FK -> User
+    +String pairKey UK
+    +Message[] messages
+    +DateTime lastMessageAt
+    +String lastMessagePreview
+    +DateTime createdAt
+    +DateTime updatedAt
+    +listar() GET /api/conversations
+    +abrir() POST /api/conversations
+    +buscar() GET /api/conversations/[id]
+    +excluir() DELETE /api/conversations/[id]
+  }
+  class Message {
+    +String id PK
+    +String content
+    +String senderId FK -> User
+    +String conversationId FK -> Conversation
+    +Boolean isRead
+    +DateTime readAt
+    +DateTime createdAt
+    +listar() GET /api/conversations/[id]/messages
+    +enviar() POST /api/conversations/[id]/messages
+    +marcarLidas() POST /api/conversations/[id]/messages/read
+    +assinarStream() GET /api/conversations/[id]/messages/stream
+    +contarNaoLidas() GET /api/messages/count
+  }
+  class Notification {
+    +String id PK
+    +String userId FK -> User
+    +NotificationType type
+    +String message
+    +Boolean isRead
+    +String actorId FK -> User
+    +String relatedId
+    +String relatedType
+    +DateTime createdAt
+    +listar() GET /api/notifications
+    +marcarLidas() PATCH /api/notifications
+    +contarNaoLidas() GET /api/notifications/count
+    +assinarStream() GET /api/notifications/stream
+  }
+  Message "1" *-- "*" Conversation : conversation

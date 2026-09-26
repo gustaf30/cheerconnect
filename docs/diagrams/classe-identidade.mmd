@@ -1,0 +1,127 @@
+%% Gerado por scripts/generate-diagrams.mjs — nao editar a mao.
+%% Fonte: prisma/schema.prisma e src/app/api/**/route.ts
+classDiagram
+  direction LR
+  class User {
+    +String id PK
+    +String email UK
+    +String name
+    +String username UK
+    +String password
+    +String avatar
+    +String avatarPublicId
+    +String banner
+    +String bannerPublicId
+    +String bio
+    +String location
+    +DateTime birthDate
+    +Position[] positions
+    +Int experience
+    +String[] skills
+    +Achievement[] achievements
+    +CareerHistory[] careerHistory
+    +Post[] posts
+    +Comment[] comments
+    +Like[] likes
+    +CommentLike[] commentLikes
+    +TeamMember[] teamMembers
+    +TeamFollow[] teamFollows
+    +Event[] events
+    +Account[] accounts
+    +Session[] sessions
+    +Boolean notifyPostLiked
+    +Boolean notifyPostCommented
+    +Boolean notifyConnectionRequest
+    +Boolean notifyConnectionAccepted
+    +Boolean notifyCommentReplied
+    +Boolean notifyMessageReceived
+    +Boolean notifyPostReposted
+    +Boolean notifyTeamInvite
+    +Boolean notifyMention
+    +ProfileVisibility profileVisibility
+    +Boolean showEmail
+    +DateTime usernameChangedAt
+    +Int tokenVersion
+    +DateTime emailVerified
+    +Boolean isAdmin
+    +PrivacyRequest[] privacyRequests
+    +AccountReauthChallenge[] reauthChallenges
+    +DateTime createdAt
+    +DateTime updatedAt
+    +registrar() POST /api/auth/register
+    +verificarEmail() GET /api/auth/verify-email
+    +perfil() GET /api/users/me
+    +atualizarPerfil() PATCH /api/users/me
+    +excluirConta() DELETE /api/users/me
+    +buscar() GET /api/users
+    +bloquear() POST /api/users/[id]/block
+    +desbloquear() DELETE /api/users/[id]/block
+    +enviarAvatar() POST /api/users/me/avatar
+    +enviarBanner() POST /api/users/me/banner
+    +reatenticar() POST /api/users/me/reauthenticate
+    +minhasEquipes() GET /api/users/me/teams
+    +alterarPreferencias() PATCH /api/settings
+    +verificarUsername() GET /api/settings/username
+    +alterarSenha() POST /api/settings/password
+  }
+  class Account {
+    +String id PK
+    +String userId FK -> User
+    +String type
+    +String provider
+    +String providerAccountId
+    +String refresh_token
+    +String access_token
+    +Int expires_at
+    +String token_type
+    +String scope
+    +String id_token
+    +String session_state
+    +vincular() POST /api/auth/register
+  }
+  class Session {
+    +String id PK
+    +String sessionToken UK
+    +String userId FK -> User
+    +DateTime expires
+  }
+  class VerificationToken {
+    +String identifier
+    +String token UK
+    +DateTime expires
+  }
+  class AccountReauthChallenge {
+    +String id PK
+    +String userId FK -> User
+    +AccountReauthPurpose purpose
+    +String tokenHash UK
+    +Int tokenVersion
+    +DateTime expiresAt
+    +DateTime verifiedAt
+    +DateTime consumedAt
+    +Int attempts
+    +DateTime createdAt
+  }
+  class PrivacyRequest {
+    +String id PK
+    +String userId FK -> User
+    +PrivacyRequestType type
+    +PrivacyRequestStatus status
+    +DateTime requestedAt
+    +DateTime completedAt
+    +DateTime expiresAt
+    +DateTime reauthVerifiedAt
+    +DateTime processingStartedAt
+    +Int attempts
+    +String lastError
+    +solicitar() POST /api/privacy/request
+    +exportarDados() GET /api/privacy/export
+    +processarFila() POST /api/cron/maintenance
+  }
+  note for Session "criada e destruida pelo NextAuth a cada login"
+  note for VerificationToken "usado na verificacao de e-mail"
+  note for AccountReauthChallenge "emitido em operacoes sensiveis"
+  Account "1" *-- "*" User : user
+  Session "1" *-- "*" User : user
+  AccountReauthChallenge "1" *-- "*" User : user
+  PrivacyRequest "1" *-- "*" User : user

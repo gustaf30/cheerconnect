@@ -1,0 +1,64 @@
+%% Feed, publicacao, curtida e comentario.
+%% Roteiro conferido contra src/app/api/posts, src/app/api/posts/[id]/like,
+%% src/app/api/posts/[id]/comments e src/lib/rate-limit.ts.
+sequenceDiagram
+    autonumber
+    actor Atleta
+    participant UI as /feed
+    participant API as /api/posts
+    participant Lim as lib/rate-limit.ts<br/>(limite por rota)
+    participant Zod as lib/validation
+    participant Prisma
+    participant DB as PostgreSQL
+    participant SSE as bus de eventos
+
+    Atleta->>UI: abre o feed
+    UI->>API: GET /api/posts?filter=following&limit=20
+    API->>Lim: verifica /api/posts
+    Lim-->>API: 10 requisicoes por minuto
+    API->>Prisma: findMany com cursor
+    Note over Prisma: ordenacao por createdAt e id,<br/>o id desempata insercoes com<br/>o mesmo carimbo de tempo
+    Prisma->>DB: SELECT com take = limit + 1
+    DB-->>Prisma: pagina
+    Prisma-->>API: ate limit + 1 linhas
+    API-->>UI: publicacoes + nextCursor
+    Note over API,UI: ler uma linha a mais e o que<br/>permite saber se ha proxima pagina
+
+    Atleta->>UI: escreve e publica
+    UI->>API: POST /api/posts
+    API->>Lim: verifica /api/posts
+    alt limite excedido
+        API-->>UI: 429
+    else dentro do limite
+        API->>Zod: valida o corpo
+        alt conteudo invalido
+            API-->>UI: 400
+        else conteudo valido
+            API->>Prisma: create
+            Prisma->>DB: INSERT com userId da sessao
+            DB-->>UI: 201
+        end
+    end
+
+    Atleta->>UI: curta a publicacao
+    UI->>API: POST /api/posts/[id]/like
+    API->>DB: INSERT em Like
+    alt chave unica violada (duplo clique)
+        API-->>UI: liked: true (idempotente)
+    else insercao normal
+        API->>DB: INSERT em Notification
+        API->>SSE: publica evento do tipo notification
+        SSE-->>UI: notifica o autor
+        API-->>UI: liked: true
+    end
+
+    Atleta->>UI: comenta
+    UI->>API: POST /api/posts/[id]/comments
+    API->>Zod: valida conteudo e profundidade
+    alt comentario e resposta de outro comentario
+        API-->>UI: 400
+    else comentario valido
+        API->>DB: INSERT em Comment e em CommentLike se houver
+        API->>SSE: publica evento
+        API-->>UI: 201
+    end

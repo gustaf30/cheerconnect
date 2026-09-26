@@ -1,0 +1,79 @@
+%% Gerado por scripts/generate-diagrams.mjs — nao editar a mao.
+%% Fonte: prisma/schema.prisma e src/app/api/**/route.ts
+classDiagram
+  direction LR
+  class Event {
+    +String id PK
+    +String name
+    +String description
+    +String location
+    +DateTime startDate
+    +DateTime endDate
+    +EventType type
+    +String registrationUrl
+    +String creatorId FK -> User
+    +String teamId FK -> Team
+    +DateTime createdAt
+    +DateTime updatedAt
+    +listar() GET /api/events
+    +criar() POST /api/events
+    +buscar() GET /api/events/[id]
+    +atualizar() PATCH /api/events/[id]
+    +excluir() DELETE /api/events/[id]
+  }
+  class Report {
+    +String id PK
+    +String reason
+    +String description
+    +String reporterId FK -> User
+    +String contentType
+    +String contentId
+    +ReportStatus status
+    +String moderatorId FK -> User
+    +String resolutionNote
+    +DateTime resolvedAt
+    +DateTime createdAt
+    +denunciar() POST /api/reports
+    +listar() GET /api/reports
+    +resolver() PATCH /api/reports
+  }
+  class Block {
+    +String id PK
+    +String userId FK -> User
+    +String blockedUserId FK -> User
+    +DateTime createdAt
+  }
+  class ActivityLog {
+    +String id PK
+    +String action
+    +String entityType
+    +String entityId
+    +String actorId
+    +Json metadata
+    +DateTime retentionUntil
+    +DateTime anonymizedAt
+    +DateTime createdAt
+  }
+  class MediaAsset {
+    +String id PK
+    +String url UK
+    +String publicId
+    +String ownerId FK -> User
+    +String postId FK -> Post
+    +String teamId FK -> Team
+    +MediaPurpose purpose
+    +String resourceType
+    +String mimeType
+    +Int bytes
+    +Int width
+    +Int height
+    +MediaAssetStatus status
+    +String uploadTokenHash
+    +DateTime completedAt
+    +DateTime createdAt
+    +enviar() POST /api/upload
+    +concluir() POST /api/upload/complete
+    +assinarEnvioDireto() POST /api/upload/sign
+  }
+  note for Block "bloqueio bidirecional em cascata"
+  note for ActivityLog "trilha de auditoria de acoes sensiveis"

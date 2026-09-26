@@ -1,0 +1,60 @@
+%% Mensagem privada em tempo real: envio, propagacao entre instancias e
+%% encerramento por invalidacao de sessao.
+%% Roteiro conferido contra src/app/api/conversations/[id]/messages,
+%% .../messages/stream, src/lib/realtime-bus.ts e docs/adr/005-distributed-realtime.md.
+sequenceDiagram
+    autonumber
+    actor A as Usuário A
+    actor B as Usuário B
+    participant UI as /messages
+    participant Post as POST /api/conversations<br/>/[id]/messages
+    participant SSE as GET .../messages/stream
+    participant Validador as isSessionTokenValid<br/>(lib/api-utils)
+    participant Bus as lib/realtime-bus
+    participant Redis as Redis Streams
+    participant DB as PostgreSQL
+
+    Note over B,SSE: B ja tem o stream aberto
+    B->>SSE: GET /api/conversations/[id]/messages/stream
+    SSE->>DB: verifica se B participa da conversa
+    alt B nao participa
+        SSE-->>B: 404
+    else B participa
+        SSE->>Validador: valida tokenVersion
+        SSE-->>B: text/event-stream<br/>com retry: 5000
+        Note over SSE,DB: intervalo de 15 s,<br/>30 s se a aba estiver oculta
+    end
+
+    A->>UI: escreve e envia
+    UI->>Post: POST /api/conversations/[id]/messages
+    Post->>DB: valida que A e participante
+    alt A nao participa
+        Post-->>A: 403
+    else A participa
+        Post->>DB: INSERT em Message
+        Post->>DB: UPDATE na conversa com lastMessageAt
+        Post->>Bus: publica evento
+        Bus->>Redis: XADD com MAXLEN aproximado
+        Note over Bus,Redis: o corte e aproximado de proposito,<br/>exato custaria traverse por elemento
+        Post-->>A: 201
+    end
+
+    Redis-->>Bus: evento recebido
+    Bus-->>SSE: entrega a quem assinou
+    SSE->>Validador: revalida antes de cada sondagem
+    SSE->>DB: busca mensagens novas desde o ultimo cursor
+    alt ha mensagens novas
+        SSE-->>B: data: new_messages<br/>com id da ultima
+        Note over SSE,B: o id no quadro permite retomar<br/>depois de queda sem repetir nem perder
+        SSE->>DB: marca como lidas as vindas de A
+    else nada novo
+        SSE-->>B: heartbeat a cada cinco sondagens
+    end
+
+    Note over A,B: sessao invalidada em outro dispositivo
+    A->>Post: PUT /api/settings/password
+    Post->>DB: incrementa tokenVersion
+    SSE->>Validador: proxima sondagem encontra a versao divergente
+    Validador-->>SSE: falso
+    SSE-->>B: encerra o stream
+    Note over SSE,B: sem isso a conexao ficaria pendurada<br/>com uma sessao que ja nao vale

@@ -1,0 +1,49 @@
+%% Privacidade e LGPD: exclusao efetiva em cascata, solicitacao do titular e
+%% exportacao dos dados.
+%% Roteiro conferido contra src/app/api/users/me DELETE, /api/privacy/request,
+%% /api/privacy/export e src/__tests__/cascade-deletion.test.ts.
+sequenceDiagram
+    autonumber
+    actor Titular
+    participant API as /api/users/me
+    participant Reaut as /api/users/me/reauthenticate
+    participant DB as PostgreSQL
+    participant Log as ActivityLog
+
+    Titular->>API: DELETE /api/users/me
+    API->>Reaut: exige reautenticacao
+    alt sem reautenticacao valida
+        API-->>Titular: 401
+    else reautenticado
+        API->>DB: le a equipe da qual ele e administrador unico
+        alt e o unico administrador de alguma equipe
+            API-->>Titular: 409
+            Note over API,Titular: a equipe ficaria sem<br/>ninguem com permissao de gerenciamento
+        else pode excluir
+            API->>DB: DELETE do usuario
+            Note over DB: 30 entidades com onDelete em cascata.<br/>O teste de cascada confere cada uma<br/>por introspeccao do schema.
+            DB->>DB: posts, comentarios, curtidas, respostas,<br/>curriculo, conquistas, conexoes,<br/>conversas, mensagens, convites,<br/>equipes, eventos, notificacoes,<br/>denuncias, bloqueios e midia
+            API->>Log: registra a exclusao
+            API-->>Titular: 200
+        end
+    end
+
+    Note over Titular: o login deixa de funcionar
+    Titular->>API: GET /api/users/me
+    API-->>Titular: 401
+
+    Titular->>API: POST /api/privacy/request
+    API->>DB: INSERT em PrivacyRequest<br/>com lease e tentativas
+    Note over API,DB: a fila e processada por retentativa,<br/>com lease para nao duplicar-trabalho
+    API-->>Titular: 202
+
+    Cron->>DB: POST /api/cron/maintenance
+    DB-->>Cron: requisicoes com lease vencido
+    Cron->>DB: UPDATE do status
+    Cron->>Log: registra o processamento
+
+    Titular->>API: GET /api/privacy/export
+    API->>DB: 18 consultas em paralelo, uma por entidade
+    Note over API,DB: o select nunca pede o hash da senha,<br/>e o que garante que ele nao saia no arquivo
+    API->>Log: registra o evento de seguranca
+    API-->>Titular: JSON com Content-Disposition<br/>e Cache-Control private

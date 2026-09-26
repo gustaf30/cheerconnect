@@ -28,7 +28,10 @@
     "prisma:validate": "prisma validate",
     "docs:sync": "node scripts/sync-openapi.mjs",
     "docs:validate": "node scripts/validate-openapi.mjs",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "docs:diagrams": "node scripts/generate-diagrams.mjs",
+    "docs:diagrams:check": "node scripts/generate-diagrams.mjs --check",
+    "docs:diagrams:render": "node scripts/render-diagrams.mjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
@@ -68,6 +71,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
+    "@mermaid-js/mermaid-cli": "^12.0.0",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",

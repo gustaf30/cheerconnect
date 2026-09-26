@@ -1,0 +1,81 @@
+%% Convite para equipe: criacao, aceitacao, recusa, revogacao e expiracao.
+%% Roteiro conferido contra src/app/api/teams/[slug]/invites,
+%% src/app/api/teams/invites/[id]/accept, .../reject, [id] DELETE e
+%% src/app/api/cron/cleanup-invites. O estado e o mesmo do diagrama de estados.
+sequenceDiagram
+    autonumber
+    actor M as Membro com permissao
+    actor C as Convidado
+    actor T as Terceiro
+    participant API as /api/teams/[slug]/invites
+    participant Perm as lib/team-permissions
+    participant Prisma
+    participant DB as PostgreSQL
+    participant Cron as /api/cron/cleanup-invites
+    participant SSE as bus de eventos
+
+    M->>API: POST /api/teams/[slug]/invites
+    Note over API,Perm: o filtro canInvite fica dentro da<br/>query do Prisma, entao quem nao tem a<br/>permissao volta com a lista vazia
+    API->>Perm: exige canInvite
+    alt sem permissao
+        API-->>M: 403
+    else com permissao
+        API->>DB: INSERT em TeamInvite com status PENDING
+        Note over API,DB: expiresAt e gravado na criacao
+        API->>SSE: notifica o convidado
+        API-->>M: 201
+    end
+
+    C->>API: GET /api/teams/invites
+    DB-->>C: convites pendentes de C
+
+    alt C aceita
+        C->>API: POST /api/teams/invites/[id]/accept
+        API->>DB: le o convite
+        alt o convite e de outra pessoa
+            API-->>C: 403
+        else o convite nao esta mais pendente
+            API-->>C: 400
+        else tudo em ordem
+            API->>DB: UPDATE condicional onde status e PENDING
+            alt nenhuma linha alterada
+                Note over API,DB: outra pessoa agiu entre a<br/>leitura e a escrita
+                API-->>C: 409
+            else uma linha alterada
+                API->>DB: INSERT em TeamMember
+                API->>SSE: notifica quem convidou
+                API-->>C: 200
+            end
+        end
+    else C recusa
+        C->>API: POST /api/teams/invites/[id]/reject
+        API->>DB: UPDATE condicional
+        alt nenhuma linha alterada
+            API-->>C: 409
+        else uma linha alterada
+            API->>SSE: notifica quem convidou
+            API-->>C: 200
+        end
+    end
+
+    T->>API: POST /api/teams/invites/[id]/accept
+    API->>DB: confirma que o convite e de T
+    API-->>T: 403
+
+    M->>API: DELETE /api/teams/[slug]/invites/[id]
+    API->>Perm: exige canManageMembers
+    alt sem permissao
+        API-->>M: 403
+    else com permissao
+        API->>DB: DELETE condicional
+        alt nada removido
+            API-->>M: 404
+        else removido
+            API-->>M: 200
+        end
+    end
+
+    Note over Cron: rotina agendada
+    Cron->>DB: UPDATE de PENDING para EXPIRED<br/>onde expiresAt ja passou
+    Cron->>DB: DELETE de EXPIRED e REJECTED<br/>criados ha mais de 30 dias
+    Note over Cron,DB: aceitos e pendentes ficam:<br/>a limpeza so remove o que nao tem volta

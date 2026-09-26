@@ -1,0 +1,50 @@
+%% Solicitacao, aceitacao e recusa de conexao, e a recusa do par inverso.
+%% Roteiro conferido contra src/app/api/connections, [id]/accept, [id] e
+%% src/__tests__/authorization.test.ts.
+sequenceDiagram
+    autonumber
+    actor A as Usuário A
+    participant API as /api/connections
+    participant Authz as lib/authorization
+    participant Prisma
+    participant DB as PostgreSQL
+    participant SSE as bus de eventos
+
+    A->>API: GET /api/connections
+    API->>Authz: verificacao de visibilidade
+    API->>DB: SELECT com id do usuario da sessao
+    DB-->>A: conexoes aceitas
+
+    A->>API: POST /api/connections (solicitar)
+    API->>Authz: nao pode solicitar a si mesmo
+    API->>DB: procura o par inverso
+    alt par inverso ja enviado
+        API-->>A: 400
+    else par nao existe
+        API->>DB: INSERT em Connection com status PENDING
+        API->>SSE: notifica o destinatario
+        API-->>A: 201
+    end
+
+    actor B as Usuário B
+    B->>API: GET /api/connections
+    DB-->>B: solicitacao pendente
+
+    alt B aceita
+        B->>API: POST /api/connections/[id]/accept
+        API->>Authz: a solicitacao e de B
+        API->>DB: UPDATE para ACCEPTED
+        Note over API,DB: o par e gravado so uma vez,<br/>nao em duas linhas
+        API->>SSE: notifica A
+        API-->>B: 200
+        A->>API: GET /api/posts?filter=following
+        Note over A,DB: o filtro following passa a<br/>incluir as publicacoes de B
+    else B recusa
+        B->>API: DELETE /api/connections/[id]
+        API->>DB: remove a linha
+        API-->>B: 200
+    else terceiro tenta aceitar
+        actor C as Usuário C
+        C->>API: POST /api/connections/[id]/accept
+        Authz-->>C: 403
+    end

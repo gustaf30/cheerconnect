@@ -1,0 +1,36 @@
+%% Gerado por scripts/generate-diagrams.mjs — nao editar a mao.
+%% Fonte: prisma/schema.prisma e src/app/api/**/route.ts
+classDiagram
+  direction LR
+  class CareerHistory {
+    +String id PK
+    +CareerRole role
+    +Position[] positions
+    +DateTime startDate
+    +DateTime endDate
+    +Boolean isCurrent
+    +String teamName
+    +String teamId FK -> Team
+    +String description
+    +String location
+    +String userId FK -> User
+    +DateTime createdAt
+    +DateTime updatedAt
+    +listar() GET /api/career
+    +registrarVinculo() POST /api/career
+    +buscar() GET /api/career/[id]
+    +atualizar() PATCH /api/career/[id]
+    +remover() DELETE /api/career/[id]
+  }
+  class Achievement {
+    +String id PK
+    +String title
+    +String description
+    +DateTime date
+    +String category
+    +String userId FK -> User
+    +listar() GET /api/achievements
+    +registrar() POST /api/achievements
+    +atualizar() PATCH /api/achievements/[id]
+    +remover() DELETE /api/achievements/[id]
+  }

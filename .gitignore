@@ -74,3 +74,8 @@ nul
 artifacts/load/*
 !artifacts/load/.gitkeep
 
+# PNG dos diagramas UML: sao 2,7 MB derivados de 28 KB de Mermaid versionados.
+# O fonte fica no repositorio e o PNG se regenera com npm run docs:diagrams:render.
+docs/diagrams/png/*
+!docs/diagrams/png/.gitkeep
+
