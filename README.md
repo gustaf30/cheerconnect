@@ -83,7 +83,7 @@
 ### Notificações
 
 - Atualização em tempo real via SSE
-- **10+ tipos**: like, comentário, conexão, menção, convite de equipe, mensagem, etc.
+- **9 tipos**: like, comentário, conexão, menção, convite de equipe, mensagem, etc.
 - Preferências configuráveis por tipo (ativar/desativar individualmente)
 - Marcar como lida (individual e em lote)
 
@@ -126,7 +126,7 @@
 
 ```bash
 # 1. Clone o repositório
-git clone https://github.com/seu-usuario/cheerconnect.git
+git clone https://github.com/gustaf30/cheerconnect.git
 cd cheerconnect
 
 # 2. Instale as dependências
@@ -140,7 +140,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 # O Compose local permite HTTP apenas em localhost; produção deve usar HTTPS.
 # Edite o .env com suas credenciais (veja a seção "Variáveis de Ambiente")
 
-# 4. Inicie o PostgreSQL
+# 4. Suba o app e o PostgreSQL (o entrypoint do container aplica as migrations)
 docker compose up -d
 
 # 5. Execute as migrações
@@ -309,6 +309,15 @@ Crie um arquivo `.env` na raiz do projeto (ou copie de `.env.example`):
 | `UPSTASH_REDIS_REST_URL` | Não | URL do Upstash Redis (rate limiting) |
 | `UPSTASH_REDIS_REST_TOKEN` | Não | Token do Upstash Redis |
 | `CRON_SECRET` | Sim* | Segredo das rotinas de manutenção agendada |
+| `ALLOW_INSECURE_LOCALHOST` | Não | Autoriza `NEXTAUTH_URL` em http quando o host é local. Injetada pelo Compose de E2E e de carga |
+| `AUTH_TRUST_HOST` | Não | Confia em `x-forwarded-host` para montar a URL base, para implantação atrás de proxy sem `NEXTAUTH_URL` |
+| `DATABASE_POOL_MAX` | Não | Conexões do pool do Prisma. Padrão 10 |
+| `REALTIME_BUS_TRANSPORT` | Não | `memory` ou `redis`. Padrão automático: `redis` quando há Redis configurado |
+| `REALTIME_STREAM_KEY` | Não | Chave do stream de propagação. Padrão `cheerconnect:realtime` |
+| `REALTIME_STREAM_MAXLEN` | Não | Retenção do stream por `MAXLEN`. Padrão 1000, mínimo 10 |
+| `REALTIME_SIGNAL_INTERVAL_MS` | Não | Intervalo de sinalização no barramento |
+
+  `UPSTASH_REDIS_REST_URL` e `UPSTASH_REDIS_REST_TOKEN` são lidas direto de `process.env` em `src/lib/redis.ts`, sem passar pelo schema de validação; as demais passam por `src/lib/env.ts` e são recusadas no boot se inválidas.
 
 \* `NEXTAUTH_URL` pode ser omitida na Vercel, onde `VERCEL_URL` é usada. `CRON_SECRET` é obrigatória em produção; o Compose injeta `ALLOW_INSECURE_LOCALHOST=true` somente para o ambiente local. `SMTP_USER` e `SMTP_PASSWORD` são necessárias quando `EMAIL_PROVIDER=smtp`; `EMAIL_FROM` é necessária quando `EMAIL_PROVIDER=resend`. Use uma senha de app do Gmail, nunca a senha da conta.
 
@@ -375,7 +384,7 @@ O seed (`npx prisma db seed`) popula o banco com:
 - **35 likes** em posts e comentários
 - **8 eventos** (passados e futuros)
 - **6 conversas** com mensagens
-- **17 notificações**
+- **19 notificações**
 - **4 convites** de equipe pendentes
 
 ---
