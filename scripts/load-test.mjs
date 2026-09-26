@@ -136,13 +136,21 @@ async function runK6(targetUrl, extraEnv = {}, runIndex = 0) {
     LOAD_BASE_URL: targetUrl,
     LOAD_DURATION: DURATION,
     LOAD_WARMUP: WARMUP,
-    LOAD_AUTH_USERS: "8",
+    LOAD_AUTH_USERS: "3",
     LOAD_PASSWORD: "123456",
     LOAD_RUN_ID: `${RUN_ID}-run${runIndex + 1}`,
     // O CWD do container k6 é /artifacts (o volume de /scripts é somente
     // leitura), então o prefixo relativo do artefato muda em relação à
     // execução direta no host.
     LOAD_ARTIFACT_DIR: "load",
+    // As taxas de leitura e mutação chegam pelo ambiente para que a mensagem de
+    // erro das guardas de orçamento seja acionável: ela diz "baixe
+    // LOAD_MUTATION_PER_MIN", e sem este repasse a única forma de obedecer seria
+    // editar o script. A guarda no main.js continua sendo quem valida, com os
+    // mesmos números do src/lib/middleware-policy.ts.
+    LOAD_READ_RPS: process.env.LOAD_READ_RPS || "25",
+    LOAD_MUTATION_PER_MIN: process.env.LOAD_MUTATION_PER_MIN || "20",
+    LOAD_AUTH_PER_MIN: process.env.LOAD_AUTH_PER_MIN || "4",
     ...extraEnv,
   };
   const envArgs = Object.entries(env)
@@ -204,7 +212,7 @@ function percentile(values) {
  * variância; a mediana com o intervalo mostra o quanto o número é estável, que é
  * a informação que o TCC precisa.
  */
-function summarizeRuns(runs) {
+function summarizeRuns(runs, failedRuns = []) {
   const usable = runs.filter(Boolean);
   if (!usable.length) {
     console.log("  nenhuma execucao produziu artefato para comparar");
@@ -246,13 +254,26 @@ function summarizeRuns(runs) {
     .filter((value) => value > 0);
   console.log("");
   console.log(`iteracoes descartadas por execucao: ${dropped.join(", ")}`);
+  if (failedRuns.length) {
+    console.log(
+      `execucoes fora dos limiares, excluidas da mediana: ${failedRuns.length} de ` +
+        `${failedRuns.length + usable.length} (artefato bruto mantido em disco)`,
+    );
+  }
   if (rate.length) {
     const lo = Math.min(...rate);
     const hi = Math.max(...rate);
+    // Espelha as constantes de tests/load/main.js: a taxa nominal de leitura em
+    // req/s e quantas requisições cada iteração emite. A linha existia com um 6
+    // fixo e um READ_RPS que nunca existiu neste arquivo, então o bloco só não
+    // quebrava porque `rate` vinha vazio — nunca chegou a rodar.
+    const readRps = Number(process.env.LOAD_READ_RPS || 25);
+    const requestsPerIteration = 5; // 2 rotas de feed + /api/users/me + contagem + 1 página
     console.log(
-      `req/s entregues: ${lo.toFixed(1)} a ${hi.toFixed(1)} (nominal ${READ_RPS * 6} por iteracao de 6 requisicoes)`,
+      `req/s entregues: ${lo.toFixed(1)} a ${hi.toFixed(1)} ` +
+        `(nominal ${readRps * requestsPerIteration} por iteracao de ${requestsPerIteration} requisicoes)`,
     );
-    if (hi - lo > READ_RPS) {
+    if (hi - lo > readRps) {
       console.log(
         "  AVISO: a carga entregue variou mais que uma iteracao entre execucoes; " +
           "compare os p95 com essa ressalva.",
@@ -303,13 +324,27 @@ async function main() {
     (parseDuration(WARMUP) + parseDuration(DURATION)) * RUNS + COOLDOWN * Math.max(0, RUNS - 1);
   const healthWatch = pollHealth(APP_URL, (runSpan + 120) * 1000, "principal");
   const mainRuns = [];
+  const failedRuns = [];
   for (let i = 0; i < RUNS; i += 1) {
     const isLast = i === RUNS - 1;
     const withProbe = PROBE_ON_LAST ? isLast : true;
     console.log(`\n--- execucao ${i + 1}/${RUNS} (sonda de limite: ${withProbe ? "sim" : "nao"}) ---`);
     const code = await runK6("http://app:3000", { LOAD_PROBE: withProbe ? "1" : "0" }, i);
-    if (code !== 0) fail(`execucao ${i + 1} ficou fora dos limiares`);
-    mainRuns.push(await collectRun(i));
+    const run = await collectRun(i);
+    if (code !== 0) {
+      fail(`execucao ${i + 1} ficou fora dos limiares`);
+      // A execucao reprovada fica fora da mediana. O p95 de uma rodada que
+      // cruzou limiar nao e evidencia do desempenho: pode ser o proprio
+      // threshold alterando o cenario, e a mediana de 3_execucoes ficava
+      // parecendo estavel com um terco dos dados reprovado dentro. O artefato
+      // bruto continua no disco para diagnostico.
+      if (run) {
+        run.__thresholdFailure = true;
+        failedRuns.push(run);
+      }
+    } else if (run) {
+      mainRuns.push(run);
+    }
     if (!isLast) {
       // Reesemear entre execucoes: cada uma cria mensagens e comentarios, e sem
       // isso as execucoes nao partem do mesmo estado e a comparacao perde
@@ -324,7 +359,7 @@ async function main() {
     }
   }
   await healthWatch;
-  summarizeRuns(mainRuns);
+  summarizeRuns(mainRuns, failedRuns);
 
   if (!SKIP_SSE) {
     step("Soak de SSE");

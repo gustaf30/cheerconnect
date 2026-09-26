@@ -120,7 +120,19 @@ async function main() {
 
 main()
   .catch((error) => {
-    console.error("ERRO:", error.message);
+    // Um AggregateError de ECONNREFUSED chega com message vazia, e o script
+    // imprimia só "ERRO: " — sem nenhuma pista do que fazer. A causa comum aqui
+    // é a pilha de carga não estar no ar, porque o orquestrador a derruba ao
+    // terminar.
+    const detail = [error.name, error.code, error.message].filter(Boolean).join(" ");
+    console.error(`ERRO: ${detail || String(error)}`);
+    if (error.code === "ECONNREFUSED" || /AggregateError/.test(error.name)) {
+      console.error(
+        "  O banco de carga nao respondeu. Ele precisa estar no ar: suba a pilha " +
+          "com docker compose -f docker-compose.load.yml up -d --wait e semeie " +
+          "com node scripts/load-seed.mjs.",
+      );
+    }
     process.exitCode = 1;
   })
   .finally(() => pool.end());

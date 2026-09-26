@@ -6,11 +6,22 @@ import { AUTH_P95_TARGET_MS, PAGE_P95_TARGET_MS, P95_TARGET_MS, thresholds } fro
 
 const BASE_URL = __ENV.LOAD_BASE_URL || "http://app:3000";
 const READ_ONLY = (__ENV.LOAD_READ_ONLY || "false") === "true";
-const AUTH_USERS = Number(__ENV.LOAD_AUTH_USERS || 8);
+// Padrão 3, não 8: o limitador de credentials é de 15/min por IP, todo o
+// tráfego do k6 sai de um IP só, e setup() faz AUTH_USERS logins por cenário
+// medido. Com 8 a rajada de setup estourava o orçamento sozinha e o cenário de
+// auth passava a medir 429 em vez de latência. assertLoginBudget() recusa
+// qualquer configuração fora dessa conta.
+const AUTH_USERS = Number(__ENV.LOAD_AUTH_USERS || 3);
+
 const PASSWORD = __ENV.LOAD_PASSWORD || "123456";
 const DURATION = __ENV.LOAD_DURATION || "5m";
-const READ_RPS = Number(__ENV.LOAD_READ_RPS || 25);
-const MUTATION_RPS = Number(__ENV.LOAD_MUTATION_RPS || 1);
+  const READ_RPS = Number(__ENV.LOAD_READ_RPS || 25);
+  // Taxa por MINUTO, não por segundo, e precisa ser inteira: o k6 declara `rate`
+  // de constant-arrival-rate como int64, e um 0,5 faz o script inteiro nem
+  // carregar. Com timeUnit "1m" o orçamento se compara direto com as regras do
+  // limitador, que também são por minuto.
+  const MUTATION_PER_MIN = Number(__ENV.LOAD_MUTATION_PER_MIN || 20);
+
 // Janela de aquecimento, fora de toda métrica. Sem ela o p95 inclui pool de
 // conexão frio, servidor frio e JIT, e a variância entre rodadas equivalentes
 // passa a refletir o arranque em vez da carga. O p95 só começa a contar depois.
@@ -32,6 +43,103 @@ const PROBE_START = asDuration(durationMs(WARMUP) + durationMs(DURATION));
 // O k6 exige rate inteiro, então a taxa do auth é expressa por minuto: o
 // limitador é de 15/min por IP e todo o tráfego sai de um IP só.
 const AUTH_PER_MIN = Number(__ENV.LOAD_AUTH_PER_MIN || 4);
+
+// A regra do limitador para /api/auth/callback/credentials, em
+// src/lib/middleware-policy.ts. O harness precisa conhecer o número porque
+// setup() roda uma vez por cenário, e não uma vez por execução: com os três
+// cenários medidos, o consumo é AUTH_USERS por cenário, não no total.
+const RATE_LIMIT_PER_MIN = Number(__ENV.LOAD_RATE_LIMIT_PER_MIN || 15);
+const SETUP_LOGIN_SCENARIOS = 3;
+
+// Regras do limitador em src/lib/middleware-policy.ts, para os endpoints que o
+// cenário de mutação exercita. O rate limit é por usuário, e o cenário divide as
+// iterações entre AUTH_USERS sessões, então o orçamento de cada sessão é
+// MUTATION_PER_MIN / AUTH_USERS por minuto. Metade das iterações vira mensagem
+// (o resto comenta), e é a rota de mensagens a mais estreita das duas.
+const MESSAGES_PER_MIN = 10;
+const COMMENTS_PER_MIN = 20;
+// Margem sobre o limite: no limite exato a execução reprova por causa da
+// própria janela deslizante, e o p95 de mutação passa a registrar 429 em vez de
+// latência de escrita.
+const RATE_LIMIT_HEADROOM = 0.5;
+
+/**
+ * Falha cedo, com a conta, em vez de reprovar a execução por causa de um 429
+ * que o próprio harness produziu.
+ *
+ * O limite é uma janela deslizante de 60 s, então o que importa é o consumo
+ * dentro de um minuto, não o total da execução. Os três cenários medidos
+ * começam juntos depois do aquecimento, e setup() roda uma vez por cenário:
+ * os logins de setup formam uma rajada de SETUP_LOGIN_SCENARIOS x AUTH_USERS
+ * dentro da mesma janela. Some-se a taxa sustentada do cenário de auth.
+ *
+ * Sem esta checagem, uma configuração com AUTH_USERS acima do cabeçalho
+ * estourava o orçamento nessa rajada, o cenário de auth recebia 429, o threshold
+ * de checks era cruzado, e o resumo reportava falha da aplicação — quando a
+ * falha era do teste medindo o limitador em vez do código, com o p95 de auth
+ * registrado como o valor do 429.
+ */
+function assertLoginBudget() {
+  const setupBurst = AUTH_USERS * SETUP_LOGIN_SCENARIOS;
+  const peak = setupBurst + AUTH_PER_MIN;
+  if (peak <= RATE_LIMIT_PER_MIN) return;
+
+  throw new Error(
+    `A configuracao de carga excede o limite de ${RATE_LIMIT_PER_MIN} logins/min por IP. ` +
+      `setup() roda por cenario, e os tres cenarios comecam juntos: ` +
+      `${SETUP_LOGIN_SCENARIOS} x ${AUTH_USERS} = ${setupBurst} na rajada, mais ` +
+      `${AUTH_PER_MIN}/min do cenario de auth, dando ${peak}. ` +
+      `Baixe LOAD_AUTH_USERS para ${Math.max(1, Math.floor((RATE_LIMIT_PER_MIN - AUTH_PER_MIN) / SETUP_LOGIN_SCENARIOS))} ` +
+      `ou LOAD_AUTH_PER_MIN. Sem essa folga o cenario de auth mede o limitador, ` +
+      `nao a aplicacao.`,
+  );
+}
+
+/**
+ * Mesma idea para as escritas: o cenário de mutação precisa caber no rate limit
+ * por usuário, senão o p95 de mutação mede 429.
+ *
+ * Com 1 escrita por segundo e 3 sessões, cada sessão fazia 20 escritas por
+ * minuto, das quais metade viravam mensagem — exatamente o teto de 10/min da
+ * rota /api/conversations. Na borda, ~12% das escritas recebiam 429, o threshold
+ * de checks era cruzado, e o relatório apontava falha da aplicação. O teto
+ * sustentável com 3 sessões é 30 escritas/min (3 usuários x 10 mensagens + 20
+ * comentários), e o padrão agora é 20, com folga.
+ *
+ * Estourar o limite de propósito continua possível: é para isso que existe o
+ * cenário rateLimitProbe, que roda depois e mede o 429 como comportamento.
+ */
+function assertMutationBudget() {
+  const perSession = MUTATION_PER_MIN / AUTH_USERS;
+  // Metade das iterações vira mensagem, metade comentário, na mesma proporção
+  // para todas as sessões.
+  const messages = perSession / 2;
+  const comments = perSession / 2;
+  const msgCeiling = MESSAGES_PER_MIN * RATE_LIMIT_HEADROOM;
+  const cmtCeiling = COMMENTS_PER_MIN * RATE_LIMIT_HEADROOM;
+  if (messages <= msgCeiling && comments <= cmtCeiling) return;
+
+  // A rota de mensagens é a que aperta primeiro, mas a conta cita as duas: se
+  // algum dia o cenário passar a mandar mais comentários que mensagens, a
+  // mensagem de erro precisa apontar o teto certo em vez do de mensagens.
+  const binding = messages / msgCeiling > comments / cmtCeiling
+    ? { what: "mensagens", got: messages, ceiling: msgCeiling, limit: MESSAGES_PER_MIN }
+    : { what: "comentarios", got: comments, ceiling: cmtCeiling, limit: COMMENTS_PER_MIN };
+  // A taxa precisa ser inteira, então a sugestão arredonda para baixo: assim a
+  // configuração proposta realmente carrega no k6.
+  const suggested = Math.max(1, Math.floor(binding.ceiling * 2 * AUTH_USERS));
+
+  throw new Error(
+    `A configuracao de carga excede o limite de ${binding.limit} ${binding.what}/min por usuario. ` +
+      `LOAD_MUTATION_PER_MIN=${MUTATION_PER_MIN} com ${AUTH_USERS} sessoes da ` +
+      `${perSession.toFixed(1)} escritas/min por sessao, metade delas ${binding.what}: ` +
+      `${binding.got.toFixed(1)}/min contra o teto de ${binding.ceiling.toFixed(1)} com a ` +
+      `margem aplicada. Baixe LOAD_MUTATION_PER_MIN para ${suggested} ou aumente ` +
+      `LOAD_AUTH_USERS. Para medir o limitador de proposito, use o cenario ` +
+      `rateLimitProbe (LOAD_PROBE=1), que roda depois dos medidos.`,
+  );
+}
+
 
 // Cada requisição leva `kind`: o alvo de latência da API precisa ser avaliado
 // sem as páginas, que são um terço do tráfego de leitura e bem mais pesadas.
@@ -128,17 +236,18 @@ const scenarios = {
 // A chave precisa desaparecer de verdade: `mutations: undefined` ainda é lida
 // pelo k6 como um cenário sem executor definido e aborta a execução inteira.
 if (!READ_ONLY) {
-  scenarios.mutations = {
-    executor: "constant-arrival-rate",
-    rate: MUTATION_RPS,
-    timeUnit: "1s",
-    duration: DURATION,
-    startTime: WARMUP,
-    preAllocatedVUs: 5,
-    maxVUs: 15,
-    exec: "mutationScenario",
-    tags: { scenario: "mutations" },
-  };
+    scenarios.mutations = {
+      executor: "constant-arrival-rate",
+      rate: MUTATION_PER_MIN,
+      timeUnit: "1m",
+      duration: DURATION,
+      startTime: WARMUP,
+      preAllocatedVUs: 5,
+      maxVUs: 15,
+      exec: "mutationScenario",
+      tags: { scenario: "mutations" },
+    };
+
 }
 
 // A sonda dispara 25 logins em rajada e satura a janela de 15/min por IP. Se
@@ -167,6 +276,9 @@ export const options = {
   // Quem precisa do corpo declara responseType: "text", que tem precedência.
   discardResponseBodies: true,
 };
+
+assertLoginBudget();
+assertMutationBudget();
 
 /**
  * Cada sessão precisa dos seus próprios alvos: a chave de rate limit de
@@ -408,6 +520,29 @@ export function handleSummary(data) {
 
   const failedPage = value("http_req_failed{scenario:read,kind:page}");
   if (failedPage) lines.push(`erros de pagina: ${(failedPage.rate * 100).toFixed(2)}%`);
+
+  // A falha de auth precisa aparecer aqui. Ela tem threshold proprio, mas o
+  // resumo so mostrava a taxa de erro da leitura: um 429 ou uma falha de
+  // credencial no cenario de auth cruzava o limiar e o unico sintoma visivel era
+  // a linha de erro do k6 no log, sem numero no relatorio.
+  for (const [label, key] of [
+    ["auth", "http_req_failed{scenario:auth,kind:api}"],
+    ["mutacoes", "http_req_failed{scenario:mutations,kind:api}"],
+  ]) {
+    const failed = value(key);
+    if (failed) lines.push(`erros de ${label} (API): ${(failed.rate * 100).toFixed(2)}%`);
+  }
+
+  // Checks reprovados por cenario, com a contagem: e o que distingue "deu errado"
+  // de "o teste mediu outra coisa".
+  for (const [label, key] of [
+    ["auth", "checks{scenario:auth,kind:api}"],
+    ["leitura", "checks{scenario:read,kind:api}"],
+    ["mutacoes", "checks{scenario:mutations,kind:api}"],
+  ]) {
+    const c = value(key);
+    if (c && c.fails > 0) lines.push(`checks reprovados em ${label}: ${c.fails} de ${c.fails + c.passes}`);
+  }
 
   const login = value("login_success");
   if (login) lines.push(`logins aceitos: ${(login.rate * 100).toFixed(2)}%`);
