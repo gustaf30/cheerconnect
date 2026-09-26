@@ -56,7 +56,12 @@ export function rateLimited(response) {
  * e depois o callback, extraindo o cookie de sessão da resposta.
  */
 export function login(baseUrl, email, password) {
-  const csrfResponse = http.get(`${baseUrl}/api/auth/csrf`);
+  // O corpo é necessário para extrair o token de CSRF, então pede-se
+  // responseType: "text" — que tem precedência sobre discardResponseBodies.
+  const csrfResponse = http.get(`${baseUrl}/api/auth/csrf`, {
+    tags: { kind: "api" },
+    responseType: "text",
+  });
   if (csrfResponse.status !== 200) {
     return { ok: false, reason: "csrf", status: csrfResponse.status, session: null };
   }
@@ -73,6 +78,7 @@ export function login(baseUrl, email, password) {
         ...(csrfCookie ? { Cookie: csrfCookie } : {}),
       },
       redirects: 0,
+      tags: { kind: "api" },
     }
   );
 

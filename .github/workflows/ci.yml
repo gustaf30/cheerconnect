@@ -64,8 +64,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint-typecheck, test]
     # Não bloqueia o merge: serve para acompanhar a tendência de latência, e um
-    # pico isolado não deve travar o pipeline.
+    # pico isolado não deve travar o pipeline. Mesmo assim o JSON bruto de cada
+    # execução é publicado como artefato ao final, senão um pico fica sem
+    # nenhuma evidência para investigar.
     continue-on-error: true
+
     services:
       postgres:
         image: postgres:16-alpine
@@ -81,9 +84,10 @@ jobs:
 
     env:
       DATABASE_URL: "postgresql://load:load@localhost:5432/cheerconnect_load"
-      # Tem que ser https: com NODE_ENV=production e NEXTAUTH_URL http, o
-      # auth.ts grava o cookie com prefixo __Secure- enquanto o getToken do
-      # proxy procura o nome sem prefixo, e toda rota autenticada devolve 401.
+      # https porque e o que a Vercel entrega, e assim a carga exercita o mesmo
+      # ramo de cookie (__Secure-) da producao. Nao e contorno para o 401 do
+      # cookie: esse defeito foi corrigido e os dois lados ja decidem pelo mesmo
+      # criterio.
       NEXTAUTH_URL: "https://localhost:3000"
       NEXTAUTH_SECRET: "ci-load-secret-not-real-012345678901234567890"
       CLOUDINARY_CLOUD_NAME: "ci-load"
@@ -121,15 +125,30 @@ jobs:
 
       - name: Instala o k6
         uses: grafana/setup-k6-action@v1.2.2
+        with:
+          # Mesma versão fixada no docker-compose.load.yml: o CI e a Medição A
+          # precisam medir com a mesma ferramenta, senão a comparação entre eles
+          # perde sentido.
+          version: v1.3.0
 
       - name: Carga de leitura
         run: |
           k6 run \
             -e LOAD_BASE_URL=http://localhost:3000 \
             -e LOAD_DURATION=45s \
+            -e LOAD_WARMUP=15s \
             -e LOAD_AUTH_USERS=8 \
             -e LOAD_READ_ONLY=true \
             -e LOAD_PASSWORD=123456 \
             -e LOAD_USERS=30 \
+            -e LOAD_PROBE=1 \
+            -e LOAD_RUN_ID=ci \
             --quiet --no-color \
             tests/load/main.js
+      - name: Publica o resultado bruto da carga
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-load-smoke
+          path: artifacts/load/
+          if-no-files-found: warn

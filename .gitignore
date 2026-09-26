@@ -67,3 +67,10 @@ nul
 *.swp
 *.swo
 .env*
+
+# Artefatos brutos da LOAD-001: um JSON e um summary por execucao. Sao
+# regeneraveis e o registro que vai para o TCC vive no GOAL.md, entao o
+# diretorio fica versionado so pela pasta vazia.
+artifacts/load/*
+!artifacts/load/.gitkeep
+

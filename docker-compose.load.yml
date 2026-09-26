@@ -15,10 +15,10 @@ x-app-common: &app-common
   environment: &app-env
     NODE_ENV: production
     DATABASE_URL: postgresql://load:load@postgres:5432/cheerconnect_load
-    # Precisa ser https: o auth.ts força useSecureCookies em produção, enquanto o
-    # getToken do proxy deriva o nome do cookie do protocolo do NEXTAUTH_URL. Com
-    # http os dois lados divergem e toda rota autenticada responde 401. Ver
-    # relatório da LOAD-001.
+    # https porque e o que a Vercel entrega, e a carga precisa exercitar o mesmo
+    # ramo de cookie (__Secure-) que a producao usa. Nao e mais um contorno para
+    # o 401 do cookie: esse defeito foi corrigido, e auth-cookies.ts decide os
+    # dois lados pelo mesmo criterio.
     NEXTAUTH_URL: https://app:3000
     NEXTAUTH_SECRET: load-test-secret-not-real-0123456789
     EMAIL_PROVIDER: log
@@ -47,6 +47,13 @@ services:
       - "max_connections=300"
       - "-c"
       - "shared_buffers=256MB"
+      # Usado pela LOAD-001 para contar quantas consultas cada requisição executa
+      # de fato. Medir pelo banco evita instrumentar código de produção só para
+      # obter a métrica.
+      - "-c"
+      - "shared_preload_libraries=pg_stat_statements"
+      - "-c"
+      - "pg_stat_statements.track=all"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U load -d cheerconnect_load"]
       interval: 2s
@@ -94,12 +101,17 @@ services:
       start_period: 30s
 
   k6:
-    image: grafana/k6:latest
+    # Versão fixada: `latest` quebra a reprodutibilidade do ensaio entre
+    # execuções, e reprodutibilidade é parte do que o TCC precisa afirmar.
+    image: grafana/k6:1.3.0
     container_name: cheerconnect-load-k6
     profiles: ["k6"]
-    working_dir: /scripts
+    # CWD em /artifacts porque o volume de /scripts é somente leitura e o
+    # handleSummary precisa gravar o JSON bruto da execução.
+    working_dir: /artifacts
     volumes:
       - ./tests/load:/scripts:ro
+      - ./artifacts:/artifacts
     command: ["run", "/scripts/main.js"]
     depends_on:
       app:
