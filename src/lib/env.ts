@@ -28,6 +28,10 @@ const envSchema = z.object({
     .min(32, "NEXTAUTH_SECRET must be at least 32 characters")
     .refine((value) => !value.startsWith("generate-with:"), "NEXTAUTH_SECRET must be generated, not copied from the example"),
   NEXTAUTH_URL: z.string().url("NEXTAUTH_URL must be a valid URL").optional(),
+  // Lida pelo NextAuth em utils/detect-origin para montar a URL base a partir de
+  // x-forwarded-host, quando não há NEXTAUTH_URL. Fica no schema porque
+  // src/lib/auth-cookies.ts a considera ao decidir o prefixo do cookie.
+  AUTH_TRUST_HOST: optionalString,
   CLOUDINARY_CLOUD_NAME: z.string().min(1, "CLOUDINARY_CLOUD_NAME is required"),
   CLOUDINARY_API_KEY: z.string().min(1, "CLOUDINARY_API_KEY is required"),
   CLOUDINARY_API_SECRET: z.string().min(1, "CLOUDINARY_API_SECRET is required"),

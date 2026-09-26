@@ -2,6 +2,7 @@ import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
 import { Ratelimit } from "@upstash/ratelimit";
 import { getRedis } from "@/lib/redis";
+import { usesSecureCookies } from "@/lib/auth-cookies";
 import {
   createInMemoryRateLimiter,
   getClientIdentifier,
@@ -77,7 +78,10 @@ export default async function proxy(request: NextRequest) {
   const rateLimitRule = getRateLimitRule(pathname, request.method);
   if (rateLimitRule) {
     const clientId = getClientIdentifier(request.headers);
-    const token = await getToken({ req: request });
+    const token = await getToken({
+      req: request,
+      secureCookie: usesSecureCookies(),
+    });
     const tokenId = token?.sub || token?.id;
     const key = tokenId
       ? `user:${tokenId}:${pathname}`
@@ -97,7 +101,10 @@ export default async function proxy(request: NextRequest) {
 
   // 2. Checagem de auth — proteger rotas não-públicas
   if (!isPublicRoute(pathname)) {
-    const token = await getToken({ req: request });
+    const token = await getToken({
+      req: request,
+      secureCookie: usesSecureCookies(),
+    });
     if (!token) {
       // Redireciona para login em rotas de página, retorna 401 em rotas API
       if (pathname.startsWith("/api/")) {

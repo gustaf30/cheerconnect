@@ -5,6 +5,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
+import { usesSecureCookies } from "./auth-cookies";
 import logger from "./logger";
 import { logSecurityEvent } from "./security-events";
 
@@ -86,7 +87,9 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60,
   },
-  useSecureCookies: process.env.NODE_ENV === "production",
+  // Precisa casar com o que o getToken do proxy procura, senão o token é
+  // gravado com um nome e lido com outro. Ver src/lib/auth-cookies.ts.
+  useSecureCookies: usesSecureCookies(),
   // Não usar bloco cookies customizado - defaults do NextAuth são otimizados
   callbacks: {
     async signIn({ user, account, profile }) {
