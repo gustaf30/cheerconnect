@@ -98,6 +98,9 @@
     "@prisma/config": {
       "deepmerge-ts": "8.0.2"
     },
+    "@zenuml/core": {
+      "playwright-core": "1.63.0"
+    },
     "cloudinary": {
       "lodash": "4.18.1"
     },
