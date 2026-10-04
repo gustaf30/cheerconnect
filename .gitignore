@@ -74,3 +74,8 @@ nul
 artifacts/load/*
 !artifacts/load/.gitkeep
 
+# Tooling pessoal de skills de IA (ex.: anthropics/skills:docx): de terceiro,
+# reinstalavel pelo nome, nao e artefato da tese.
+.agents/
+skills-lock.json
+
