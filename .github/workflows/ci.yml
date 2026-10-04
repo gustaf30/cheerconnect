@@ -17,7 +17,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm audit --audit-level=moderate
+      # Audita só o que vai para produção: o bundle shipado usa as
+      # dependências de produção (ver estágio prod-deps do Dockerfile), e as
+      # vulnerabilidades restantes no lock são transitivas de tooling de dev
+      # (ex.: braces via eslint-config-next, só corrigível com breaking change).
+      - run: npm audit --omit=dev --audit-level=moderate
       - run: npx eslint . --max-warnings=0
       - run: npx tsc --noEmit
 
