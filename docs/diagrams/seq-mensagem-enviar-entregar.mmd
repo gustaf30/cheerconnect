@@ -1,15 +1,14 @@
-%% Mensagem privada em tempo real: envio, propagacao entre instancias e
-%% encerramento por invalidacao de sessao.
+%% Mensagem em tempo real, parte 1: abrir o stream, enviar e entregar.
 %% Roteiro conferido contra src/app/api/conversations/[id]/messages,
 %% .../messages/stream, src/lib/realtime-bus.ts e docs/adr/005-distributed-realtime.md.
+%% Continua em seq-mensagem-heartbeat-invalidar.mmd.
 sequenceDiagram
     autonumber
     actor A as Usuário A
     actor B as Usuário B
-    participant UI as /messages
-    participant Post as POST /api/conversations<br/>/[id]/messages
     participant SSE as GET .../messages/stream
     participant Validador as isSessionTokenValid<br/>(lib/api-utils)
+    participant Post as POST /api/conversations<br/>/[id]/messages
     participant Bus as lib/realtime-bus
     participant Redis as Redis Streams
     participant DB as PostgreSQL
@@ -25,8 +24,7 @@ sequenceDiagram
         Note over SSE,DB: intervalo de 15 s,<br/>30 s se a aba estiver oculta
     end
 
-    A->>UI: escreve e envia
-    UI->>Post: POST /api/conversations/[id]/messages
+    A->>Post: POST /api/conversations/[id]/messages
     Post->>DB: valida que A e participante
     alt A nao participa
         Post-->>A: 403
@@ -50,11 +48,3 @@ sequenceDiagram
     else nada novo
         SSE-->>B: heartbeat a cada cinco sondagens
     end
-
-    Note over A,B: sessao invalidada em outro dispositivo
-    A->>Post: PUT /api/settings/password
-    Post->>DB: incrementa tokenVersion
-    SSE->>Validador: proxima sondagem encontra a versao divergente
-    Validador-->>SSE: falso
-    SSE-->>B: encerra o stream
-    Note over SSE,B: sem isso a conexao ficaria pendurada<br/>com uma sessao que ja nao vale

@@ -10,39 +10,29 @@ classDiagram
     +String authorId FK -> User
     +String teamId FK -> Team
     +String originalPostId FK -> Post
-    +Comment[] comments
-    +Like[] likes
     +Boolean isEdited
-    +PostEdit[] edits
-    +PostTag[] tags
-    +Mention[] mentions
-    +MediaAsset[] mediaAssets
-    +DateTime createdAt
-    +DateTime updatedAt
-    +feed() GET /api/posts
-    +publicar() POST /api/posts
-    +buscar() GET /api/posts/[id]
-    +atualizar() PUT /api/posts/[id]
-    +excluir() DELETE /api/posts/[id]
-    +curtir() POST /api/posts/[id]/like
-    +descurtir() DELETE /api/posts/[id]/like
-    +repostar() POST /api/posts/[id]/repost
-    +cancelarRepost() DELETE /api/posts/[id]/repost
+    +feed() GET
+    +publicar() POST
+    +buscar() GET
+    +atualizar() PUT
+    +excluir() DELETE
+    +curtir() POST
+    +descurtir() DELETE
+    +repostar() POST
+    +cancelarRepost() DELETE
   }
   class PostEdit {
     +String id PK
     +String postId FK -> Post
     +String content
     +DateTime editedAt
-    +historico() GET /api/posts/[id]/edits
+    +historico() GET
   }
   class Tag {
     +String id PK
     +String name UK
-    +PostTag[] posts
-    +DateTime createdAt
-    +listarPublicacoes() GET /api/tags/[name]
-    +emAlta() GET /api/tags/trending
+    +listarPublicacoes() GET
+    +emAlta() GET
   }
   class PostTag {
     +String id PK
@@ -60,40 +50,35 @@ classDiagram
     +String authorId FK -> User
     +String postId FK -> Post
     +String parentId FK -> Comment
-    +CommentLike[] likes
-    +DateTime createdAt
-    +DateTime updatedAt
-    +listar() GET /api/posts/[id]/comments
-    +comentar() POST /api/posts/[id]/comments
-    +editar() PATCH /api/comments/[id]
-    +excluir() DELETE /api/comments/[id]
-    +responder() GET /api/comments/[id]/replies
-    +curtir() POST /api/comments/[id]/like
-    +descurtir() DELETE /api/comments/[id]/like
+    +listar() GET
+    +comentar() POST
+    +editar() PATCH
+    +excluir() DELETE
+    +responder() GET
+    +curtir() POST
+    +descurtir() DELETE
   }
   class CommentLike {
     +String id PK
     +String userId FK -> User
     +String commentId FK -> Comment
-    +DateTime createdAt
   }
   class Like {
     +String id PK
     +String userId FK -> User
     +String postId FK -> Post
-    +DateTime createdAt
   }
   note for Post "storedField evidencia o historico de edicoes"
   note for PostTag "ligacao entre publicacao e tag"
   note for Mention "criada junto da publicacao, remove em cascata"
   note for CommentLike "unica por (usuario, comentario)"
   note for Like "unica por (usuario, publicacao)"
-  Post "1" *-- "*" Post : originalPost
-  PostEdit "1" *-- "*" Post : post
-  PostTag "1" *-- "*" Post : post
-  PostTag "1" *-- "*" Tag : tag
-  Mention "1" *-- "*" Post : post
-  Comment "1" *-- "*" Post : post
-  Comment "1" *-- "*" Comment : parent
-  CommentLike "1" *-- "*" Comment : comment
-  Like "1" *-- "*" Post : post
+  Post "1" *-- "*" Post
+  PostEdit "1" *-- "*" Post
+  PostTag "1" *-- "*" Post
+  PostTag "1" *-- "*" Tag
+  Mention "1" *-- "*" Post
+  Comment "1" *-- "*" Post
+  Comment "1" *-- "*" Comment
+  CommentLike "1" *-- "*" Comment
+  Like "1" *-- "*" Post

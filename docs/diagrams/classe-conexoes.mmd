@@ -8,27 +8,22 @@ classDiagram
     +String senderId FK -> User
     +String receiverId FK -> User
     +String pairKey
-    +DateTime createdAt
-    +DateTime updatedAt
-    +listar() GET /api/connections
-    +solicitar() POST /api/connections
-    +aceitar() POST /api/connections/[id]/accept
-    +remover() DELETE /api/connections/[id]
+    +listar() GET
+    +solicitar() POST
+    +aceitar() POST
+    +remover() DELETE
   }
   class Conversation {
     +String id PK
     +String participant1Id FK -> User
     +String participant2Id FK -> User
     +String pairKey UK
-    +Message[] messages
     +DateTime lastMessageAt
     +String lastMessagePreview
-    +DateTime createdAt
-    +DateTime updatedAt
-    +listar() GET /api/conversations
-    +abrir() POST /api/conversations
-    +buscar() GET /api/conversations/[id]
-    +excluir() DELETE /api/conversations/[id]
+    +listar() GET
+    +abrir() POST
+    +buscar() GET
+    +excluir() DELETE
   }
   class Message {
     +String id PK
@@ -37,12 +32,11 @@ classDiagram
     +String conversationId FK -> Conversation
     +Boolean isRead
     +DateTime readAt
-    +DateTime createdAt
-    +listar() GET /api/conversations/[id]/messages
-    +enviar() POST /api/conversations/[id]/messages
-    +marcarLidas() POST /api/conversations/[id]/messages/read
-    +assinarStream() GET /api/conversations/[id]/messages/stream
-    +contarNaoLidas() GET /api/messages/count
+    +listar() GET
+    +enviar() POST
+    +marcarLidas() POST
+    +assinarStream() GET
+    +contarNaoLidas() GET
   }
   class Notification {
     +String id PK
@@ -53,10 +47,9 @@ classDiagram
     +String actorId FK -> User
     +String relatedId
     +String relatedType
-    +DateTime createdAt
-    +listar() GET /api/notifications
-    +marcarLidas() PATCH /api/notifications
-    +contarNaoLidas() GET /api/notifications/count
-    +assinarStream() GET /api/notifications/stream
+    +listar() GET
+    +marcarLidas() PATCH
+    +contarNaoLidas() GET
+    +assinarStream() GET
   }
-  Message "1" *-- "*" Conversation : conversation
+  Message "1" *-- "*" Conversation

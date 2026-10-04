@@ -243,6 +243,33 @@ function lerRelacoes() {
 }
 
 // ---------------------------------------------------------------------------
+// Regras de poda: o que NAO aparece no diagrama, e por que.
+//
+// Um diagrama que mostra tudo vira despejo de migracao: a versao anterior
+// media 104 membros no dominio identidade, com o User ocupando 55 linhas.
+// As regras abaixo cortam o ruido mecanico e ficam escritas aqui — e no
+// README de docs/diagrams — para que o leitor saiba que a omissao e
+// deliberada, nao esquecimento:
+//
+// 1. Listas reversas (posts Post[], sessions Session[]): redundantes com a
+//    seta de composicao/associacao que ja parte da outra ponta.
+// 2. createdAt/updatedAt: uniformes em todas as entidades, nao distinguem nada.
+// 3. notify* no User: 9 booleanos colapsados em uma linha.
+// 4. *PublicId: detalhe de escrituracao do Cloudinary, nao do dominio.
+// 5. Payload opaco do OAuth no Account: so type/provider/providerAccountId
+//    identificam a conta; o resto e carga do provedor.
+// 6. Operacoes saem como nome() METODO, sem o caminho: a rastreabilidade
+//    rota->operacao continua verificada pelo gerador e mora no Quadro 5.
+// 7. Setas sem rotulo: o atributo FK ja diz o destino.
+// ---------------------------------------------------------------------------
+const PODA_TIMESTAMPS = new Set(["createdAt", "updatedAt"]);
+const PODA_PUBLICID = /PublicId$/;
+const PODA_OAUTH = new Set([
+  "refresh_token", "access_token", "expires_at", "token_type",
+  "scope", "id_token", "session_state",
+]);
+
+// ---------------------------------------------------------------------------
 // Leitura das rotas, para conferir as operacoes
 // ---------------------------------------------------------------------------
 function lerRotas() {
@@ -311,9 +338,25 @@ function gerarDominio(dominio, modelos, relacoes) {
     // caso de Connection, Notification, Event, Report e Block, que apontam para
     // User — apareceria sem nenhuma ligacao no diagrama.
     const fks = new Map(relacoes.filter((r) => r.de === nome).map((r) => [r.fk, r.alvo]));
+    const ehModelo = (tipo) => modelos.has(tipo.replace(/\[\]$/, "").replace(/\?$/, ""));
+    const notifies = campos.filter((c) => c.nome.startsWith("notify") && !c.relacao);
     linhas.push(`  class ${nome} {`);
+    if (notifies.length > 1) {
+      linhas.push(`    +Boolean notify* (${notifies.length} prefs.)`);
+    }
     for (const c of campos) {
       const tipo = c.tipo.replace(/\?$/, "");
+      const base = tipo.replace(/\[\]$/, "");
+      // Regra 1: lista reversa (Post[], Session[]) — a seta ja diz isso.
+      if (!c.relacao && tipo.endsWith("[]") && ehModelo(base)) continue;
+      // Regra 3 (segunda parte): os 9 notify sairam na linha colapsada acima.
+      if (c.nome.startsWith("notify") && !c.relacao && notifies.length > 1) continue;
+      // Regra 2: carimbo uniforme de auditoria.
+      if (PODA_TIMESTAMPS.has(c.nome)) continue;
+      // Regra 4: escrituracao do Cloudinary.
+      if (PODA_PUBLICID.test(c.nome)) continue;
+      // Regra 5: carga opaca do provedor OAuth.
+      if (nome === "Account" && PODA_OAUTH.has(c.nome)) continue;
       const destino = fks.get(c.nome);
       if (destino) {
         // Chave estrangeira: e o atributo que leva a ligacao, e o alvo vem de
@@ -330,7 +373,8 @@ function gerarDominio(dominio, modelos, relacoes) {
     // no diagrama como se fossem atributos.
     for (const op of ops) {
       if (!op.nome) continue;
-      linhas.push(`    +${op.nome}${op.rota ? ` ${op.metodo} ${op.rota}` : ""}`);
+      // Regra 6: sem o caminho — ele mora no Quadro 5 e aqui so alarga a caixa.
+      linhas.push(`    +${op.nome}${op.rota ? ` ${op.metodo}` : ""}`);
     }
     linhas.push("  }");
   }
@@ -349,7 +393,9 @@ function gerarDominio(dominio, modelos, relacoes) {
     // relacoes sao associacoes. No Mermaid a cardinalidade precisa de aspas, e
     // a composicao e o losango cheio, escrito *--.
     const seta = rel.onDelete === "Cascade" ? '*--' : '--';
-    linhas.push(`  ${rel.de} "1" ${seta} "*" ${rel.alvo} : ${rel.attr}`);
+    // Regra 7: sem rotulo na seta — o atributo FK na caixa ja diz o destino,
+    // e rotulos repetidos ("user", "user") so empilham texto na borda.
+    linhas.push(`  ${rel.de} "1" ${seta} "*" ${rel.alvo}`);
   }
 
   return linhas.join("\n") + "\n";

@@ -13,13 +13,11 @@ classDiagram
     +String registrationUrl
     +String creatorId FK -> User
     +String teamId FK -> Team
-    +DateTime createdAt
-    +DateTime updatedAt
-    +listar() GET /api/events
-    +criar() POST /api/events
-    +buscar() GET /api/events/[id]
-    +atualizar() PATCH /api/events/[id]
-    +excluir() DELETE /api/events/[id]
+    +listar() GET
+    +criar() POST
+    +buscar() GET
+    +atualizar() PATCH
+    +excluir() DELETE
   }
   class Report {
     +String id PK
@@ -32,16 +30,14 @@ classDiagram
     +String moderatorId FK -> User
     +String resolutionNote
     +DateTime resolvedAt
-    +DateTime createdAt
-    +denunciar() POST /api/reports
-    +listar() GET /api/reports
-    +resolver() PATCH /api/reports
+    +denunciar() POST
+    +listar() GET
+    +resolver() PATCH
   }
   class Block {
     +String id PK
     +String userId FK -> User
     +String blockedUserId FK -> User
-    +DateTime createdAt
   }
   class ActivityLog {
     +String id PK
@@ -52,7 +48,6 @@ classDiagram
     +Json metadata
     +DateTime retentionUntil
     +DateTime anonymizedAt
-    +DateTime createdAt
   }
   class MediaAsset {
     +String id PK
@@ -70,10 +65,9 @@ classDiagram
     +MediaAssetStatus status
     +String uploadTokenHash
     +DateTime completedAt
-    +DateTime createdAt
-    +enviar() POST /api/upload
-    +concluir() POST /api/upload/complete
-    +assinarEnvioDireto() POST /api/upload/sign
+    +enviar() POST
+    +concluir() POST
+    +assinarEnvioDireto() POST
   }
   note for Block "bloqueio bidirecional em cascata"
   note for ActivityLog "trilha de auditoria de acoes sensiveis"

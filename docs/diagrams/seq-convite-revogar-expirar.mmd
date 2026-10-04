@@ -1,0 +1,29 @@
+%% Convite para equipe, parte 2: revogacao e expiracao.
+%% Roteiro conferido contra src/app/api/teams/[slug]/invites/[id] DELETE e
+%% src/app/api/cron/cleanup-invites. Continua de
+%% seq-convite-criar-aceitar.mmd. O estado e o mesmo do diagrama de estados.
+sequenceDiagram
+    autonumber
+    actor M as Membro com permissao
+    participant API as /api/teams/[slug]/invites/[id]
+    participant Perm as lib/team-permissions
+    participant DB as PostgreSQL
+    participant Cron as /api/cron/cleanup-invites
+
+    M->>API: DELETE /api/teams/[slug]/invites/[id]
+    API->>Perm: exige canManageMembers
+    alt sem permissao
+        API-->>M: 403
+    else com permissao
+        API->>DB: DELETE condicional
+        alt nada removido
+            API-->>M: 404
+        else removido
+            API-->>M: 200
+        end
+    end
+
+    Note over Cron: rotina agendada
+    Cron->>DB: UPDATE de PENDING para EXPIRED<br/>onde expiresAt ja passou
+    Cron->>DB: DELETE de EXPIRED e REJECTED<br/>criados ha mais de 30 dias
+    Note over Cron,DB: aceitos e pendentes ficam:<br/>a limpeza so remove o que nao tem volta

@@ -1,0 +1,23 @@
+%% Mensagem em tempo real, parte 2: heartbeat e encerramento por sessao invalida.
+%% Roteiro conferido contra src/app/api/conversations/[id]/messages/stream e
+%% src/app/api/settings/password. Continua de
+%% seq-mensagem-enviar-entregar.mmd.
+sequenceDiagram
+    autonumber
+    actor A as Usuário A
+    actor B as Usuário B
+    participant SSE as GET .../messages/stream
+    participant Validador as isSessionTokenValid<br/>(lib/api-utils)
+    participant Post as PUT /api/settings/password
+    participant DB as PostgreSQL
+
+    Note over SSE,B: stream aberto, nada novo para entregar
+    SSE-->>B: heartbeat a cada cinco sondagens
+
+    Note over A,B: sessao invalidada em outro dispositivo
+    A->>Post: PUT /api/settings/password
+    Post->>DB: incrementa tokenVersion
+    SSE->>Validador: proxima sondagem encontra a versao divergente
+    Validador-->>SSE: falso
+    SSE-->>B: encerra o stream
+    Note over SSE,B: sem isso a conexao ficaria pendurada<br/>com uma sessao que ja nao vale

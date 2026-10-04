@@ -1,0 +1,35 @@
+%% Feed e publicacao, parte 2: curtida e comentario.
+%% Roteiro conferido contra src/app/api/posts/[id]/like e
+%% src/app/api/posts/[id]/comments. Continua de
+%% seq-feed-leitura-publicar.mmd.
+sequenceDiagram
+    autonumber
+    actor Atleta
+    participant UI as /feed
+    participant API as /api/posts/[id]
+    participant Zod as lib/validation
+    participant DB as PostgreSQL
+    participant SSE as bus de eventos
+
+    Atleta->>UI: curta a publicacao
+    UI->>API: POST /api/posts/[id]/like
+    API->>DB: INSERT em Like
+    alt chave unica violada (duplo clique)
+        API-->>UI: liked: true (idempotente)
+    else insercao normal
+        API->>DB: INSERT em Notification
+        API->>SSE: publica evento do tipo notification
+        SSE-->>UI: notifica o autor
+        API-->>UI: liked: true
+    end
+
+    Atleta->>UI: comenta
+    UI->>API: POST /api/posts/[id]/comments
+    API->>Zod: valida conteudo e profundidade
+    alt comentario e resposta de outro comentario
+        API-->>UI: 400
+    else comentario valido
+        API->>DB: INSERT em Comment e em CommentLike se houver
+        API->>SSE: publica evento
+        API-->>UI: 201
+    end

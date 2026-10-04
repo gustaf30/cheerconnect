@@ -1,6 +1,6 @@
-%% Feed, publicacao, curtida e comentario.
-%% Roteiro conferido contra src/app/api/posts, src/app/api/posts/[id]/like,
-%% src/app/api/posts/[id]/comments e src/lib/rate-limit.ts.
+%% Feed e publicacao, parte 1: leitura com cursor e publicacao.
+%% Roteiro conferido contra src/app/api/posts e src/lib/rate-limit.ts.
+%% Continua em seq-feed-curtir-comentar.mmd.
 sequenceDiagram
     autonumber
     actor Atleta
@@ -10,7 +10,6 @@ sequenceDiagram
     participant Zod as lib/validation
     participant Prisma
     participant DB as PostgreSQL
-    participant SSE as bus de eventos
 
     Atleta->>UI: abre o feed
     UI->>API: GET /api/posts?filter=following&limit=20
@@ -36,29 +35,6 @@ sequenceDiagram
         else conteudo valido
             API->>Prisma: create
             Prisma->>DB: INSERT com userId da sessao
-            DB-->>UI: 201
+            API-->>UI: 201
         end
-    end
-
-    Atleta->>UI: curta a publicacao
-    UI->>API: POST /api/posts/[id]/like
-    API->>DB: INSERT em Like
-    alt chave unica violada (duplo clique)
-        API-->>UI: liked: true (idempotente)
-    else insercao normal
-        API->>DB: INSERT em Notification
-        API->>SSE: publica evento do tipo notification
-        SSE-->>UI: notifica o autor
-        API-->>UI: liked: true
-    end
-
-    Atleta->>UI: comenta
-    UI->>API: POST /api/posts/[id]/comments
-    API->>Zod: valida conteudo e profundidade
-    alt comentario e resposta de outro comentario
-        API-->>UI: 400
-    else comentario valido
-        API->>DB: INSERT em Comment e em CommentLike se houver
-        API->>SSE: publica evento
-        API-->>UI: 201
     end

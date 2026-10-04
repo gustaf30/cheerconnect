@@ -49,11 +49,18 @@ com o recorte.
 | Arquivo | Fluxo |
 |---|---|
 | `seq-autenticacao.mmd` | Login por credenciais e o caminho do cookie de sessão |
-| `seq-feed-publicacao.mmd` | Feed com cursor, publicação, curtida e comentário |
+| `seq-feed-leitura-publicar.mmd` | Leitura com cursor e publicação |
+| `seq-feed-curtir-comentar.mmd` | Curtida e comentário |
 | `seq-conexoes.mmd` | Solicitação, aceitação e recusa de conexão |
-| `seq-mensagem-tempo-real.mmd` | Mensagem em tempo real, propagação entre instâncias e encerramento por sessão inválida |
-| `seq-convite-equipe.mmd` | Convite: criação, aceite, recusa, revogação e expiração |
+| `seq-mensagem-enviar-entregar.mmd` | Abertura do stream, envio e entrega entre instâncias |
+| `seq-mensagem-heartbeat-invalidar.mmd` | Heartbeat e encerramento por sessão invalidada |
+| `seq-convite-criar-aceitar.mmd` | Criação, aceite, recusa e negativa a terceiro |
+| `seq-convite-revogar-expirar.mmd` | Revogação e expiração pela rotina agendada |
 | `seq-privacidade-lgpd.mmd` | Exclusão em cascata, solicitação do titular e exportação de dados |
+
+As sequências ficam em duas partes quando passam de ~20 mensagens ou 7
+lifelines: num diagrama sozinho o texto some ao reduzir para a largura da
+página. Cada parte indica no cabeçalho de onde continua.
 
 ### Estado
 
@@ -67,7 +74,7 @@ com o recorte.
   `Comment` tem `authorId`, o diagrama diz que `Comment` tem `editar()`,
   `excluir()`, `curtir()` e `responder()`, com o verbo HTTP e a rota de origem.
 - A distinção **400** e **409** na recusa de convite aparece em
-  `seq-convite-equipe.mmd` e em `estado-convite-equipe.mmd`: 400 quando o convite
+    `seq-convite-criar-aceitar.mmd` e em `estado-convite-equipe.mmd`: 400 quando o convite
   não está mais pendente, 409 quando o update condicional não alterou nenhuma
   linha, o que significa que outra pessoa agiu entre a leitura e a escrita.
 - Identidade visual **não é um diagrama UML**. Paleta, tipografia e componentes
