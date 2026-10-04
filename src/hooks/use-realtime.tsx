@@ -97,6 +97,17 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     connect();
 
+    // navigator.onLine nasce falso no Chromium headless mesmo com rede, o que
+    // deixaria o banner offline preso ligado. Confirma com uma sonda leve sem
+    // banco antes de declarar offline: qualquer resposta prova conectividade.
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      fetch("/api/auth/csrf", { cache: "no-store", signal: AbortSignal.timeout(3000) })
+        .then(() => {
+          if (!stopped) setIsOffline(false);
+        })
+        .catch(() => {});
+    }
+
     // Reconectar imediatamente quando a rede voltar
     const handleOnline = () => {
       setIsOffline(false);
