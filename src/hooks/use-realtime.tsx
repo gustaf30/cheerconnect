@@ -68,6 +68,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
        es.onopen = () => {
          if (eventSourceRef.current !== es) return;
          retryDelayRef.current = 1000;
+         // SSE aberto prova conectividade: limpa flag preso por
+         // navigator.onLine falso ou evento 'offline' espurio.
+         setIsOffline(false);
        };
 
       es.onmessage = (event) => {
