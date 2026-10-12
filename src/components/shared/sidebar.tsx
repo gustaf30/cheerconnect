@@ -143,6 +143,24 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
   return (
     <ScrollArea className="h-full">
       <div className="flex flex-col gap-4 stagger-children py-2">
+        {/* Logo */}
+        <div className="text-center">
+          <Link
+            href="/feed"
+            onClick={(e) => {
+              onNavigate?.();
+              if (pathname === "/feed") {
+                e.preventDefault();
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }
+            }}
+            className="flex items-center justify-center gap-0.5 font-display font-extrabold text-xl tracking-tight text-foreground"
+          >
+            <span className="text-primary-as-text">Cheer</span>
+            <span className="text-primary-as-text">Connect</span>
+          </Link>
+        </div>
+
         {/* Profile Card */}
         {session?.user && profileError && (
           <div className="bento-card-static shadow-depth-1">
@@ -342,24 +360,6 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
             </div>
           )}
         </nav>
-
-        {/* Logo */}
-        <div className="text-center">
-          <Link
-            href="/feed"
-            onClick={(e) => {
-              onNavigate?.();
-              if (pathname === "/feed") {
-                e.preventDefault();
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }
-            }}
-             className="flex items-center justify-center gap-0.5 font-display font-extrabold text-xl tracking-tight text-foreground"
-          >
-            <span className="text-primary-as-text">Cheer</span>
-            <span>Connect</span>
-          </Link>
-        </div>
       </div>
     </ScrollArea>
   );
