@@ -156,7 +156,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
             }}
             className="flex items-center justify-center gap-0.5 font-display font-extrabold text-xl tracking-tight text-foreground"
           >
-            <span className="text-primary-as-text">Cheer</span>
+            <span>Cheer</span>
             <span className="text-primary-as-text">Connect</span>
           </Link>
         </div>
