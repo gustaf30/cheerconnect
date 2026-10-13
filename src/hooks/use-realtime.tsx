@@ -104,11 +104,19 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     // deixaria o banner offline preso ligado. Confirma com uma sonda leve sem
     // banco antes de declarar offline: qualquer resposta prova conectividade.
     if (typeof navigator !== "undefined" && !navigator.onLine) {
-      fetch("/api/auth/csrf", { cache: "no-store", signal: AbortSignal.timeout(3000) })
-        .then(() => {
-          if (!stopped) setIsOffline(false);
-        })
-        .catch(() => {});
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 5000);
+        fetch("/api/auth/csrf", { cache: "no-store", signal: controller.signal })
+          .then(() => {
+            if (!stopped) setIsOffline(false);
+          })
+          .catch(() => {})
+          .finally(() => clearTimeout(timer));
+      } catch {
+        // AbortController indisponível: ignora a sonda, o onopen do SSE
+        // e a revalidação do banner cobrem a limpeza do flag.
+      }
     }
 
     // Reconectar imediatamente quando a rede voltar

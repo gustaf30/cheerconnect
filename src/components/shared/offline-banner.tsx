@@ -17,15 +17,33 @@ export function OfflineBanner() {
       return;
     }
     let cancelled = false;
-    fetch("/api/health", { cache: "no-store", signal: AbortSignal.timeout(5000) })
-      .then(() => {
-        if (!cancelled) setServerReachable(true);
-      })
-      .catch(() => {
+    const check = () => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        const controller = new AbortController();
+        timer = setTimeout(() => controller.abort(), 8000);
+        fetch("/api/health", { cache: "no-store", signal: controller.signal })
+          .then(() => {
+            if (!cancelled) setServerReachable(true);
+          })
+          .catch(() => {
+            if (!cancelled) setServerReachable(false);
+          })
+          .finally(() => {
+            if (timer) clearTimeout(timer);
+          });
+      } catch {
+        if (timer) clearTimeout(timer);
         if (!cancelled) setServerReachable(false);
-      });
+      }
+    };
+    check();
+    // Repete enquanto o flag disser offline: uma sonda isolada pode
+    // abortar (cold start) e travar a faixa para sempre.
+    const interval = setInterval(check, 10000);
     return () => {
       cancelled = true;
+      clearInterval(interval);
     };
   }, [isOffline]);
 
