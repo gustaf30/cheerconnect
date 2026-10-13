@@ -28,7 +28,8 @@ const defaultSSEState: RealtimeSSEState = {
 
 const defaultContextValue: RealtimeContextValue = {
   ...defaultSSEState,
-  isOffline: typeof navigator !== "undefined" ? !navigator.onLine : false,
+  isOffline:
+    typeof navigator !== "undefined" ? navigator.onLine === false : false,
 };
 
 const RealtimeContext = createContext<RealtimeContextValue>(defaultContextValue);
@@ -37,7 +38,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const { status } = useSession();
   const [state, setState] = useState<RealtimeSSEState>(defaultSSEState);
   const [isOffline, setIsOffline] = useState(
-    typeof navigator !== "undefined" ? !navigator.onLine : false
+    typeof navigator !== "undefined" ? navigator.onLine === false : false
   );
   const retryDelayRef = useRef(1000);
   const retryTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);

@@ -10,7 +10,6 @@ export function OfflineBanner() {
   // (navegador reportando offline, evento 'offline' espúrio). Se o
   // servidor responde, há conexão e a faixa não deve aparecer.
   const [serverReachable, setServerReachable] = useState<boolean | null>(null);
-  const [attempts, setAttempts] = useState(0);
 
   useEffect(() => {
     if (!isOffline) {
@@ -19,7 +18,6 @@ export function OfflineBanner() {
     }
     let cancelled = false;
     const check = () => {
-      setAttempts((n) => n + 1);
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
         const controller = new AbortController();
@@ -51,14 +49,10 @@ export function OfflineBanner() {
 
   if (!isOffline || serverReachable) return null;
 
-  // DEBUG TEMPORÁRIO: expõe o estado real para diagnóstico.
-  const onLine =
-    typeof navigator !== "undefined" ? String(navigator.onLine) : "n/a";
-
   return (
     <aside aria-label="Status de conexão" className="fixed top-0 left-0 right-0 z-[60] bg-amber-500 text-amber-950 text-center py-2 px-4 text-sm font-medium flex items-center justify-center gap-2 safe-area-top animate-slide-up">
       <WifiOff className="size-4" />
-      <span>Sem conexão com a internet [dbg onLine={onLine} tries={attempts}]</span>
+      <span>Sem conexão com a internet</span>
     </aside>
   );
 }
